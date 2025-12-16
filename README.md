@@ -90,7 +90,7 @@ tesis-hotel-employee-management/
 - El repositorio cuenta con protección de ramas (rulesets), uso obligatorio de Pull Requests y validaciones automáticas mediante CI.
 
 ## ▶️ Ejecución en Desarrollo
-Backend
+```bash
 cd backend
 npm install
 npm run dev
