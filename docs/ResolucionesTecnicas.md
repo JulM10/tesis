@@ -1,4 +1,33 @@
-# Resoluciones Técnicas
+# Resoluciones Técnicas – Proyecto Hotel Yacanto
+
+## Introducción
+
+Este documento describe las decisiones técnicas tomadas durante el desarrollo del sistema de gestión del Hotel Yacanto.  
+El desarrollo se dividió en fases para organizar la planificación, diseño e implementación del sistema:
+
+- **FASE 1 – Base de datos y SQL**  
+  Creación del esquema de la base de datos, relaciones entre tablas, datos dummy y vistas para facilitar consultas.
+
+- **FASE 2 – Arquitectura Backend y Endpoints**  
+  Diseño de la estructura del backend, definición de rutas REST, middlewares globales y contrato de API sin lógica de negocio.
+
+- **FASE 3 – Lógica de negocio y servicios**  
+  Implementación de controladores y servicios, conexión a la base de datos, validaciones y operaciones CRUD reales.
+
+- **FASE 4 – Frontend y conexión con Backend**  
+  Desarrollo del frontend con React/TypeScript, integración con la API, manejo de estados y consumo de endpoints.
+
+- **FASE 5 – Seguridad, roles y autenticación**  
+  Implementación de roles de usuario, permisos, autenticación y control de acceso para cada recurso.
+
+- **FASE 6 – Reportes e informes**  
+  Creación de vistas, consultas complejas y generación de reportes históricos de empleados, puestos y horarios.
+
+- **FASE 7 – Pruebas, QA y documentación**  
+  Tests unitarios y de integración, validación de la API y documentación final del sistema.
+
+---
+
 
 ## FASE 1 – Diseño y Consolidación de la Base de Datos
 
@@ -112,3 +141,78 @@ Al finalizar esta fase, el sistema cuenta con:
 - Inicialización automática de la base de datos mediante Docker.
 
 Esta base permite avanzar con el desarrollo del backend, la seguridad y la generación de reportes sin necesidad de reestructurar la base de datos.
+
+# FASE 2 – Arquitectura Backend y Diseño de Endpoints
+
+## 1. Objetivo
+
+En esta fase se definió la arquitectura del backend y el diseño de los endpoints de la API REST para el sistema de gestión del Hotel Yacanto.  
+El objetivo fue crear un **backend desacoplado**, escalable y preparado para interactuar con el frontend, sin implementar aún la lógica de negocio.
+
+---
+
+## 2. Estructura del Backend
+
+El backend se organizó en **capas**, siguiendo el principio de separación de responsabilidades:
+
+- **Routes**: reciben las solicitudes HTTP, definen los endpoints y delegan la ejecución a los controladores.  
+- **Controllers**: manejan la validación básica de los datos de entrada y la respuesta HTTP, pero **no ejecutan consultas SQL ni lógica de negocio**.  
+- **Services**: encapsulan la lógica de negocio y las consultas SQL a la base de datos, devolviendo los resultados a los controladores.
+
+Esta separación permite:
+- Mantener el código limpio y fácil de mantener.
+- Facilitar la escalabilidad y la integración con nuevas funcionalidades.
+- Preparar el backend para la conexión con distintos frontends.
+
+---
+
+## 3. Endpoints Definidos
+
+Se diseñaron endpoints para las entidades principales:
+
+### Empleados
+- `GET /api/empleados` → Lista de empleados.  
+- `GET /api/empleados/:id` → Obtiene un empleado por su ID.  
+- `POST /api/empleados` → Crea un nuevo empleado.  
+- `PUT /api/empleados/:id` → Actualiza los datos de un empleado.  
+- `DELETE /api/empleados/:id` → Eliminación lógica de un empleado.
+
+### Calendarios
+- `GET /api/calendarios` → Lista de turnos disponibles.  
+- `POST /api/calendarios` → Crea un nuevo turno.  
+- `PUT /api/calendarios/:id` → Modifica un turno existente.  
+- `DELETE /api/calendarios/:id` → Elimina un turno.
+
+### Horarios / Asignaciones
+- `GET /api/horarios` → Lista de asignaciones de horarios.  
+- `GET /api/horarios/:id` → Obtiene una asignación por ID.  
+- `GET /api/horarios/empleado/:id` → Horarios de un empleado.  
+- `GET /api/horarios/dia/:fecha` → Horarios de un día específico.  
+- `POST /api/horarios/asignar` → Asigna un empleado a un turno del calendario.  
+- `DELETE /api/horarios/:id` → Elimina una asignación.
+
+**Nota**: No se implementó PUT en horarios, ya que DELETE + POST permite manejar cambios sin romper la integridad de la relación.
+
+---
+
+## 4. Middlewares Globales
+
+Se implementaron middlewares globales para:
+
+- **CORS**: permitir solicitudes desde el frontend.  
+- **JSON Parsing**: procesar automáticamente cuerpos de solicitudes en formato JSON.  
+- **404 Global**: capturar rutas no definidas y devolver una respuesta uniforme:
+
+```json
+{
+  "error": "Endpoint no encontrado"
+}
+```
+Esto garantiza consistencia en las respuestas y facilita la integración con el frontend.
+
+## 5. Decisiones de Diseño
+
+- Uso de Router de Express: cada recurso tiene su archivo de rutas y se monta en app.js con prefijo /api/....
+- Endpoints REST-friendly: los verbos HTTP indican la acción; la URL representa el recurso.
+- Preparación para frontend desacoplado: el backend expone solo JSON, independiente del framework de frontend.
+- Separación de responsabilidades: routes → controllers → services → DB. Esto permite que la lógica de negocio y la base de datos sean independientes del manejo HTTP.
