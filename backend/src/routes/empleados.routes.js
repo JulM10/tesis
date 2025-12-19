@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import * as empleadosController from "../controllers/empleados.controllers.js";
 
 const router = Router();
 
@@ -6,46 +7,30 @@ const router = Router();
  * GET /api/empleados
  * Obtiene el listado de empleados
  */
-router.get('/', (req, res) => {
-  res.json({ status: 'ok' });
-});
-
+router.get("/", empleadosController.getEmpleados);
 /**
  * GET /api/empleados/:id
  * Obtiene un empleado por ID
  */
-router.get('/:id', (req, res) => {
-  const { id } = req.params;
-  res.json({ id, nombre: 'Empleado Ejemplo' });
-});
+router.get("/:id", empleadosController.getEmpleadoById);
 
 /**
  * POST /api/empleados
  * Crea un nuevo empleado
 */
-router.post('/', (req, res) => {
-  const nuevoEmpleado = req.body;
-    res.status(201).json({ message: 'Empleado creado', empleado: nuevoEmpleado });
-});
+router.post("/", empleadosController.createEmpleado);
 
 /**
  * PUT /api/empleados/:id
  * Actualiza un empleado por ID
  */
-router.put('/:id', (req, res) => {
-  const { id } = req.params;
-  const datosActualizados = req.body;
-  res.json({ message: 'Empleado actualizado', id, datos: datosActualizados });
-});
+router.put('/:id',empleadosController.updateEmpleado);
 
 /**
  * DELETE /api/empleados/:id
  * Elimina un empleado por ID
  */
-router.delete('/:id', (req, res) => {
-  const { id } = req.params;
-  res.json({ message: 'Empleado eliminado', id });
-});
+router.delete('/:id',empleadosController.deleteEmpleado);
 
 
 export default router;

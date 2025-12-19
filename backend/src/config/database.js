@@ -1,20 +1,18 @@
-import { Sequelize } from "sequelize";
+// backend/src/config/database.js
+import pkg from "pg";
+const { Pool } = pkg;
 
-export const sequelize = new Sequelize(
-  process.env.DB_NAME,
-  process.env.DB_USER,
-  process.env.DB_PASSWORD,
-  {
-    host: process.env.DB_HOST,
-    port: process.env.DB_PORT, // 👈 clave
-    dialect: "postgres",
-    logging: false
-  }
-);
+export const pool = new Pool({
+  user: process.env.DB_USER,
+  host: process.env.DB_HOST,
+  database: process.env.DB_NAME,
+  password: process.env.DB_PASSWORD,
+  port: process.env.DB_PORT,
+});
 
 export const connectDB = async () => {
   try {
-    await sequelize.authenticate();
+    await pool.query("SELECT 1"); // prueba rápida
     console.log("PostgreSQL connected successfully");
   } catch (error) {
     console.error("PostgreSQL connection error:", error.message);

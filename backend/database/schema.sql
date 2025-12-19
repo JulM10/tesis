@@ -56,13 +56,13 @@ CREATE TABLE lugares_trabajo (
 
 CREATE TABLE empleados (
   id SERIAL PRIMARY KEY,
-  id_usuario INT UNIQUE NOT NULL,
+  id_usuario INT UNIQUE,
   nombre VARCHAR(100) NOT NULL,
   apellido VARCHAR(100) NOT NULL,
   edad INT,
   id_puesto INT REFERENCES puestos(id),
   id_lugar INT REFERENCES lugares_trabajo(id),
-  FOREIGN KEY (id_usuario) REFERENCES usuarios(id) ON DELETE CASCADE
+  FOREIGN KEY (id_usuario) REFERENCES usuarios(id) ON DELETE SET NULL
 );
 
 CREATE TABLE calendario (
@@ -153,9 +153,9 @@ SELECT
   u.activo,
   r.nombre   AS rol
 FROM empleados e
-JOIN usuarios u ON u.id = e.id_usuario
-JOIN usuarios_roles ur ON ur.id_usuario = u.id
-JOIN roles r ON r.id = ur.id_rol
+LEFT JOIN usuarios u ON u.id = e.id_usuario
+LEFT JOIN usuarios_roles ur ON ur.id_usuario = u.id
+LEFT JOIN roles r ON r.id = ur.id_rol
 LEFT JOIN puestos p ON p.id = e.id_puesto
 LEFT JOIN lugares_trabajo l ON l.id = e.id_lugar;
 
