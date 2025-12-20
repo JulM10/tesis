@@ -1,5 +1,6 @@
 import { pool } from "../config/database.js";
 import * as Queries from "../queries/horarios.queries.js";
+import { MENSAJES } from "../constantes/mensajes.js";
 
 const ejecutarQuery = (client, query, params) => {
   return client ? client.query(query, params) : pool.query(query, params);
@@ -10,6 +11,11 @@ export const getHorariosPorEmpleado = async (id_empleado) => {
     Queries.GETHorariosPorEmpleado,
     [id_empleado]
   );
+
+  if (result.rows.length === 0) {
+    throw new Error(MENSAJES.HORARIOS.SIN_RESULTADOS);
+  }
+
   return result.rows;
 };
 
@@ -18,6 +24,11 @@ export const getEmpleadosAsignadosATurno = async (id_calendario) => {
     Queries.GETEmpleadosAsignadosATurno,
     [id_calendario]
   );
+
+  if (result.rows.length === 0) {
+    throw new Error(MENSAJES.HORARIOS.SIN_EMPLEADOS_ASIGNADOS);
+  }
+
   return result.rows;
 };
 
@@ -31,6 +42,7 @@ export const validarAsignacionHorario = async (
     Queries.SelectValidacionHorarios,
     [id_empleado, id_calendario]
   );
+
   return result.rows.length > 0;
 };
 
@@ -44,6 +56,7 @@ export const asignarEmpleadoATurno = async (
     Queries.POSTAsignarEmpleadoATurno,
     [id_empleado, id_calendario]
   );
+
   return result.rows[0];
 };
 
@@ -52,11 +65,19 @@ export const eliminarAsignacionHorario = async (
   id_calendario,
   client = null
 ) => {
-  await ejecutarQuery(
+  const result = await ejecutarQuery(
     client,
     Queries.DELETEAsignacionHorario,
     [id_empleado, id_calendario]
   );
+
+  if (result.rowCount === 0) {
+    throw new Error(MENSAJES.HORARIOS.NO_EXISTE_ASIGNACION);
+  }
+
+  return {
+    message: MENSAJES.HORARIOS.ELIMINADO_OK
+  };
 };
 
 export const registrarHistorialHorario = async (
@@ -87,7 +108,7 @@ export const asignarTurnoConHistorial = async (
     );
 
     if (existe) {
-      throw new Error("El empleado ya está asignado a este turno");
+      throw new Error(MENSAJES.HORARIOS.YA_ASIGNADO);
     }
 
     const asignacion = await asignarEmpleadoATurno(
@@ -105,7 +126,7 @@ export const asignarTurnoConHistorial = async (
     await client.query("COMMIT");
 
     return {
-      message: "Horario asignado correctamente",
+      message: MENSAJES.HORARIOS.ASIGNADO_OK,
       asignacion
     };
   } catch (error) {
@@ -121,5 +142,10 @@ export const horariosPorFecha = async (fecha) => {
     Queries.GEThorariosPorFecha,
     [fecha]
   );
+
+  if (result.rows.length === 0) {
+    throw new Error(MENSAJES.HORARIOS.SIN_RESULTADOS_FECHA);
+  }
+
   return result.rows;
 };

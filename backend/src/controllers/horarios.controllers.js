@@ -1,11 +1,12 @@
-import * as horariosService from '../services/horarios.services.js';
+import * as horariosService from "../services/horarios.services.js";
+import { MENSAJES } from "../constants/messages.js";
 
 export const getHorariosPorEmpleado = async (req, res) => {
   try {
     const horarios = await horariosService.getHorariosPorEmpleado(req.params.id);
     res.json(horarios);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: MENSAJES.GENERAL.ERROR_INTERNO });
   }
 };
 
@@ -14,7 +15,7 @@ export const getEmpleadosAsignadosATurno = async (req, res) => {
     const empleados = await horariosService.getEmpleadosAsignadosATurno(req.params.id);
     res.json(empleados);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: MENSAJES.GENERAL.ERROR_INTERNO });
   }
 };
 
@@ -24,7 +25,7 @@ export const asignarEmpleadoATurno = async (req, res) => {
 
     if (!id_empleado || !id_calendario) {
       return res.status(400).json({
-        error: "id_empleado e id_calendario son obligatorios"
+        error: MENSAJES.VALIDACION.CAMPOS_OBLIGATORIOS
       });
     }
 
@@ -33,14 +34,18 @@ export const asignarEmpleadoATurno = async (req, res) => {
       id_calendario
     );
 
-    res.status(201).json(resultado);
+    res.status(201).json({
+      message: MENSAJES.HORARIOS.ASIGNADO_OK,
+      data: resultado
+    });
+
   } catch (error) {
-    if (error.message.includes("ya está asignado")) {
-      return res.status(409).json({ error: error.message });
+    if (error.message === MENSAJES.HORARIOS.YA_ASIGNADO) {
+      return res.status(409).json({ error: MENSAJES.HORARIOS.YA_ASIGNADO });
     }
 
     res.status(500).json({
-      error: "Error interno del servidor"
+      error: MENSAJES.GENERAL.ERROR_INTERNO
     });
   }
 };
@@ -48,18 +53,32 @@ export const asignarEmpleadoATurno = async (req, res) => {
 export const eliminarAsignacionHorario = async (req, res) => {
   try {
     const { id_empleado, id_calendario } = req.params;
-    await horariosService.eliminarAsignacionHorario(id_empleado, id_calendario);
-    res.status(204).send();
+
+    await horariosService.eliminarAsignacionHorario(
+      id_empleado,
+      id_calendario
+    );
+
+    res.status(200).json({
+      message: MENSAJES.HORARIOS.ELIMINADO_OK
+    });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: MENSAJES.GENERAL.ERROR_INTERNO });
   }
 };
 
 export const horariosPorFecha = async (req, res) => {
   try {
     const horarios = await horariosService.horariosPorFecha(req.params.fecha);
+
+    if (!horarios || horarios.length === 0) {
+      return res.status(404).json({
+        error: MENSAJES.HORARIOS.SIN_HORARIOS
+      });
+    }
+
     res.json(horarios);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: MENSAJES.GENERAL.ERROR_INTERNO });
   }
 };
