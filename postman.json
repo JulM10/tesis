@@ -1,0 +1,193 @@
+{
+  "info": {
+    "name": "RRHH API - Backend",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Colección de APIs del sistema RRHH (Empleados, Calendario y Horarios)"
+  },
+  "item": [
+    {
+      "name": "Empleados",
+      "item": [
+        {
+          "name": "GET - Listar empleados",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{BASE_URL}}/empleados",
+              "host": ["{{BASE_URL}}"],
+              "path": ["empleados"]
+            }
+          }
+        },
+        {
+          "name": "GET - Empleado por ID",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{BASE_URL}}/empleados/1",
+              "host": ["{{BASE_URL}}"],
+              "path": ["empleados", "1"]
+            }
+          }
+        },
+        {
+          "name": "POST - Crear empleado",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Juan\",\n  \"apellido\": \"Pérez\",\n  \"edad\": 30,\n  \"id_puesto\": 1,\n  \"id_lugar\": 1\n}"
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/empleados",
+              "host": ["{{BASE_URL}}"],
+              "path": ["empleados"]
+            }
+          }
+        },
+        {
+          "name": "PUT - Actualizar empleado",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Juan\",\n  \"apellido\": \"Gómez\",\n  \"edad\": 31,\n  \"id_puesto\": 2,\n  \"id_lugar\": 1\n}"
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/empleados/1",
+              "host": ["{{BASE_URL}}"],
+              "path": ["empleados", "1"]
+            }
+          }
+        },
+        {
+          "name": "DELETE - Eliminar empleado",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{BASE_URL}}/empleados/1",
+              "host": ["{{BASE_URL}}"],
+              "path": ["empleados", "1"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Calendario",
+      "item": [
+        {
+          "name": "GET - Listar calendarios",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{BASE_URL}}/horarios",
+              "host": ["{{BASE_URL}}"],
+              "path": ["horarios"]
+            }
+          }
+        },
+        {
+          "name": "GET - Calendario por ID",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{BASE_URL}}/horarios/1",
+              "host": ["{{BASE_URL}}"],
+              "path": ["horarios", "1"]
+            }
+          }
+        },
+        {
+          "name": "POST - Crear calendario",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fecha\": \"2025-11-20\",\n  \"hora_inicio\": \"08:00\",\n  \"hora_fin\": \"16:00\",\n  \"id_puesto\": 1\n}"
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/horarios",
+              "host": ["{{BASE_URL}}"],
+              "path": ["horarios"]
+            }
+          }
+        },
+        {
+          "name": "GET - Horarios por fecha",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{BASE_URL}}/horarios/fecha/2025-11-20",
+              "host": ["{{BASE_URL}}"],
+              "path": ["horarios", "fecha", "2025-11-20"]
+            }
+          }
+        },
+        {
+          "name": "GET - Horarios por fecha y puesto",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{BASE_URL}}/horarios/fecha/2025-11-20/puesto/1",
+              "host": ["{{BASE_URL}}"],
+              "path": ["horarios", "fecha", "2025-11-20", "puesto", "1"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Horarios",
+      "item": [
+        {
+          "name": "GET - Horarios por empleado",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{BASE_URL}}/horarios/empleado/1",
+              "host": ["{{BASE_URL}}"],
+              "path": ["horarios", "empleado", "1"]
+            }
+          }
+        },
+        {
+          "name": "GET - Horarios por día",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{BASE_URL}}/horarios/dia/2025-11-20",
+              "host": ["{{BASE_URL}}"],
+              "path": ["horarios", "dia", "2025-11-20"]
+            }
+          }
+        },
+        {
+          "name": "POST - Asignar empleado a turno",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{BASE_URL}}/horarios/asignar/1/1",
+              "host": ["{{BASE_URL}}"],
+              "path": ["horarios", "asignar", "1", "1"]
+            }
+          }
+        },
+        {
+          "name": "GET - Empleados por turno",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{BASE_URL}}/horarios/turno/1",
+              "host": ["{{BASE_URL}}"],
+              "path": ["horarios", "turno", "1"]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

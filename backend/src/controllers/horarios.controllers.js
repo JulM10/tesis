@@ -1,9 +1,17 @@
 import * as horariosService from "../services/horarios.services.js";
-import { MENSAJES } from "../constants/messages.js";
+import { MENSAJES } from "../constantes/mensajes.js";
 
 export const getHorariosPorEmpleado = async (req, res) => {
   try {
     const horarios = await horariosService.getHorariosPorEmpleado(req.params.id);
+    res.json(horarios);
+  } catch (error) {
+    res.status(500).json({ error: MENSAJES.GENERAL.ERROR_INTERNO });
+  }
+};
+export const getAllHorarios = async (req, res) => {
+  try {
+    const horarios = await horariosService.getAllHorarios();
     res.json(horarios);
   } catch (error) {
     res.status(500).json({ error: MENSAJES.GENERAL.ERROR_INTERNO });

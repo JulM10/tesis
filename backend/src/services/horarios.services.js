@@ -18,6 +18,13 @@ export const getHorariosPorEmpleado = async (id_empleado) => {
 
   return result.rows;
 };
+export const getAllHorarios = async () => {
+  const result = await pool.query(
+    Queries.GETHorariosEmpleados
+  );
+
+  return result.rows;
+};
 
 export const getEmpleadosAsignadosATurno = async (id_calendario) => {
   const result = await pool.query(

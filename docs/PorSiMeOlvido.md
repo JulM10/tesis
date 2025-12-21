@@ -13,3 +13,17 @@ docker exec -it hotel-yacanto-postgres psql -U postgres -d hotel_yacanto
 \dv                 -- Listar vistas
 \q                  -- Salir
 ```
+
+## Para ver logs de docker 
+
+en tiempo real 
+
+docker-compose logs -f backend
+
+todos los servicios 
+
+docker-compose logs
+
+
+para ver si postgres esta conectado 
+docker ps

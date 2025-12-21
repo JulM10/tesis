@@ -10,6 +10,11 @@ FROM vw_horarios_empleado
 WHERE empleado_id = $1
 ORDER BY fecha, hora_inicio;
 `;
+export const GETHorariosEmpleados = `
+SELECT *
+FROM vw_horarios_empleado
+ORDER BY fecha, hora_inicio;
+`;
 
 export const GETEmpleadosAsignadosATurno = `
 SELECT
@@ -43,7 +48,7 @@ WHERE ah.id_empleado = $1
 export const GEThorariosPorFecha = `
 SELECT *
 FROM vw_horarios_empleado
-WHERE fecha = '2025-11-20'
+WHERE fecha = $1
 ORDER BY hora_inicio;
 `;
 

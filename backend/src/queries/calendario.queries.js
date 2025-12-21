@@ -27,6 +27,7 @@ export const GETLeerHorariosPorFechaYPuesto = `
 SELECT *
 FROM calendario
 WHERE fecha = $1
+AND id_puesto = $2
 ORDER BY hora_inicio;
 `;
 

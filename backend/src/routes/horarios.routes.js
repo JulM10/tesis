@@ -10,6 +10,12 @@ const router = Router();
 router.get("/empleado/:id", horariosController.getHorariosPorEmpleado);
 
 /**
+ * GET /api/horarios
+ * Obtiene todos los horarios 
+*/
+router.get("/", horariosController.getAllHorarios);
+
+/**
  * GET /api/horarios/dia/:fecha
  * Obtiene los horarios de un día específico
  */
@@ -19,7 +25,7 @@ router.get("/dia/:fecha", horariosController.horariosPorFecha);
  * POST /api/horarios/asignar
  * Asigna un empleado a un turno del calendario
  */
-router.post("/asignar/:id_empleado/:id_calendario", horariosController.asignarEmpleadoATurno);
+router.post("/asignar/", horariosController.asignarEmpleadoATurno);
 
 /**
  * DELETE /api/horarios/:id

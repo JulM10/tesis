@@ -29,20 +29,17 @@ INSERT INTO permisos (nombre) VALUES
    ROLES → PERMISOS
    ===================================================== */
 
--- ADMINISTRADOR: todos los permisos
 INSERT INTO roles_permisos
 SELECT r.id, p.id
 FROM roles r, permisos p
 WHERE r.nombre = 'ADMINISTRADOR';
 
--- RRHH: todos menos eliminar usuarios
 INSERT INTO roles_permisos
 SELECT r.id, p.id
 FROM roles r
 JOIN permisos p ON p.nombre <> 'USUARIOS_ELIMINAR'
 WHERE r.nombre = 'RRHH';
 
--- EMPLEADO: solo lectura
 INSERT INTO roles_permisos
 SELECT r.id, p.id
 FROM roles r
@@ -53,10 +50,13 @@ WHERE r.nombre = 'EMPLEADO';
    USUARIOS
    ===================================================== */
 
-INSERT INTO usuarios (email, password_hash) VALUES
-('admin@hotel.com',    '$2b$10$fakehashadmin'),
-('rrhh@hotel.com',     '$2b$10$fakehashrrhh'),
-('empleado@hotel.com', '$2b$10$fakehashemp');
+INSERT INTO usuarios (email, password_hash, activo) VALUES
+('admin@hotel.com',    '$2b$10$fakehashadmin', true),
+('rrhh@hotel.com',     '$2b$10$fakehashrrhh', true),
+('empleado@hotel.com', '$2b$10$fakehashemp', true),
+('empleado2@hotel.com','$2b$10$fakehash2', true),
+('inactivo@hotel.com', '$2b$10$fakehash3', false),
+('sinrol@hotel.com',   '$2b$10$fakehash4', true);
 
 /* =====================================================
    USUARIOS → ROLES
@@ -72,7 +72,8 @@ WHERE u.email = 'rrhh@hotel.com' AND r.nombre = 'RRHH';
 
 INSERT INTO usuarios_roles
 SELECT u.id, r.id FROM usuarios u, roles r
-WHERE u.email = 'empleado@hotel.com' AND r.nombre = 'EMPLEADO';
+WHERE u.email IN ('empleado@hotel.com','empleado2@hotel.com')
+AND r.nombre = 'EMPLEADO';
 
 /* =====================================================
    DATOS DEL NEGOCIO
@@ -93,13 +94,27 @@ INSERT INTO lugares_trabajo (nombre) VALUES
 ('Edificio Principal');
 
 /* =====================================================
-   EMPLEADOS (1–1 con usuarios)
+   EMPLEADOS
    ===================================================== */
 
+-- Empleado con usuario activo y horarios
 INSERT INTO empleados (id_usuario, nombre, apellido, edad, id_puesto, id_lugar)
-SELECT u.id, 'Juan', 'Pérez', 30, 1, 1
-FROM usuarios u
-WHERE u.email = 'empleado@hotel.com';
+SELECT u.id, 'Juan', 'Pérez', 30, 1, 2
+FROM usuarios u WHERE u.email = 'empleado@hotel.com';
+
+-- Empleado con usuario activo SIN horarios
+INSERT INTO empleados (id_usuario, nombre, apellido, edad, id_puesto, id_lugar)
+SELECT u.id, 'Ana', 'Gómez', 28, 4, 5
+FROM usuarios u WHERE u.email = 'empleado2@hotel.com';
+
+-- Empleado con usuario INACTIVO
+INSERT INTO empleados (id_usuario, nombre, apellido, edad, id_puesto, id_lugar)
+SELECT u.id, 'Carlos', 'Ruiz', 45, 3, 1
+FROM usuarios u WHERE u.email = 'inactivo@hotel.com';
+
+-- Empleado SIN usuario (caso onboarding)
+INSERT INTO empleados (nombre, apellido, edad, id_puesto, id_lugar)
+VALUES ('Lucía', 'Fernández', 22, 2, 1);
 
 /* =====================================================
    CALENDARIO
@@ -107,14 +122,32 @@ WHERE u.email = 'empleado@hotel.com';
 
 INSERT INTO calendario (fecha, hora_inicio, hora_fin, id_puesto) VALUES
 ('2025-11-20', '08:00', '16:00', 1),
+('2025-11-20', '16:00', '23:00', 1),
 ('2025-11-21', '09:00', '17:00', 2),
-('2025-11-22', '10:00', '18:00', 1);
+('2025-11-22', '10:00', '18:00', 4),
+('2025-11-23', '07:00', '15:00', 3);
 
 /* =====================================================
    ASIGNACIÓN HORARIA
    ===================================================== */
 
+-- Juan tiene dos turnos
 INSERT INTO asignacion_horario (id_empleado, id_calendario)
 VALUES
 (1, 1),
-(1, 3);
+(1, 2);
+
+-- Carlos (usuario inactivo) tiene historial
+INSERT INTO asignacion_horario (id_empleado, id_calendario)
+VALUES
+(3, 5);
+
+/* =====================================================
+   HISTORIAL (ejemplo histórico manual)
+   ===================================================== */
+
+INSERT INTO asignacion_horario_historial
+(empleado_nombre, empleado_apellido, puesto, lugar_trabajo, fecha, hora_inicio, hora_fin)
+VALUES
+('Juan','Pérez','Mozo','Bar','2025-10-10','08:00','16:00'),
+('Carlos','Ruiz','Mantenimiento','Cocina','2025-10-11','07:00','15:00');

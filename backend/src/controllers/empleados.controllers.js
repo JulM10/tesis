@@ -1,5 +1,5 @@
 import * as empleadosService from "../services/empleados.services.js";
-import { MENSAJES } from "../constants/messages.js";
+import { MENSAJES } from "../constantes/mensajes.js";
 
 export const getEmpleados = async (req, res) => {
   try {
