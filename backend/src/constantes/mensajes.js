@@ -26,6 +26,7 @@ export const MENSAJES = {
 
   HORARIOS: {
     YA_ASIGNADO: "El empleado ya está asignado a este turno",
+    CONFLICTO_HORARIO: "El empleado ya tiene un horario asignado que se superpone",
     ASIGNADO_OK: "Horario asignado correctamente",
     ELIMINADO_OK: "Asignación de horario eliminada correctamente",
     SIN_HORARIOS: "No hay horarios para la fecha indicada"

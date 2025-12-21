@@ -3,6 +3,9 @@ import * as Queries from "../queries/horarios.queries.js";
 import { MENSAJES } from "../constantes/mensajes.js";
 
 const ejecutarQuery = (client, query, params) => {
+  if (!query) {
+    throw new Error("Query SQL no definida");
+  }
   return client ? client.query(query, params) : pool.query(query, params);
 };
 
@@ -15,7 +18,6 @@ export const getHorariosPorEmpleado = async (id_empleado) => {
   if (result.rows.length === 0) {
     throw new Error(MENSAJES.HORARIOS.SIN_RESULTADOS);
   }
-
   return result.rows;
 };
 export const getAllHorarios = async () => {
@@ -23,7 +25,24 @@ export const getAllHorarios = async () => {
     Queries.GETHorariosEmpleados
   );
 
+  if (result.rows.length === 0) {
+    throw new Error(MENSAJES.HORARIOS.SIN_RESULTADOS);
+  }
   return result.rows;
+};
+
+export const getCalendarioPorId = async (id_calendario, client = null) => {
+  const result = await ejecutarQuery(
+    client,
+    Queries.GET_CALENDARIO_POR_ID,
+    [id_calendario]
+  );
+
+  if (!result.rows[0]) {
+    throw new Error(MENSAJES.CALENDARIO.NO_ENCONTRADO);
+  }
+
+  return result.rows[0];
 };
 
 export const getEmpleadosAsignadosATurno = async (id_calendario) => {
@@ -53,6 +72,22 @@ export const validarAsignacionHorario = async (
   return result.rows.length > 0;
 };
 
+export const validarSolapamientoHorario = async (
+  id_empleado,
+  fecha,
+  hora_inicio,
+  hora_fin,
+  client = null
+) => {
+  const result = await ejecutarQuery(
+    client,
+    Queries.VALIDAR_SOLAPAMIENTO_HORARIO,
+    [id_empleado, fecha, hora_inicio, hora_fin]
+  );
+
+  return result.rows.length > 0;
+};
+
 export const asignarEmpleadoATurno = async (
   id_empleado,
   id_calendario,
@@ -60,7 +95,7 @@ export const asignarEmpleadoATurno = async (
 ) => {
   const result = await ejecutarQuery(
     client,
-    Queries.POSTAsignarEmpleadoATurno,
+    Queries.POSTAsignarHorario,
     [id_empleado, id_calendario]
   );
 
@@ -95,7 +130,7 @@ export const registrarHistorialHorario = async (
   await ejecutarQuery(
     client,
     Queries.POSTHistorialHorarios,
-    [id_empleado, id_calendario]
+    [id_calendario, id_empleado]
   );
 };
 
@@ -118,6 +153,23 @@ export const asignarTurnoConHistorial = async (
       throw new Error(MENSAJES.HORARIOS.YA_ASIGNADO);
     }
 
+    const calendario = await getCalendarioPorId(
+      id_calendario,
+      client
+    );
+
+    const solapado = await validarSolapamientoHorario(
+      id_empleado,
+      calendario.fecha,
+      calendario.hora_inicio,
+      calendario.hora_fin,
+      client
+    );
+
+    if (solapado) {
+      throw new Error(MENSAJES.HORARIOS.CONFLICTO_HORARIO);
+    }
+
     const asignacion = await asignarEmpleadoATurno(
       id_empleado,
       id_calendario,
@@ -136,6 +188,7 @@ export const asignarTurnoConHistorial = async (
       message: MENSAJES.HORARIOS.ASIGNADO_OK,
       asignacion
     };
+
   } catch (error) {
     await client.query("ROLLBACK");
     throw error;
@@ -143,6 +196,7 @@ export const asignarTurnoConHistorial = async (
     client.release();
   }
 };
+
 
 export const horariosPorFecha = async (fecha) => {
   const result = await pool.query(

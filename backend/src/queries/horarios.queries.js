@@ -3,6 +3,21 @@ INSERT INTO asignacion_horario (id_empleado, id_calendario)
 VALUES ($1, $2)
 RETURNING *;
 `;
+export const todosHorarios = `
+SELECT fecha, hora_inicio, hora_fin
+FROM calendario
+WHERE id = $1;
+`;
+
+export const VALIDAR_SOLAPAMIENTO_HORARIO = `
+  SELECT 1
+  FROM asignacion_horario ah
+  JOIN calendario c ON c.id = ah.id_calendario
+  WHERE ah.id_empleado = $1
+    AND c.fecha = $2
+    AND ($3 < c.hora_fin AND $4 > c.hora_inicio)
+  LIMIT 1
+`;
 
 export const GETHorariosPorEmpleado = `
 SELECT *

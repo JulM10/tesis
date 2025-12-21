@@ -48,12 +48,22 @@ export const asignarEmpleadoATurno = async (req, res) => {
     });
 
   } catch (error) {
+    console.error("[asignarEmpleadoATurno] ERROR CAPTURADO", {
+      message: error.message,
+      stack: error.stack,
+      error
+    });
+
+    if (error.message === MENSAJES.HORARIOS.CONFLICTO_HORARIO) {
+      return res.status(409).json({ error: error.message });
+    }
+
     if (error.message === MENSAJES.HORARIOS.YA_ASIGNADO) {
       return res.status(409).json({ error: MENSAJES.HORARIOS.YA_ASIGNADO });
     }
-
     res.status(500).json({
-      error: MENSAJES.GENERAL.ERROR_INTERNO
+      error: MENSAJES.GENERAL.ERROR_INTERNO,
+      debug: error.message
     });
   }
 };
