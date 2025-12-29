@@ -3,6 +3,7 @@ INSERT INTO asignacion_horario (id_empleado, id_calendario)
 VALUES ($1, $2)
 RETURNING *;
 `;
+
 export const todosHorarios = `
 SELECT fecha, hora_inicio, hora_fin
 FROM calendario
@@ -25,6 +26,7 @@ FROM vw_horarios_empleado
 WHERE empleado_id = $1
 ORDER BY fecha, hora_inicio;
 `;
+
 export const GETHorariosEmpleados = `
 SELECT *
 FROM vw_horarios_empleado
@@ -90,4 +92,10 @@ JOIN puestos p ON p.id = e.id_puesto
 JOIN lugares_trabajo l ON l.id = e.id_lugar
 JOIN calendario c ON c.id = $1
 WHERE e.id = $2;
+`;
+
+export const GET_CALENDARIO_POR_ID = `
+SELECT *
+FROM calendario
+WHERE id = $1;
 `;

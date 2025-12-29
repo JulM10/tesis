@@ -4,9 +4,21 @@ import { MENSAJES } from "../constantes/mensajes.js";
 export const getHorariosPorEmpleado = async (req, res) => {
   try {
     const horarios = await horariosService.getHorariosPorEmpleado(req.params.id);
-    res.json(horarios);
+
+    if (horarios.length === 0) {
+      return res.status(404).json({
+        error: "El empleado no tiene calendarios asignados"
+      });
+    }
+
+    res.status(200).json(horarios);
+
   } catch (error) {
-    res.status(500).json({ error: MENSAJES.GENERAL.ERROR_INTERNO });
+    console.error("[getHorariosPorEmpleado] Error real", error);
+
+    res.status(500).json({
+      error: MENSAJES.GENERAL.ERROR_INTERNO
+    });
   }
 };
 export const getAllHorarios = async (req, res) => {

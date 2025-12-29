@@ -93,28 +93,36 @@ INSERT INTO lugares_trabajo (nombre) VALUES
 ('Oficina'),
 ('Edificio Principal');
 
+INSERT INTO estados (nombre) VALUES
+('Activo'),
+('Inactivo'),
+('Vacaciones'),
+('Enfermo'),
+('Suspendido'),
+('Despedido');
+
 /* =====================================================
    EMPLEADOS
    ===================================================== */
 
--- Empleado con usuario activo y horarios
-INSERT INTO empleados (id_usuario, nombre, apellido, edad, id_puesto, id_lugar)
-SELECT u.id, 'Juan', 'Pérez', 30, 1, 2
-FROM usuarios u WHERE u.email = 'empleado@hotel.com';
+-- Empleado ACTIVO con usuario activo (caso happy path)
+INSERT INTO empleados (id_usuario,nombre,apellido,edad,telefono,direccion,id_puesto,id_lugar,id_estado)
+SELECT u.id,'Juan','Pérez',30,'3544550482','Calle Principal 123',2,1,1
+FROM usuarios u WHERE u.email='empleado@hotel.com';
 
--- Empleado con usuario activo SIN horarios
-INSERT INTO empleados (id_usuario, nombre, apellido, edad, id_puesto, id_lugar)
-SELECT u.id, 'Ana', 'Gómez', 28, 4, 5
-FROM usuarios u WHERE u.email = 'empleado2@hotel.com';
+-- Empleado ACTIVO con usuario activo pero sin horarios asignados
+INSERT INTO empleados (id_usuario,nombre,apellido,edad,telefono,direccion,id_puesto,id_lugar,id_estado)
+SELECT u.id,'Ana','Gómez',28,'3511234567','Av. Siempre Viva 742',4,5,1
+FROM usuarios u WHERE u.email='empleado2@hotel.com';
 
--- Empleado con usuario INACTIVO
-INSERT INTO empleados (id_usuario, nombre, apellido, edad, id_puesto, id_lugar)
-SELECT u.id, 'Carlos', 'Ruiz', 45, 3, 1
-FROM usuarios u WHERE u.email = 'inactivo@hotel.com';
+-- Empleado INACTIVO asociado a usuario inactivo
+INSERT INTO empleados (id_usuario,nombre,apellido,edad,telefono,direccion,id_puesto,id_lugar,id_estado)
+SELECT u.id,'Carlos','Ruiz',45,'3419876543','Ruta 9 Km 12',3,1,2
+FROM usuarios u WHERE u.email='inactivo@hotel.com';
 
--- Empleado SIN usuario (caso onboarding)
-INSERT INTO empleados (nombre, apellido, edad, id_puesto, id_lugar)
-VALUES ('Lucía', 'Fernández', 22, 2, 1);
+-- Empleado SIN usuario asociado (caso onboarding / alta previa a usuario)
+INSERT INTO empleados (nombre,apellido,edad,telefono,direccion,id_puesto,id_lugar,id_estado)
+VALUES ('Lucía','Fernández',22,'3515558899','Pasaje Norte 55',2,1,1);
 
 /* =====================================================
    CALENDARIO

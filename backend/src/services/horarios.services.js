@@ -2,11 +2,42 @@ import { pool } from "../config/database.js";
 import * as Queries from "../queries/horarios.queries.js";
 import { MENSAJES } from "../constantes/mensajes.js";
 
-const ejecutarQuery = (client, query, params) => {
+const ejecutarQuery = async (client, query, params = []) => {
   if (!query) {
+    console.error("[ejecutarQuery] Query SQL no definida", {
+      params,
+      client: !!client
+    });
     throw new Error("Query SQL no definida");
   }
-  return client ? client.query(query, params) : pool.query(query, params);
+
+  try {
+    console.log("[ejecutarQuery] Ejecutando query", {
+      query,
+      params,
+      executor: client ? "CLIENT (transacción)" : "POOL"
+    });
+
+    const result = client
+      ? await client.query(query, params)
+      : await pool.query(query, params);
+
+    console.log("[ejecutarQuery] Query OK", {
+      rowCount: result.rowCount
+    });
+
+    return result;
+
+  } catch (error) {
+    console.error("[ejecutarQuery] ERROR SQL", {
+      message: error.message,
+      query,
+      params,
+      stack: error.stack
+    });
+
+    throw error; // 👈 IMPORTANTÍSIMO: no lo tapes
+  }
 };
 
 export const getHorariosPorEmpleado = async (id_empleado) => {
@@ -15,11 +46,9 @@ export const getHorariosPorEmpleado = async (id_empleado) => {
     [id_empleado]
   );
 
-  if (result.rows.length === 0) {
-    throw new Error(MENSAJES.HORARIOS.SIN_RESULTADOS);
-  }
   return result.rows;
 };
+
 export const getAllHorarios = async () => {
   const result = await pool.query(
     Queries.GETHorariosEmpleados

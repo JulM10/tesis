@@ -6,6 +6,12 @@ Para validar el correcto funcionamiento de la base de datos y las queries, se ut
 ```bash
 docker exec -it hotel-yacanto-postgres psql -U postgres -d hotel_yacanto
 ```
+## Para reiniciar docker
+```bash
+docker compose down -v --rmi all
+docker compose up --build
+```
+
 ### Comandos utiles en pSQL
 ```bash
 \dt                 -- Listar tablas
@@ -25,5 +31,6 @@ todos los servicios
 docker-compose logs
 
 
-para ver si postgres esta conectado 
+## para ver si postgres esta conectado 
+
 docker ps

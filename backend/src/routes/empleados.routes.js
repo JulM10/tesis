@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import * as empleadosController from "../controllers/empleados.controllers.js";
+import { validarEmpleado } from '../middlewares/validarEmpleado.middleware.js';
 
 const router = Router();
 
@@ -18,7 +19,11 @@ router.get("/:id", empleadosController.getEmpleadoById);
  * POST /api/empleados
  * Crea un nuevo empleado
 */
-router.post("/", empleadosController.createEmpleado);
+router.post(
+  '/',
+  validarEmpleado,
+  empleadosController.createEmpleado
+);
 
 /**
  * PUT /api/empleados/:id

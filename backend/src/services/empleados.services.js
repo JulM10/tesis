@@ -23,18 +23,57 @@ export const getEmpleadoById = async (id) => {
 };
 
 export const createEmpleado = async (empleado) => {
-  const { nombre, apellido, edad, id_puesto, id_lugar } = empleado;
+  const {
+    id_usuario = null,
+    nombre,
+    apellido,
+    edad = null,
+    telefono = null,
+    direccion = null,
+    id_puesto = null,
+    id_lugar = null,
+    id_estado = null
+  } = empleado;
 
-  const result = await pool.query(
-    Queries.CREATE_EMPLEADO,
-    [nombre, apellido, edad, id_puesto, id_lugar]
-  );
+  try {
+    const result = await pool.query(
+      Queries.CREATE_EMPLEADO,
+      [
+        id_usuario,
+        nombre,
+        apellido,
+        edad,
+        telefono,
+        direccion,
+        id_puesto,
+        id_lugar,
+        id_estado
+      ]
+    );
+    return result.rows[0];
+  } catch (error) {
+    // UNIQUE violation (id_usuario)
+    if (error.code === '23505') {
+      throw {
+        status: 409,
+        message: 'El usuario ya tiene un empleado asociado'
+      };
+    }
+    // FK violation
+    if (error.code === '23503') {
+      throw {
+        status: 400,
+        message: 'Referencia inválida (puesto, lugar, estado o usuario)'
+      };
+    }
 
-  return {
-    message: MENSAJES.EMPLEADOS.CREADO_OK,
-    data: result.rows[0]
-  };
+    throw {
+      status: 500,
+      message: 'Error interno al crear el empleado'
+    };
+  }
 };
+
 
 export const updateEmpleado = async (id, empleado) => {
   const { nombre, apellido, edad, id_puesto, id_lugar } = empleado;

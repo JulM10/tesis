@@ -7,10 +7,22 @@ export const GET_EMPLEADO_BY_ID = `
 `;
 
 export const CREATE_EMPLEADO = `
-  INSERT INTO empleados(nombre, apellido, edad, id_puesto, id_lugar)
-  VALUES ($1, $2, $3, $4, $5)
-  RETURNING *
+  INSERT INTO empleados (
+    id_usuario,
+    nombre,
+    apellido,
+    edad,
+    telefono,
+    direccion,
+    id_puesto,
+    id_lugar,
+    id_estado
+  )
+  VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+  RETURNING *;
 `;
+
+
 
 export const UPDATE_EMPLEADO = `
   UPDATE empleados

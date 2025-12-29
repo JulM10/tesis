@@ -29,7 +29,7 @@ CREATE TABLE usuarios (
   email VARCHAR(150) NOT NULL UNIQUE,
   password_hash VARCHAR(255) NOT NULL,
   activo BOOLEAN NOT NULL DEFAULT TRUE,
-  fecha_creacion TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+  fecha_creacion_usuario TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE usuarios_roles (
@@ -53,6 +53,10 @@ CREATE TABLE lugares_trabajo (
   id SERIAL PRIMARY KEY,
   nombre VARCHAR(50) NOT NULL
 );
+CREATE TABLE estados(
+  id SERIAL PRIMARY KEY,
+  nombre VARCHAR(50) NOT NULL
+);
 
 CREATE TABLE empleados (
   id SERIAL PRIMARY KEY,
@@ -60,8 +64,12 @@ CREATE TABLE empleados (
   nombre VARCHAR(100) NOT NULL,
   apellido VARCHAR(100) NOT NULL,
   edad INT,
+  telefono VARCHAR(20),
+  direccion VARCHAR(200),
   id_puesto INT REFERENCES puestos(id),
   id_lugar INT REFERENCES lugares_trabajo(id),
+  id_estado INT REFERENCES Estados(id),
+  fecha_creacion TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (id_usuario) REFERENCES usuarios(id) ON DELETE SET NULL
 );
 

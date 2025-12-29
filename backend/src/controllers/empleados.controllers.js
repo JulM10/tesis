@@ -32,18 +32,20 @@ export const getEmpleadoById = async (req, res) => {
 
 export const createEmpleado = async (req, res) => {
   try {
-    const newEmpleado = await empleadosService.createEmpleado(req.body);
+    const empleadoCreado = await empleadosService.createEmpleado(req.body);
 
     res.status(201).json({
       message: MENSAJES.EMPLEADOS.CREADO_OK,
-      data: newEmpleado
+      data: empleadoCreado
     });
   } catch (error) {
-    res.status(400).json({
-      error: MENSAJES.EMPLEADOS.NO_CREADO
+    res.status(error.status || 500).json({
+      message: error.message || MENSAJES.EMPLEADOS.No_Creado
     });
   }
 };
+
+
 
 export const updateEmpleado = async (req, res) => {
   try {
