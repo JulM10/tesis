@@ -91,11 +91,16 @@ tesis-hotel-employee-management/
 
 ## ▶️ Ejecución en Desarrollo
 ```bash
-cd backend
-npm install
-npm run dev
+en la carpeta base donde esta el archivo docker-compose.yml
+docker compose up --build
 
+o si ya esta creado el contenedor 
+docker compose up
+
+```
+```bash
 Frontend
 cd frontend
 npm install
 npm run dev
+```

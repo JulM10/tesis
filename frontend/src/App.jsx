@@ -1,13 +1,13 @@
-import './App.css'
-import HorariosTable from './components/HorariosTable.jsx'
 import { Toaster } from 'sonner'
+import Router from './router'
+import './App.css'
 
 function App() {
   return (
     <>
-    <Toaster richColors position="top-right" />
-      <div className="min-h-screen bg-black-50">
-        <HorariosTable />
+      <Toaster richColors position="top-right" />
+      <div className="min-h-screen flex items-center justify-center">
+        <Router />
       </div>
     </>
   )
