@@ -1,48 +1,50 @@
 import { Router } from "express";
 import * as calendarioController from "../controllers/calendario.controllers.js";
+import { requierePermiso } from "../middlewares/role.middleware.js";
+import { validarCalendario } from "../middlewares/validarCalendario.middleware.js";
 
 const router = Router();
 
 /**
- * GET /api/horarios
+ * GET /api/calendario
  * Obtiene el listado de horarios
  */
-router.get("/", calendarioController.getCalendarios);
+router.get("/", requierePermiso("CALENDARIO_VER"), calendarioController.getCalendarios);
 
 /**
- * GET /api/horarios/:id
+ * GET /api/calendario/:id
  * Obtiene un horario por ID
  */
-router.get("/:id",calendarioController.getCalendarioById);
+router.get("/:id", requierePermiso("CALENDARIO_VER"), calendarioController.getCalendarioById);
 
-/**     
- * POST /api/horarios
+/**
+ * POST /api/calendario
  * Crea un nuevo horario
  */
-router.post("/", calendarioController.createCalendario);
+router.post("/", requierePermiso("CALENDARIO_CREAR"), validarCalendario, calendarioController.createCalendario);
 
-/** 
- * PUT /api/horarios/:id
+/**
+ * PUT /api/calendario/:id
  * Actualiza un horario por ID
  */
-router.put("/:id", calendarioController.updateCalendario);
+router.put("/:id", requierePermiso("CALENDARIO_EDITAR"), validarCalendario, calendarioController.updateCalendario);
 
 /**
- * DELETE /api/horarios/:id
+ * DELETE /api/calendario/:id
  * Elimina un horario por ID
  */
-router.delete("/:id", calendarioController.deleteCalendario);
+router.delete("/:id", requierePermiso("CALENDARIO_ELIMINAR"), calendarioController.deleteCalendario);
 
 /**
- * GET /api/horarios/fecha/:fecha
+ * GET /api/calendario/fecha/:fecha
  * Obtiene los horarios por fecha
  */
-router.get("/fecha/:fecha", calendarioController.LeerHorariosPorFecha);
+router.get("/fecha/:fecha", requierePermiso("CALENDARIO_VER"), calendarioController.LeerHorariosPorFecha);
 
 /**
- * GET /api/horarios/fecha/:fecha/puesto/:id_puesto
+ * GET /api/calendario/fecha/:fecha/puesto/:id_puesto
  * Obtiene los horarios por fecha y puesto
  */
-router.get("/fecha/:fecha/puesto/:id_puesto", calendarioController.LeerHorariosPorFechaYPuesto);
+router.get("/fecha/:fecha/puesto/:id_puesto", requierePermiso("CALENDARIO_VER"), calendarioController.LeerHorariosPorFechaYPuesto);
 
 export default router;

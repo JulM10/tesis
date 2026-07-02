@@ -78,7 +78,9 @@ CREATE TABLE calendario (
   fecha DATE NOT NULL,
   hora_inicio TIME NOT NULL,
   hora_fin TIME NOT NULL,
-  id_puesto INT REFERENCES puestos(id)
+  id_puesto INT REFERENCES puestos(id),
+  -- Limitación conocida: no se soportan turnos que cruzan la medianoche
+  CONSTRAINT chk_calendario_horario_valido CHECK (hora_fin > hora_inicio)
 );
 
 CREATE TABLE asignacion_horario (

@@ -1,42 +1,21 @@
 import { pool } from "../config/database.js";
 import * as Queries from "../queries/horarios.queries.js";
 import { MENSAJES } from "../constantes/mensajes.js";
+import { httpError } from "../utils/httpError.js";
 
 const ejecutarQuery = async (client, query, params = []) => {
   if (!query) {
-    console.error("[ejecutarQuery] Query SQL no definida", {
-      params,
-      client: !!client
-    });
     throw new Error("Query SQL no definida");
   }
 
   try {
-    console.log("[ejecutarQuery] Ejecutando query", {
-      query,
-      params,
-      executor: client ? "CLIENT (transacción)" : "POOL"
-    });
-
-    const result = client
+    return client
       ? await client.query(query, params)
       : await pool.query(query, params);
-
-    console.log("[ejecutarQuery] Query OK", {
-      rowCount: result.rowCount
-    });
-
-    return result;
-
   } catch (error) {
-    console.error("[ejecutarQuery] ERROR SQL", {
-      message: error.message,
-      query,
-      params,
-      stack: error.stack
-    });
-
-    throw error; // 👈 IMPORTANTÍSIMO: no lo tapes
+    // No loguear params: pueden contener datos personales (Ley 25.326)
+    console.error("[ejecutarQuery] Error SQL:", error.message);
+    throw error;
   }
 };
 
@@ -54,9 +33,6 @@ export const getAllHorarios = async () => {
     Queries.GETHorariosEmpleados
   );
 
-  if (result.rows.length === 0) {
-    throw new Error(MENSAJES.HORARIOS.SIN_RESULTADOS);
-  }
   return result.rows;
 };
 
@@ -68,7 +44,7 @@ export const getCalendarioPorId = async (id_calendario, client = null) => {
   );
 
   if (!result.rows[0]) {
-    throw new Error(MENSAJES.CALENDARIO.NO_ENCONTRADO);
+    throw httpError(404, MENSAJES.CALENDARIO.NO_ENCONTRADO);
   }
 
   return result.rows[0];
@@ -79,10 +55,6 @@ export const getEmpleadosAsignadosATurno = async (id_calendario) => {
     Queries.GETEmpleadosAsignadosATurno,
     [id_calendario]
   );
-
-  if (result.rows.length === 0) {
-    throw new Error(MENSAJES.HORARIOS.SIN_EMPLEADOS_ASIGNADOS);
-  }
 
   return result.rows;
 };
@@ -143,12 +115,8 @@ export const eliminarAsignacionHorario = async (
   );
 
   if (result.rowCount === 0) {
-    throw new Error(MENSAJES.HORARIOS.NO_EXISTE_ASIGNACION);
+    throw httpError(404, MENSAJES.HORARIOS.NO_EXISTE_ASIGNACION);
   }
-
-  return {
-    message: MENSAJES.HORARIOS.ELIMINADO_OK
-  };
 };
 
 export const registrarHistorialHorario = async (
@@ -172,6 +140,19 @@ export const asignarTurnoConHistorial = async (
   try {
     await client.query("BEGIN");
 
+    // Lock de la fila del empleado: serializa asignaciones concurrentes
+    // del mismo empleado y evita la race condition del check-then-insert
+    // (dos requests simultáneas validando solapamiento a la vez).
+    const empleado = await ejecutarQuery(
+      client,
+      Queries.LOCK_EMPLEADO,
+      [id_empleado]
+    );
+
+    if (empleado.rowCount === 0) {
+      throw httpError(404, MENSAJES.EMPLEADOS.NO_ENCONTRADO);
+    }
+
     const existe = await validarAsignacionHorario(
       id_empleado,
       id_calendario,
@@ -179,7 +160,7 @@ export const asignarTurnoConHistorial = async (
     );
 
     if (existe) {
-      throw new Error(MENSAJES.HORARIOS.YA_ASIGNADO);
+      throw httpError(409, MENSAJES.HORARIOS.YA_ASIGNADO);
     }
 
     const calendario = await getCalendarioPorId(
@@ -196,7 +177,7 @@ export const asignarTurnoConHistorial = async (
     );
 
     if (solapado) {
-      throw new Error(MENSAJES.HORARIOS.CONFLICTO_HORARIO);
+      throw httpError(409, MENSAJES.HORARIOS.CONFLICTO_HORARIO);
     }
 
     const asignacion = await asignarEmpleadoATurno(
@@ -213,10 +194,7 @@ export const asignarTurnoConHistorial = async (
 
     await client.query("COMMIT");
 
-    return {
-      message: MENSAJES.HORARIOS.ASIGNADO_OK,
-      asignacion
-    };
+    return asignacion;
 
   } catch (error) {
     await client.query("ROLLBACK");
@@ -232,10 +210,6 @@ export const horariosPorFecha = async (fecha) => {
     Queries.GEThorariosPorFecha,
     [fecha]
   );
-
-  if (result.rows.length === 0) {
-    throw new Error(MENSAJES.HORARIOS.SIN_RESULTADOS_FECHA);
-  }
 
   return result.rows;
 };

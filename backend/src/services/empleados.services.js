@@ -1,14 +1,12 @@
 import { pool } from "../config/database.js";
 import * as Queries from "../queries/empleados.queries.js";
 import { MENSAJES } from "../constantes/mensajes.js";
+import { httpError } from "../utils/httpError.js";
 
 export const getAllEmpleados = async () => {
   const result = await pool.query(Queries.GET_ALL_EMPLEADOS);
 
-  if (result.rows.length === 0) {
-    throw new Error(MENSAJES.EMPLEADOS.SIN_RESULTADOS);
-  }
-
+  // Lista vacía es un resultado válido, no un error
   return result.rows;
 };
 
@@ -16,7 +14,7 @@ export const getEmpleadoById = async (id) => {
   const result = await pool.query(Queries.GET_EMPLEADO_BY_ID, [id]);
 
   if (!result.rows[0]) {
-    throw new Error(MENSAJES.EMPLEADOS.NO_ENCONTRADO);
+    throw httpError(404, MENSAJES.EMPLEADOS.NO_ENCONTRADO);
   }
 
   return result.rows[0];
@@ -54,43 +52,49 @@ export const createEmpleado = async (empleado) => {
   } catch (error) {
     // UNIQUE violation (id_usuario)
     if (error.code === '23505') {
-      throw {
-        status: 409,
-        message: 'El usuario ya tiene un empleado asociado'
-      };
+      throw httpError(409, MENSAJES.EMPLEADOS.USUARIO_YA_ASOCIADO);
     }
-    // FK violation
+    // FK violation (puesto, lugar, estado o usuario inexistente)
     if (error.code === '23503') {
-      throw {
-        status: 400,
-        message: 'Referencia inválida (puesto, lugar, estado o usuario)'
-      };
+      throw httpError(400, MENSAJES.VALIDACION.REFERENCIA_INVALIDA);
     }
 
-    throw {
-      status: 500,
-      message: 'Error interno al crear el empleado'
-    };
+    throw error;
   }
 };
 
-
 export const updateEmpleado = async (id, empleado) => {
-  const { nombre, apellido, edad, id_puesto, id_lugar } = empleado;
+  const {
+    nombre = null,
+    apellido = null,
+    edad = null,
+    telefono = null,
+    direccion = null,
+    id_puesto = null,
+    id_lugar = null,
+    id_estado = null
+  } = empleado;
 
-  const result = await pool.query(
-    Queries.UPDATE_EMPLEADO,
-    [nombre, apellido, edad, id_puesto, id_lugar, id]
-  );
+  try {
+    // Actualización parcial: los campos no enviados conservan su valor
+    // (COALESCE en la query). Limitación: no permite setear un campo a NULL.
+    const result = await pool.query(
+      Queries.UPDATE_EMPLEADO,
+      [nombre, apellido, edad, telefono, direccion, id_puesto, id_lugar, id_estado, id]
+    );
 
-  if (!result.rows[0]) {
-    throw new Error(MENSAJES.EMPLEADOS.NO_ENCONTRADO);
+    if (!result.rows[0]) {
+      throw httpError(404, MENSAJES.EMPLEADOS.NO_ENCONTRADO);
+    }
+
+    return result.rows[0];
+  } catch (error) {
+    if (error.code === '23503') {
+      throw httpError(400, MENSAJES.VALIDACION.REFERENCIA_INVALIDA);
+    }
+
+    throw error;
   }
-
-  return {
-    message: MENSAJES.EMPLEADOS.ACTUALIZADO_OK,
-    data: result.rows[0]
-  };
 };
 
 export const deleteEmpleado = async (id) => {
@@ -100,10 +104,6 @@ export const deleteEmpleado = async (id) => {
   );
 
   if (result.rowCount === 0) {
-    throw new Error(MENSAJES.EMPLEADOS.NO_ENCONTRADO);
+    throw httpError(404, MENSAJES.EMPLEADOS.NO_ENCONTRADO);
   }
-
-  return {
-    message: MENSAJES.EMPLEADOS.ELIMINADO_OK
-  };
 };

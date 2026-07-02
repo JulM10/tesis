@@ -1,14 +1,13 @@
 import * as calendarioService from "../services/calendario.services.js";
 import { MENSAJES } from "../constantes/mensajes.js";
+import { responderError } from "../utils/httpError.js";
 
 export const getCalendarios = async (req, res) => {
   try {
     const calendarios = await calendarioService.getObtenerCalendario();
     res.json(calendarios);
   } catch (error) {
-    res.status(500).json({
-      error: MENSAJES.GENERAL.ERROR_INTERNO
-    });
+    responderError(res, error);
   }
 };
 
@@ -17,18 +16,9 @@ export const getCalendarioById = async (req, res) => {
     const calendario = await calendarioService.getObtenerCalendarioPorId(
       req.params.id
     );
-
-    if (!calendario) {
-      return res.status(404).json({
-        error: MENSAJES.CALENDARIO.NO_ENCONTRADO
-      });
-    }
-
     res.json(calendario);
   } catch (error) {
-    res.status(500).json({
-      error: MENSAJES.GENERAL.ERROR_INTERNO
-    });
+    responderError(res, error);
   }
 };
 
@@ -37,18 +27,9 @@ export const LeerHorariosPorFecha = async (req, res) => {
     const horarios = await calendarioService.getLeerHorariosPorFecha(
       req.params.fecha
     );
-
-    if (!horarios || horarios.length === 0) {
-      return res.status(404).json({
-        error: MENSAJES.HORARIOS.SIN_HORARIOS
-      });
-    }
-
     res.json(horarios);
   } catch (error) {
-    res.status(500).json({
-      error: MENSAJES.GENERAL.ERROR_INTERNO
-    });
+    responderError(res, error);
   }
 };
 
@@ -59,58 +40,39 @@ export const LeerHorariosPorFechaYPuesto = async (req, res) => {
         req.params.fecha,
         req.params.id_puesto
       );
-
-    if (!horarios || horarios.length === 0) {
-      return res.status(404).json({
-        error: MENSAJES.HORARIOS.SIN_HORARIOS
-      });
-    }
-
     res.json(horarios);
   } catch (error) {
-    res.status(500).json({
-      error: MENSAJES.GENERAL.ERROR_INTERNO
-    });
+    responderError(res, error);
   }
 };
 
 export const createCalendario = async (req, res) => {
   try {
-    const newCalendario = await calendarioService.crearCalendario(req.body);
+    const nuevoCalendario = await calendarioService.crearCalendario(req.body);
 
     res.status(201).json({
       message: MENSAJES.CALENDARIO.CREADO_OK,
-      data: newCalendario
+      data: nuevoCalendario
     });
   } catch (error) {
-    res.status(400).json({
-      error: MENSAJES.GENERAL.ERROR_INTERNO
-    });
+    responderError(res, error);
   }
 };
 
 export const updateCalendario = async (req, res) => {
   try {
-    const updatedCalendario =
+    const calendarioActualizado =
       await calendarioService.putActualizarCalendario(
         req.params.id,
         req.body
       );
 
-    if (!updatedCalendario) {
-      return res.status(404).json({
-        error: MENSAJES.CALENDARIO.NO_ENCONTRADO
-      });
-    }
-
     res.json({
       message: MENSAJES.CALENDARIO.ACTUALIZADO_OK,
-      data: updatedCalendario
+      data: calendarioActualizado
     });
   } catch (error) {
-    res.status(400).json({
-      error: MENSAJES.GENERAL.ERROR_INTERNO
-    });
+    responderError(res, error);
   }
 };
 
@@ -122,8 +84,6 @@ export const deleteCalendario = async (req, res) => {
       message: MENSAJES.CALENDARIO.ELIMINADO_OK
     });
   } catch (error) {
-    res.status(404).json({
-      error: MENSAJES.CALENDARIO.NO_ENCONTRADO
-    });
+    responderError(res, error);
   }
 };

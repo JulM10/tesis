@@ -2,9 +2,53 @@
   "info": {
     "name": "RRHH API - Backend",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
-    "description": "Colección de APIs del sistema RRHH (Empleados, Calendario y Horarios)"
+    "description": "Colección de APIs del sistema RRHH (Auth, Empleados, Calendario y Horarios).\n\nUso: ejecutar primero 'POST - Login' (carpeta Auth). El token se guarda solo en la variable TOKEN y el resto de los requests lo usan automáticamente.\n\nUsuarios demo (ver backend/database/seed.sql): admin@hotel.com / Admin123!, rrhh@hotel.com / Rrhh123!, empleado@hotel.com / Empleado123!"
   },
+  "auth": {
+    "type": "bearer",
+    "bearer": [{ "key": "token", "value": "{{TOKEN}}", "type": "string" }]
+  },
+  "variable": [
+    { "key": "BASE_URL", "value": "http://localhost:3000/api" },
+    { "key": "TOKEN", "value": "" }
+  ],
   "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "POST - Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  pm.collectionVariables.set('TOKEN', pm.response.json().token);",
+                  "  console.log('TOKEN guardado en la colección');",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@hotel.com\",\n  \"password\": \"Admin123!\"\n}"
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/auth/login",
+              "host": ["{{BASE_URL}}"],
+              "path": ["auth", "login"]
+            }
+          }
+        }
+      ]
+    },
     {
       "name": "Empleados",
       "item": [
@@ -83,9 +127,9 @@
           "request": {
             "method": "GET",
             "url": {
-              "raw": "{{BASE_URL}}/horarios",
+              "raw": "{{BASE_URL}}/calendario",
               "host": ["{{BASE_URL}}"],
-              "path": ["horarios"]
+              "path": ["calendario"]
             }
           }
         },
@@ -94,9 +138,9 @@
           "request": {
             "method": "GET",
             "url": {
-              "raw": "{{BASE_URL}}/horarios/1",
+              "raw": "{{BASE_URL}}/calendario/1",
               "host": ["{{BASE_URL}}"],
-              "path": ["horarios", "1"]
+              "path": ["calendario", "1"]
             }
           }
         },
@@ -110,9 +154,9 @@
               "raw": "{\n  \"fecha\": \"2025-11-20\",\n  \"hora_inicio\": \"08:00\",\n  \"hora_fin\": \"16:00\",\n  \"id_puesto\": 1\n}"
             },
             "url": {
-              "raw": "{{BASE_URL}}/horarios",
+              "raw": "{{BASE_URL}}/calendario",
               "host": ["{{BASE_URL}}"],
-              "path": ["horarios"]
+              "path": ["calendario"]
             }
           }
         },
@@ -121,9 +165,9 @@
           "request": {
             "method": "GET",
             "url": {
-              "raw": "{{BASE_URL}}/horarios/fecha/2025-11-20",
+              "raw": "{{BASE_URL}}/calendario/fecha/2025-11-20",
               "host": ["{{BASE_URL}}"],
-              "path": ["horarios", "fecha", "2025-11-20"]
+              "path": ["calendario", "fecha", "2025-11-20"]
             }
           }
         },
@@ -132,9 +176,9 @@
           "request": {
             "method": "GET",
             "url": {
-              "raw": "{{BASE_URL}}/horarios/fecha/2025-11-20/puesto/1",
+              "raw": "{{BASE_URL}}/calendario/fecha/2025-11-20/puesto/1",
               "host": ["{{BASE_URL}}"],
-              "path": ["horarios", "fecha", "2025-11-20", "puesto", "1"]
+              "path": ["calendario", "fecha", "2025-11-20", "puesto", "1"]
             }
           }
         }
@@ -143,6 +187,17 @@
     {
       "name": "Horarios",
       "item": [
+        {
+          "name": "GET - Todos los horarios",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{BASE_URL}}/horarios",
+              "host": ["{{BASE_URL}}"],
+              "path": ["horarios"]
+            }
+          }
+        },
         {
           "name": "GET - Horarios por empleado",
           "request": {
@@ -169,10 +224,15 @@
           "name": "POST - Asignar empleado a turno",
           "request": {
             "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id_empleado\": 2,\n  \"id_calendario\": 3\n}"
+            },
             "url": {
-              "raw": "{{BASE_URL}}/horarios/asignar/1/1",
+              "raw": "{{BASE_URL}}/horarios/asignar",
               "host": ["{{BASE_URL}}"],
-              "path": ["horarios", "asignar", "1", "1"]
+              "path": ["horarios", "asignar"]
             }
           }
         },
@@ -184,6 +244,17 @@
               "raw": "{{BASE_URL}}/horarios/turno/1",
               "host": ["{{BASE_URL}}"],
               "path": ["horarios", "turno", "1"]
+            }
+          }
+        },
+        {
+          "name": "DELETE - Quitar empleado de turno",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{BASE_URL}}/horarios/asignar/1/1",
+              "host": ["{{BASE_URL}}"],
+              "path": ["horarios", "asignar", "1", "1"]
             }
           }
         }

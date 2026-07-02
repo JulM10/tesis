@@ -99,3 +99,10 @@ SELECT *
 FROM calendario
 WHERE id = $1;
 `;
+
+export const LOCK_EMPLEADO = `
+SELECT id
+FROM empleados
+WHERE id = $1
+FOR UPDATE;
+`;

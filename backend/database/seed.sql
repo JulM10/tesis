@@ -50,13 +50,22 @@ WHERE r.nombre = 'EMPLEADO';
    USUARIOS
    ===================================================== */
 
+/*
+  Hashes bcrypt reales (cost 10). Passwords de demo:
+  admin@hotel.com     → Admin123!
+  rrhh@hotel.com      → Rrhh123!
+  empleado@hotel.com  → Empleado123!
+  empleado2@hotel.com → Empleado123!
+  inactivo@hotel.com  → Inactivo123!  (no puede loguear: activo = false)
+  sinrol@hotel.com    → Sinrol123!    (loguea pero sin permisos)
+*/
 INSERT INTO usuarios (email, password_hash, activo) VALUES
-('admin@hotel.com',    '$2b$10$fakehashadmin', true),
-('rrhh@hotel.com',     '$2b$10$fakehashrrhh', true),
-('empleado@hotel.com', '$2b$10$fakehashemp', true),
-('empleado2@hotel.com','$2b$10$fakehash2', true),
-('inactivo@hotel.com', '$2b$10$fakehash3', false),
-('sinrol@hotel.com',   '$2b$10$fakehash4', true);
+('admin@hotel.com',    '$2b$10$45Q30PUV25yBDDFCUSWF0.ZmocJmoa5LE6ECFhYe3QibPCLi4PZFi', true),
+('rrhh@hotel.com',     '$2b$10$k9jtyHf5kVCji88wNESS.Om.yqP8fkxu2cLALd4xbTziYJ3N7/Iya', true),
+('empleado@hotel.com', '$2b$10$t7VcEeUniVKpc.fdbVT4k.MNZxwVc7NJAD0ZkNcaBO6ZEocbRjSZ2', true),
+('empleado2@hotel.com','$2b$10$6UBLfVdYv0HxtHgWb1POuu4LVG1AzzbF/JIWhhCLjdbnP9vvtjmza', true),
+('inactivo@hotel.com', '$2b$10$fTAFEYlxhIxWZRCl2PH.yuaJmNYD46cBek4RZrm7XP8M5MmAEPueW', false),
+('sinrol@hotel.com',   '$2b$10$Cl2F.3V8KNZe1FwQNbGJBOch2Sk.S8kKoSBiXIyb930hpRSzKCu2C', true);
 
 /* =====================================================
    USUARIOS → ROLES

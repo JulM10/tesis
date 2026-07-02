@@ -4,6 +4,8 @@ import cors from "cors";
 import empleadosRoutes from "./routes/empleados.routes.js";
 import calendarioRoutes from "./routes/calendario.routes.js";
 import horariosRoutes from "./routes/horarios.routes.js";
+import authRoutes from "./routes/auth.routes.js";
+import { autenticar } from "./middlewares/auth.middleware.js";
 
 
 const app = express();
@@ -18,9 +20,13 @@ app.get("/", (req, res) => {
 app.get("/health", (req, res) => {
   res.json({ status: "ok" });
 });
-app.use("/api/calendario", calendarioRoutes);
-app.use("/api/empleados", empleadosRoutes);
-app.use("/api/horarios", horariosRoutes);
+// Público: login
+app.use("/api/auth", authRoutes);
+
+// Protegido: requiere JWT válido (los permisos se validan en cada ruta)
+app.use("/api/calendario", autenticar, calendarioRoutes);
+app.use("/api/empleados", autenticar, empleadosRoutes);
+app.use("/api/horarios", autenticar, horariosRoutes);
 
 // Middleware 404
 app.use((req, res) => {

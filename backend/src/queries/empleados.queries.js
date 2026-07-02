@@ -26,8 +26,15 @@ export const CREATE_EMPLEADO = `
 
 export const UPDATE_EMPLEADO = `
   UPDATE empleados
-  SET nombre=$1, apellido=$2, edad=$3, id_puesto=$4, id_lugar=$5
-  WHERE id=$6
+  SET nombre    = COALESCE($1, nombre),
+      apellido  = COALESCE($2, apellido),
+      edad      = COALESCE($3, edad),
+      telefono  = COALESCE($4, telefono),
+      direccion = COALESCE($5, direccion),
+      id_puesto = COALESCE($6, id_puesto),
+      id_lugar  = COALESCE($7, id_lugar),
+      id_estado = COALESCE($8, id_estado)
+  WHERE id = $9
   RETURNING *
 `;
 
