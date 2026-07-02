@@ -26,4 +26,13 @@ export default defineConfig([
       'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]' }],
     },
   },
+  {
+    // shadcn/ui exporta variantes (cva) junto a los componentes y el
+    // contexto de auth exporta el hook useAuth: la regla de fast-refresh
+    // no aplica a estos archivos.
+    files: ['src/components/ui/**/*.jsx', 'src/context/**/*.jsx'],
+    rules: {
+      'react-refresh/only-export-components': 'off',
+    },
+  },
 ])

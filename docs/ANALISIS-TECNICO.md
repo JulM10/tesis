@@ -341,6 +341,18 @@ Resueltos los ítems críticos §6.3-6.7, 6.9-6.11 (parcial):
 7. Healthcheck de Postgres en docker-compose + `depends_on: service_healthy` — el backend ya no crashea al arrancar con volumen nuevo.
 8. **§6.11** README raíz corregido (stack real PostgreSQL, estructura real, sección de auth).
 
-**Deuda restante conocida:** frontend auth (mock + bug `onLogin`), `VITE_API_URL`/`DATABASE_URL` (§6.8), Dockerfile con CMD dev (§6.10), detalles de schema §6.12 (email/DNI en empleados, UNIQUE en catálogos, `edad`→`fecha_nacimiento`), tests y CI. Observación nueva: `SelectValidacionHorarios` y `VALIDAR_SOLAPAMIENTO_HORARIO` son casi duplicadas (la primera ya detecta solapamiento), por lo que el 409 de solapamiento puede responder el mensaje de "ya asignado" — cleanup menor pendiente.
+### 2026-07-01 — Frontend auth (P1 completado) ✅
+Cierra §6.1 (completo), §6.2 y parte de §6.8/§6.13:
+1. Login real contra `POST /api/auth/login` — eliminado el mock y el bug de `onLogin`; errores con toast de sonner (adiós `alert()`).
+2. `AuthContext` ([context/AuthContext.jsx](../frontend/src/context/AuthContext.jsx)): sesión con `usuario`/`login`/`logout`/`tienePermiso`, persistida en localStorage.
+3. `ProtectedRoute` + router reorganizado: `/` (dashboard) protegido, `/login` público, fallback a `/`.
+4. Interceptores de axios: request agrega `Authorization: Bearer`; response ante 401 limpia sesión y redirige a `/login`.
+5. `VITE_API_URL` con fallback a localhost + `frontend/.env.example` (§6.8 frontend resuelto).
+6. Dashboard placeholder con datos del usuario, badges de roles, logout y `HorariosTable` (que dejó de ser código muerto y demuestra el consumo autenticado).
+7. Lint en verde: regla `react-refresh/only-export-components` desactivada para `components/ui` (shadcn) y `context`; corregido `__dirname` en `vite.config.js` con `fileURLToPath`.
+
+**Verificado en navegador (end-to-end):** redirección sin sesión, login exitoso → dashboard con datos reales vía JWT, credenciales inválidas rechazadas, logout, y token corrupto → auto-limpieza y redirect. `npm run lint` y `npm run build` en verde.
+
+**Deuda restante conocida:** `DATABASE_URL` para Railway (§6.8 backend), Dockerfile con CMD dev (§6.10), detalles de schema §6.12 (email/DNI en empleados, UNIQUE en catálogos, `edad`→`fecha_nacimiento`), tests y CI. Observaciones nuevas: (a) `SelectValidacionHorarios` y `VALIDAR_SOLAPAMIENTO_HORARIO` son casi duplicadas (la primera ya detecta solapamiento), por lo que el 409 de solapamiento puede responder el mensaje de "ya asignado" — cleanup menor; (b) `HorariosTable` muestra la fecha corrida un día (`new Date('2025-11-20')` se parsea como UTC y en UTC-3 se ve 19/11) — corregir al construir el módulo Calendario en P2.
 
 *Documento generado como auditoría técnica externa. Actualizarlo al completar cada fase del roadmap (sección 10).*

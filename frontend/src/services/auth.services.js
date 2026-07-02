@@ -1,15 +1,10 @@
-import axios from "../apis/axios.js";
+import api from "../apis/axios.js";
 
-export const login = async ({ email }) => {
-  // ⚠️ Simulación hasta que exista /auth/login
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      resolve({
-        id: 1,
-        nombre: "Usuario Demo",
-        email,
-        rol: email.includes("admin") ? "administrador" : "empleado",
-      });
-    }, 800);
-  });
+/**
+ * Autentica contra el backend.
+ * Devuelve { token, usuario: { id, email, roles, permisos } }
+ */
+export const login = async ({ email, password }) => {
+  const response = await api.post("/auth/login", { email, password });
+  return response.data;
 };

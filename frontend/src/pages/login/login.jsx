@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { Navigate, useNavigate } from "react-router-dom";
+import { toast } from "sonner";
 import "./login.css";
 
 import { Button } from "@/components/ui/button";
@@ -12,23 +14,32 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 
-import { login } from "@/services/auth.services";
+import { useAuth } from "@/context/AuthContext";
 
-export default function Login({ onLogin }) {
+export default function Login() {
+  const { usuario, login } = useAuth();
+  const navigate = useNavigate();
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+
+  // Si ya hay sesión activa, no mostrar el login
+  if (usuario) {
+    return <Navigate to="/" replace />;
+  }
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
 
     try {
-      // ⚠️ Mock temporal hasta tener backend
-      const user = await login({ email, password });
-      onLogin(user);
+      await login(email, password);
+      navigate("/", { replace: true });
     } catch (error) {
-      alert("Credenciales inválidas (o backend durmiendo 😴)");
+      toast.error(
+        error.response?.data?.error || "No se pudo conectar con el servidor"
+      );
     } finally {
       setLoading(false);
     }
@@ -82,10 +93,6 @@ export default function Login({ onLogin }) {
             >
               {loading ? "Ingresando..." : "Ingresar"}
             </Button>
-
-            <p className="login-demo-text">
-              Demo activa – backend sin autenticación
-            </p>
           </form>
         </CardContent>
       </Card>
