@@ -49,17 +49,16 @@ WHERE id_empleado = $1
   AND id_calendario = $2;
 `;
 
+/*
+  Solo duplicado exacto (mismo empleado + mismo turno).
+  El solapamiento de horarios lo detecta VALIDAR_SOLAPAMIENTO_HORARIO,
+  así cada caso responde con su mensaje correcto (YA_ASIGNADO vs CONFLICTO).
+*/
 export const SelectValidacionHorarios = `
 SELECT 1
-FROM asignacion_horario ah
-JOIN calendario c ON c.id = ah.id_calendario
-JOIN calendario c_new ON c_new.id = $2
-WHERE ah.id_empleado = $1
-  AND c.fecha = c_new.fecha
-  AND (
-    c.hora_inicio < c_new.hora_fin
-    AND c.hora_fin > c_new.hora_inicio
-  );
+FROM asignacion_horario
+WHERE id_empleado = $1
+  AND id_calendario = $2;
 `;
 
 export const GEThorariosPorFecha = `

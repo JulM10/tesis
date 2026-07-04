@@ -132,6 +132,7 @@ SELECT
   e.id       AS empleado_id,
   e.nombre   AS empleado_nombre,
   e.apellido AS empleado_apellido,
+  c.id       AS calendario_id,
   p.nombre   AS puesto,
   l.nombre   AS lugar_trabajo,
   c.fecha,

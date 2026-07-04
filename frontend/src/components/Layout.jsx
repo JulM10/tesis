@@ -33,6 +33,9 @@ export default function Layout({ children }) {
               <Link className={linkClass("/empleados")} to="/empleados">
                 Empleados
               </Link>
+              <Link className={linkClass("/calendario")} to="/calendario">
+                Calendario
+              </Link>
             </nav>
           </div>
 

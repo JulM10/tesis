@@ -2,6 +2,7 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import Login from './pages/login/login.jsx';
 import Dashboard from './pages/dashboard/dashboard.jsx';
 import Empleados from './pages/empleados/empleados.jsx';
+import Calendario from './pages/calendario/calendario.jsx';
 import ProtectedRoute from './components/ProtectedRoute.jsx';
 
 export default function Router() {
@@ -23,6 +24,15 @@ export default function Router() {
         element={
           <ProtectedRoute>
             <Empleados />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/calendario"
+        element={
+          <ProtectedRoute>
+            <Calendario />
           </ProtectedRoute>
         }
       />

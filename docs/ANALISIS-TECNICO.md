@@ -353,6 +353,12 @@ Cierra §6.1 (completo), §6.2 y parte de §6.8/§6.13:
 
 **Verificado en navegador (end-to-end):** redirección sin sesión, login exitoso → dashboard con datos reales vía JWT, credenciales inválidas rechazadas, logout, y token corrupto → auto-limpieza y redirect. `npm run lint` y `npm run build` en verde.
 
+### 2026-07-04 — Módulo Gestión de Empleados (P2 primer módulo) ✅ (commit `0f46f6f`)
+- Backend: módulo `catalogos` (GET /api/catalogos: puestos/lugares/estados), `GET /api/empleados/detalle` sobre la vista `vw_empleados_detalle` ampliada (teléfono, dirección, estado, fecha, ids).
+- Frontend: pantalla `/empleados` con tabla shadcn (datos resueltos + badge de estado por color), alta/edición en Dialog con selects de catálogos, borrado con confirmación, botones condicionados por `tienePermiso`. `Layout` compartido con navegación (Inicio/Empleados), sesión y logout.
+- Verificado end-to-end en navegador: crear → editar (update parcial conserva puesto/estado) → eliminar → rol EMPLEADO ve la tabla sin botones de acción. Lint y build en verde.
+- Nota operativa: Docker Desktop crasheaba al iniciar por un socket huérfano (`%LOCALAPPDATA%\Docker\run\dockerInference`, error "Inference manager"); Windows no permitía borrarlo — se resolvió eliminándolo desde WSL (`wsl -d docker-desktop rm /mnt/host/c/...`). Si reaparece, ese es el procedimiento.
+
 **Deuda restante conocida:** `DATABASE_URL` para Railway (§6.8 backend), Dockerfile con CMD dev (§6.10), detalles de schema §6.12 (email/DNI en empleados, UNIQUE en catálogos, `edad`→`fecha_nacimiento`), tests y CI. Observaciones nuevas: (a) `SelectValidacionHorarios` y `VALIDAR_SOLAPAMIENTO_HORARIO` son casi duplicadas (la primera ya detecta solapamiento), por lo que el 409 de solapamiento puede responder el mensaje de "ya asignado" — cleanup menor; (b) `HorariosTable` muestra la fecha corrida un día (`new Date('2025-11-20')` se parsea como UTC y en UTC-3 se ve 19/11) — corregir al construir el módulo Calendario en P2.
 
 *Documento generado como auditoría técnica externa. Actualizarlo al completar cada fase del roadmap (sección 10).*

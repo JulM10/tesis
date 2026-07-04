@@ -1,6 +1,11 @@
 // backend/src/config/database.js
 import pkg from "pg";
-const { Pool } = pkg;
+const { Pool, types } = pkg;
+
+// DATE (OID 1082) se devuelve como string "YYYY-MM-DD" en lugar de
+// Date de JS: evita el corrimiento de un día por conversión a UTC
+// cuando el cliente está en otra zona horaria (ej. UTC-3).
+types.setTypeParser(1082, (valor) => valor);
 
 export const pool = new Pool({
   user: process.env.DB_USER,

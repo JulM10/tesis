@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { getAllHorarios } from "../services/horarios.services.js";
+import { formatearFecha, horaCorta } from "../lib/fechas.js";
 
 const HorariosTable = () => {
   const [horarios, setHorarios] = useState([]);
@@ -41,17 +42,22 @@ const HorariosTable = () => {
         </thead>
 
         <tbody>
-          {horarios.map((h, index) => (
-            <tr key={index} className="hover:bg-grey-50">
+          {horarios.length === 0 && (
+            <tr>
+              <td colSpan={5} className="border px-3 py-4 text-center text-gray-500">
+                No hay horarios asignados
+              </td>
+            </tr>
+          )}
+          {horarios.map((h) => (
+            <tr key={`${h.empleado_id}-${h.calendario_id}`} className="hover:bg-grey-50">
               <td className="border px-3 py-2">
                 {h.empleado_nombre} {h.empleado_apellido}
               </td>
               <td className="border px-3 py-2">{h.puesto}</td>
-              <td className="border px-3 py-2">
-                {new Date(h.fecha).toLocaleDateString()}
-              </td>
-              <td className="border px-3 py-2">{h.hora_inicio}</td>
-              <td className="border px-3 py-2">{h.hora_fin}</td>
+              <td className="border px-3 py-2">{formatearFecha(h.fecha)}</td>
+              <td className="border px-3 py-2">{horaCorta(h.hora_inicio)}</td>
+              <td className="border px-3 py-2">{horaCorta(h.hora_fin)}</td>
             </tr>
           ))}
         </tbody>
