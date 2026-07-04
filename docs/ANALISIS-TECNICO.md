@@ -368,6 +368,16 @@ Cierra §6.1 (completo), §6.2 y parte de §6.8/§6.13:
 - Verificado end-to-end en navegador: crear, asignar, solapamiento y duplicado con sus mensajes, quitar asignación, eliminar turno, hora inválida rechazada, rol EMPLEADO sin botones. Lint y build en verde.
 - Nota entorno: nodemon dentro del contenedor NO detecta ediciones hechas desde Windows (el mount no propaga eventos de archivos) — tras editar código backend hay que `docker restart hotel-yacanto-backend`.
 
-**Deuda restante conocida:** `DATABASE_URL` para Railway (§6.8 backend), Dockerfile con CMD dev (§6.10), detalles de schema §6.12 (email/DNI en empleados, UNIQUE en catálogos, `edad`→`fecha_nacimiento`), tests y CI. Observaciones nuevas: (a) `SelectValidacionHorarios` y `VALIDAR_SOLAPAMIENTO_HORARIO` son casi duplicadas (la primera ya detecta solapamiento), por lo que el 409 de solapamiento puede responder el mensaje de "ya asignado" — cleanup menor; (b) `HorariosTable` muestra la fecha corrida un día (`new Date('2025-11-20')` se parsea como UTC y en UTC-3 se ve 19/11) — corregir al construir el módulo Calendario en P2.
+### 2026-07-04 — Dashboard real (P2 COMPLETO) ✅ (commit `75521e9`)
+- Panel `/` con 4 indicadores (total empleados, activos, de vacaciones, turnos de hoy), listas de turnos de hoy y próximos 7 días con asignados, y dotación por puesto (barras) y por estado.
+- Todo derivado de endpoints existentes (sin backend nuevo). Eliminado `HorariosTable` (código muerto).
+- Verificado E2E: indicadores correctos vs seed (4/3/0), el contador y las listas reaccionan al crear un turno de hoy. Lint y build en verde.
+- **Con esto P2 queda cerrado**: los 3 módulos del prototipo de la tesis (Empleados, Calendario, Dashboard) están implementados y verificados.
+
+**Siguiente:** P3 (reportes CSV sobre `vw_reporte_*`) y P4 (tests + CI + deploy Vercel/Railway).
+
+**Deuda restante conocida:** `DATABASE_URL` para Railway (§6.8 backend), Dockerfile con CMD dev (§6.10), detalles de schema §6.12 (email/DNI en empleados, UNIQUE en catálogos, `edad`→`fecha_nacimiento`), tests y CI.
+
+**Nota de entorno (recurrente):** Docker Desktop 4.60 crashea al iniciar por sockets AF_UNIX huérfanos que rotan de componente (`dockerInference`, `docker-secrets-engine\engine.sock`), con error "initializing X: listening on unix://...: remove ...: acceso denegado". Ni Windows ni WSL pueden borrar el socket (handle de kernel). Lo que funciona sin reiniciar Windows: **renombrar la carpeta padre** del socket (`Rename-Item %LOCALAPPDATA%\docker-secrets-engine docker-secrets-engine.old`) y relanzar Docker — crea una carpeta nueva limpia. Deshabilitar Docker AI en settings reduce la frecuencia. Observaciones nuevas: (a) `SelectValidacionHorarios` y `VALIDAR_SOLAPAMIENTO_HORARIO` son casi duplicadas (la primera ya detecta solapamiento), por lo que el 409 de solapamiento puede responder el mensaje de "ya asignado" — cleanup menor; (b) `HorariosTable` muestra la fecha corrida un día (`new Date('2025-11-20')` se parsea como UTC y en UTC-3 se ve 19/11) — corregir al construir el módulo Calendario en P2.
 
 *Documento generado como auditoría técnica externa. Actualizarlo al completar cada fase del roadmap (sección 10).*
