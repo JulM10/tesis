@@ -11,6 +11,15 @@ export const getEmpleados = async (req, res) => {
   }
 };
 
+export const getEmpleadosDetalle = async (req, res) => {
+  try {
+    const empleados = await empleadosService.getEmpleadosDetalle();
+    res.json(empleados);
+  } catch (error) {
+    responderError(res, error);
+  }
+};
+
 export const getEmpleadoById = async (req, res) => {
   try {
     const empleado = await empleadosService.getEmpleadoById(req.params.id);

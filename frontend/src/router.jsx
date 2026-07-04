@@ -1,6 +1,7 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 import Login from './pages/login/login.jsx';
 import Dashboard from './pages/dashboard/dashboard.jsx';
+import Empleados from './pages/empleados/empleados.jsx';
 import ProtectedRoute from './components/ProtectedRoute.jsx';
 
 export default function Router() {
@@ -13,6 +14,15 @@ export default function Router() {
         element={
           <ProtectedRoute>
             <Dashboard />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/empleados"
+        element={
+          <ProtectedRoute>
+            <Empleados />
           </ProtectedRoute>
         }
       />

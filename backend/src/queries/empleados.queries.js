@@ -2,6 +2,10 @@ export const GET_ALL_EMPLEADOS = `
   SELECT * FROM empleados ORDER BY id
 `;
 
+export const GET_EMPLEADOS_DETALLE = `
+  SELECT * FROM vw_empleados_detalle ORDER BY empleado_id
+`;
+
 export const GET_EMPLEADO_BY_ID = `
   SELECT * FROM empleados WHERE id = $1
 `;

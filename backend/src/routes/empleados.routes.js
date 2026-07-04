@@ -10,6 +10,14 @@ const router = Router();
  * Obtiene el listado de empleados
  */
 router.get("/", requierePermiso("EMPLEADOS_VER"), empleadosController.getEmpleados);
+
+/**
+ * GET /api/empleados/detalle
+ * Listado con puesto, lugar, estado y usuario resueltos (vista).
+ * IMPORTANTE: debe declararse antes de /:id para que no lo capture.
+ */
+router.get("/detalle", requierePermiso("EMPLEADOS_VER"), empleadosController.getEmpleadosDetalle);
+
 /**
  * GET /api/empleados/:id
  * Obtiene un empleado por ID

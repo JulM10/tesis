@@ -156,8 +156,15 @@ SELECT
   e.nombre,
   e.apellido,
   e.edad,
+  e.telefono,
+  e.direccion,
+  e.fecha_creacion,
+  e.id_puesto,
+  e.id_lugar,
+  e.id_estado,
   p.nombre   AS puesto,
   l.nombre   AS lugar_trabajo,
+  s.nombre   AS estado,
   u.id       AS usuario_id,
   u.email,
   u.activo,
@@ -167,7 +174,8 @@ LEFT JOIN usuarios u ON u.id = e.id_usuario
 LEFT JOIN usuarios_roles ur ON ur.id_usuario = u.id
 LEFT JOIN roles r ON r.id = ur.id_rol
 LEFT JOIN puestos p ON p.id = e.id_puesto
-LEFT JOIN lugares_trabajo l ON l.id = e.id_lugar;
+LEFT JOIN lugares_trabajo l ON l.id = e.id_lugar
+LEFT JOIN estados s ON s.id = e.id_estado;
 
 /*
   Vista: vw_usuarios_permisos

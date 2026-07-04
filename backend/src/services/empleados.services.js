@@ -10,6 +10,12 @@ export const getAllEmpleados = async () => {
   return result.rows;
 };
 
+export const getEmpleadosDetalle = async () => {
+  // Vista con puesto, lugar, estado y datos de usuario resueltos
+  const result = await pool.query(Queries.GET_EMPLEADOS_DETALLE);
+  return result.rows;
+};
+
 export const getEmpleadoById = async (id) => {
   const result = await pool.query(Queries.GET_EMPLEADO_BY_ID, [id]);
 
