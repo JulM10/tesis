@@ -359,6 +359,15 @@ Cierra §6.1 (completo), §6.2 y parte de §6.8/§6.13:
 - Verificado end-to-end en navegador: crear → editar (update parcial conserva puesto/estado) → eliminar → rol EMPLEADO ve la tabla sin botones de acción. Lint y build en verde.
 - Nota operativa: Docker Desktop crasheaba al iniciar por un socket huérfano (`%LOCALAPPDATA%\Docker\run\dockerInference`, error "Inference manager"); Windows no permitía borrarlo — se resolvió eliminándolo desde WSL (`wsl -d docker-desktop rm /mnt/host/c/...`). Si reaparece, ese es el procedimiento.
 
+### 2026-07-04 — Módulo Calendario semanal (P2 segundo módulo) ✅ (commit `ade5641`)
+- Pantalla `/calendario`: vista semanal lun-dom con navegación de semanas, turnos como bloques (horario + puesto + empleados asignados), filtros por puesto y empleado.
+- Crear turno (fecha precargada del día clickeado), asignar/quitar empleados, eliminar turno con confirmación; permisos por rol (EMPLEADO = solo lectura).
+- **Fix del corrimiento de fechas UTC en la raíz**: type parser de `pg` devuelve DATE como string `YYYY-MM-DD` + `lib/fechas.js` en frontend (nunca `new Date(iso)`); el dashboard ya muestra 20/11 y no 19/11.
+- **Cleanup de queries de solapamiento**: `SelectValidacionHorarios` chequea solo duplicado exacto → cada 409 responde su mensaje correcto ("se superpone" vs "ya está asignado"). Verificado por API y UI.
+- `vw_horarios_empleado` expone `calendario_id`.
+- Verificado end-to-end en navegador: crear, asignar, solapamiento y duplicado con sus mensajes, quitar asignación, eliminar turno, hora inválida rechazada, rol EMPLEADO sin botones. Lint y build en verde.
+- Nota entorno: nodemon dentro del contenedor NO detecta ediciones hechas desde Windows (el mount no propaga eventos de archivos) — tras editar código backend hay que `docker restart hotel-yacanto-backend`.
+
 **Deuda restante conocida:** `DATABASE_URL` para Railway (§6.8 backend), Dockerfile con CMD dev (§6.10), detalles de schema §6.12 (email/DNI en empleados, UNIQUE en catálogos, `edad`→`fecha_nacimiento`), tests y CI. Observaciones nuevas: (a) `SelectValidacionHorarios` y `VALIDAR_SOLAPAMIENTO_HORARIO` son casi duplicadas (la primera ya detecta solapamiento), por lo que el 409 de solapamiento puede responder el mensaje de "ya asignado" — cleanup menor; (b) `HorariosTable` muestra la fecha corrida un día (`new Date('2025-11-20')` se parsea como UTC y en UTC-3 se ve 19/11) — corregir al construir el módulo Calendario en P2.
 
 *Documento generado como auditoría técnica externa. Actualizarlo al completar cada fase del roadmap (sección 10).*
