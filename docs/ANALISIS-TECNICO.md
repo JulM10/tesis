@@ -374,7 +374,14 @@ Cierra §6.1 (completo), §6.2 y parte de §6.8/§6.13:
 - Verificado E2E: indicadores correctos vs seed (4/3/0), el contador y las listas reaccionan al crear un turno de hoy. Lint y build en verde.
 - **Con esto P2 queda cerrado**: los 3 módulos del prototipo de la tesis (Empleados, Calendario, Dashboard) están implementados y verificados.
 
-**Siguiente:** P3 (reportes CSV sobre `vw_reporte_*`) y P4 (tests + CI + deploy Vercel/Railway).
+### 2026-07-05 — Módulo Usuarios + Perfil de empleado + notas ✅ (commit `8cd6dd6`)
+- **Módulo usuarios** (cierra el gap "no hay forma de crear usuarios"): CRUD en `/api/usuarios` con alta transaccional (bcrypt + rol + vínculo opcional a empleado sin usuario), activar/desactivar, eliminar (solo ADMIN — RRHH no tiene `USUARIOS_ELIMINAR`, buen ejemplo de RBAC), guards de no auto-eliminarse/desactivarse. Pantalla `/usuarios`.
+- **Autogestión** (cierra el gap Ley 25.326): `GET /api/me`, `GET /api/me/horarios`, `PUT /api/me` (teléfono/dirección/notas — nunca puesto/estado). Pantalla `/mi-perfil` con mis datos, "sobre mí" editable y mis turnos.
+- **Privacidad** (cierra la contradicción con la tesis): el rol EMPLEADO perdió `EMPLEADOS_VER` — ya no ve teléfonos/direcciones del resto del personal; conserva `CALENDARIO_VER` (dato operativo). Navegación condicionada por permisos; `/` redirige al perfil para empleados.
+- **Campo `notas` TEXT** en empleados (descripción/experiencia/referencias), editable por RRHH en `/empleados` y por el propio empleado en su perfil.
+- Verificado: 15 pruebas de API + navegador completo. Lint y build en verde.
+
+**Siguiente:** P3 (reportes CSV sobre `vw_reporte_*`) y P4 (tests + CI + deploy Vercel/Railway). Propuesta pendiente de aprobación: CV adjunto (PDF/DOCX) por empleado como BYTEA en Postgres.
 
 **Deuda restante conocida:** `DATABASE_URL` para Railway (§6.8 backend), Dockerfile con CMD dev (§6.10), detalles de schema §6.12 (email/DNI en empleados, UNIQUE en catálogos, `edad`→`fecha_nacimiento`), tests y CI.
 
