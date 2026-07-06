@@ -34,6 +34,7 @@ export const createEmpleado = async (empleado) => {
     edad = null,
     telefono = null,
     direccion = null,
+    notas = null,
     id_puesto = null,
     id_lugar = null,
     id_estado = null
@@ -49,6 +50,7 @@ export const createEmpleado = async (empleado) => {
         edad,
         telefono,
         direccion,
+        notas,
         id_puesto,
         id_lugar,
         id_estado
@@ -76,6 +78,7 @@ export const updateEmpleado = async (id, empleado) => {
     edad = null,
     telefono = null,
     direccion = null,
+    notas = null,
     id_puesto = null,
     id_lugar = null,
     id_estado = null
@@ -86,7 +89,7 @@ export const updateEmpleado = async (id, empleado) => {
     // (COALESCE en la query). Limitación: no permite setear un campo a NULL.
     const result = await pool.query(
       Queries.UPDATE_EMPLEADO,
-      [nombre, apellido, edad, telefono, direccion, id_puesto, id_lugar, id_estado, id]
+      [nombre, apellido, edad, telefono, direccion, notas, id_puesto, id_lugar, id_estado, id]
     );
 
     if (!result.rows[0]) {

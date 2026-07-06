@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
  * datos de sesión y logout.
  */
 export default function Layout({ children }) {
-  const { usuario, logout } = useAuth();
+  const { usuario, logout, tienePermiso } = useAuth();
   const { pathname } = useLocation();
 
   const linkClass = (path) =>
@@ -27,14 +27,26 @@ export default function Layout({ children }) {
               Hotel Yacanto
             </span>
             <nav className="flex gap-1">
-              <Link className={linkClass("/")} to="/">
-                Inicio
-              </Link>
-              <Link className={linkClass("/empleados")} to="/empleados">
-                Empleados
-              </Link>
+              {tienePermiso("EMPLEADOS_VER") && (
+                <Link className={linkClass("/")} to="/">
+                  Inicio
+                </Link>
+              )}
+              {tienePermiso("EMPLEADOS_VER") && (
+                <Link className={linkClass("/empleados")} to="/empleados">
+                  Empleados
+                </Link>
+              )}
               <Link className={linkClass("/calendario")} to="/calendario">
                 Calendario
+              </Link>
+              {tienePermiso("USUARIOS_VER") && (
+                <Link className={linkClass("/usuarios")} to="/usuarios">
+                  Usuarios
+                </Link>
+              )}
+              <Link className={linkClass("/mi-perfil")} to="/mi-perfil">
+                Mi perfil
               </Link>
             </nav>
           </div>

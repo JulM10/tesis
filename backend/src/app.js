@@ -6,6 +6,8 @@ import calendarioRoutes from "./routes/calendario.routes.js";
 import horariosRoutes from "./routes/horarios.routes.js";
 import authRoutes from "./routes/auth.routes.js";
 import catalogosRoutes from "./routes/catalogos.routes.js";
+import usuariosRoutes from "./routes/usuarios.routes.js";
+import meRoutes from "./routes/me.routes.js";
 import { autenticar } from "./middlewares/auth.middleware.js";
 
 
@@ -29,6 +31,8 @@ app.use("/api/calendario", autenticar, calendarioRoutes);
 app.use("/api/empleados", autenticar, empleadosRoutes);
 app.use("/api/horarios", autenticar, horariosRoutes);
 app.use("/api/catalogos", autenticar, catalogosRoutes);
+app.use("/api/usuarios", autenticar, usuariosRoutes);
+app.use("/api/me", autenticar, meRoutes);
 
 // Middleware 404
 app.use((req, res) => {

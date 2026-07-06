@@ -18,11 +18,12 @@ export const CREATE_EMPLEADO = `
     edad,
     telefono,
     direccion,
+    notas,
     id_puesto,
     id_lugar,
     id_estado
   )
-  VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+  VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
   RETURNING *;
 `;
 
@@ -35,10 +36,11 @@ export const UPDATE_EMPLEADO = `
       edad      = COALESCE($3, edad),
       telefono  = COALESCE($4, telefono),
       direccion = COALESCE($5, direccion),
-      id_puesto = COALESCE($6, id_puesto),
-      id_lugar  = COALESCE($7, id_lugar),
-      id_estado = COALESCE($8, id_estado)
-  WHERE id = $9
+      notas     = COALESCE($6, notas),
+      id_puesto = COALESCE($7, id_puesto),
+      id_lugar  = COALESCE($8, id_lugar),
+      id_estado = COALESCE($9, id_estado)
+  WHERE id = $10
   RETURNING *
 `;
 

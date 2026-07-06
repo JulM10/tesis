@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Navigate } from "react-router-dom";
 import { toast } from "sonner";
 import Layout from "@/components/Layout";
 import { useAuth } from "@/context/AuthContext";
@@ -44,6 +45,7 @@ const FORM_VACIO = {
   edad: "",
   telefono: "",
   direccion: "",
+  notas: "",
   id_puesto: "",
   id_lugar: "",
   id_estado: "",
@@ -94,6 +96,11 @@ export default function Empleados() {
     cargarDatos();
   }, []);
 
+  // El rol EMPLEADO no accede a los datos del resto del personal
+  if (!tienePermiso("EMPLEADOS_VER")) {
+    return <Navigate to="/mi-perfil" replace />;
+  }
+
   const abrirAlta = () => {
     setEditandoId(null);
     setForm(FORM_VACIO);
@@ -108,6 +115,7 @@ export default function Empleados() {
       edad: empleado.edad ?? "",
       telefono: empleado.telefono ?? "",
       direccion: empleado.direccion ?? "",
+      notas: empleado.notas ?? "",
       id_puesto: empleado.id_puesto ? String(empleado.id_puesto) : "",
       id_lugar: empleado.id_lugar ? String(empleado.id_lugar) : "",
       id_estado: empleado.id_estado ? String(empleado.id_estado) : "",
@@ -124,6 +132,7 @@ export default function Empleados() {
     edad: form.edad === "" ? null : Number(form.edad),
     telefono: form.telefono.trim() || null,
     direccion: form.direccion.trim() || null,
+    notas: form.notas.trim() || null,
     id_puesto: form.id_puesto ? Number(form.id_puesto) : null,
     id_lugar: form.id_lugar ? Number(form.id_lugar) : null,
     id_estado: form.id_estado ? Number(form.id_estado) : null,
@@ -270,6 +279,17 @@ export default function Empleados() {
               <div className="col-span-2 space-y-2">
                 <Label htmlFor="direccion">Dirección</Label>
                 <Input id="direccion" value={form.direccion} onChange={setCampo("direccion")} />
+              </div>
+              <div className="col-span-2 space-y-2">
+                <Label htmlFor="notas">Notas / Descripción</Label>
+                <textarea
+                  id="notas"
+                  rows={3}
+                  className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  placeholder="Experiencia, referencias, temporadas trabajadas, observaciones..."
+                  value={form.notas}
+                  onChange={setCampo("notas")}
+                />
               </div>
               <div className="space-y-2">
                 <Label>Puesto</Label>

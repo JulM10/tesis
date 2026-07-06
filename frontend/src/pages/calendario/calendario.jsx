@@ -68,12 +68,14 @@ export default function Calendario() {
 
   const cargarDatos = async () => {
     try {
+      // El rol EMPLEADO no tiene acceso al listado de empleados:
+      // solo se pide si el permiso existe (se usa para filtrar y asignar)
       const [listaTurnos, listaAsignaciones, listaCatalogos, listaEmpleados] =
         await Promise.all([
           getCalendario(),
           getAllHorarios(),
           getCatalogos(),
-          getEmpleadosDetalle(),
+          tienePermiso("EMPLEADOS_VER") ? getEmpleadosDetalle() : Promise.resolve([]),
         ]);
       setTurnos(listaTurnos);
       setAsignaciones(listaAsignaciones);
@@ -88,6 +90,7 @@ export default function Calendario() {
 
   useEffect(() => {
     cargarDatos();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const dias = useMemo(
@@ -248,19 +251,21 @@ export default function Calendario() {
                 ))}
               </SelectContent>
             </Select>
-            <Select value={filtroEmpleado} onValueChange={setFiltroEmpleado}>
-              <SelectTrigger className="w-48">
-                <SelectValue placeholder="Empleado" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="todos">Todos los empleados</SelectItem>
-                {empleados.map((emp) => (
-                  <SelectItem key={emp.empleado_id} value={String(emp.empleado_id)}>
-                    {emp.nombre} {emp.apellido}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            {empleados.length > 0 && (
+              <Select value={filtroEmpleado} onValueChange={setFiltroEmpleado}>
+                <SelectTrigger className="w-48">
+                  <SelectValue placeholder="Empleado" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todos los empleados</SelectItem>
+                  {empleados.map((emp) => (
+                    <SelectItem key={emp.empleado_id} value={String(emp.empleado_id)}>
+                      {emp.nombre} {emp.apellido}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
           </div>
         </div>
 

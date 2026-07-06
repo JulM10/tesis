@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, Navigate } from "react-router-dom";
 import { toast } from "sonner";
 import { Users, UserCheck, Plane, CalendarDays } from "lucide-react";
 import Layout from "@/components/Layout";
+import { useAuth } from "@/context/AuthContext";
 import { getEmpleadosDetalle, getCatalogos } from "@/services/empleados.services";
 import { getCalendario } from "@/services/calendario.services";
 import { getAllHorarios } from "@/services/horarios.services";
@@ -36,6 +37,9 @@ function StatCard({ titulo, valor, icono, color }) {
 }
 
 export default function Dashboard() {
+  const { tienePermiso } = useAuth();
+  const puedeVerGlobal = tienePermiso("EMPLEADOS_VER");
+
   const [empleados, setEmpleados] = useState([]);
   const [turnos, setTurnos] = useState([]);
   const [asignaciones, setAsignaciones] = useState([]);
@@ -43,6 +47,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!puedeVerGlobal) return;
     const cargar = async () => {
       try {
         const [listaEmpleados, listaTurnos, listaAsignaciones, listaCatalogos] =
@@ -63,7 +68,7 @@ export default function Dashboard() {
       }
     };
     cargar();
-  }, []);
+  }, [puedeVerGlobal]);
 
   const hoy = hoyISO();
 
@@ -153,6 +158,11 @@ export default function Dashboard() {
       </div>
     );
   };
+
+  // Sin permiso de vista global: el inicio del empleado es su perfil
+  if (!puedeVerGlobal) {
+    return <Navigate to="/mi-perfil" replace />;
+  }
 
   return (
     <Layout>

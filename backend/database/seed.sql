@@ -40,10 +40,16 @@ FROM roles r
 JOIN permisos p ON p.nombre <> 'USUARIOS_ELIMINAR'
 WHERE r.nombre = 'RRHH';
 
+/*
+  El rol EMPLEADO no tiene EMPLEADOS_VER: los datos personales del resto
+  del personal no le corresponden (Ley 25.326). Su propia información la
+  accede vía GET /api/me. Sí conserva CALENDARIO_VER para ver la grilla
+  de turnos (dato operativo, no personal).
+*/
 INSERT INTO roles_permisos
 SELECT r.id, p.id
 FROM roles r
-JOIN permisos p ON p.nombre IN ('EMPLEADOS_VER', 'CALENDARIO_VER')
+JOIN permisos p ON p.nombre IN ('CALENDARIO_VER')
 WHERE r.nombre = 'EMPLEADO';
 
 /* =====================================================

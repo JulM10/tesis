@@ -3,6 +3,8 @@ import Login from './pages/login/login.jsx';
 import Dashboard from './pages/dashboard/dashboard.jsx';
 import Empleados from './pages/empleados/empleados.jsx';
 import Calendario from './pages/calendario/calendario.jsx';
+import Usuarios from './pages/usuarios/usuarios.jsx';
+import Perfil from './pages/perfil/perfil.jsx';
 import ProtectedRoute from './components/ProtectedRoute.jsx';
 
 export default function Router() {
@@ -33,6 +35,24 @@ export default function Router() {
         element={
           <ProtectedRoute>
             <Calendario />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/usuarios"
+        element={
+          <ProtectedRoute>
+            <Usuarios />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/mi-perfil"
+        element={
+          <ProtectedRoute>
+            <Perfil />
           </ProtectedRoute>
         }
       />

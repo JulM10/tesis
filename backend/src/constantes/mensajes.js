@@ -35,6 +35,21 @@ export const MENSAJES = {
     SIN_HORARIOS: "No hay horarios para la fecha indicada"
   },
 
+  USUARIOS: {
+    NO_ENCONTRADO: "Usuario no encontrado",
+    CREADO_OK: "Usuario creado correctamente",
+    ACTUALIZADO_OK: "Usuario actualizado correctamente",
+    ELIMINADO_OK: "Usuario eliminado correctamente",
+    EMAIL_YA_EXISTE: "Ya existe un usuario con ese email",
+    EMPLEADO_YA_VINCULADO: "El empleado ya tiene un usuario asociado o no existe",
+    NO_AUTOELIMINAR: "No podés eliminar tu propio usuario",
+    NO_AUTODESACTIVAR: "No podés desactivar tu propio usuario"
+  },
+
+  ME: {
+    SIN_EMPLEADO: "Tu usuario no tiene un empleado vinculado"
+  },
+
   AUTH: {
     NO_AUTORIZADO: "No autorizado",
     TOKEN_INVALIDO: "Token inválido o expirado",
