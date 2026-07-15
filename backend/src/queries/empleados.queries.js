@@ -47,3 +47,29 @@ export const UPDATE_EMPLEADO = `
 export const DELETE_EMPLEADO = `
   DELETE FROM empleados WHERE id=$1
 `;
+
+export const GET_CV = `
+  SELECT cv_ruta, cv_nombre, cv_mime
+  FROM empleados
+  WHERE id = $1
+`;
+
+export const SET_CV = `
+  UPDATE empleados
+  SET cv_ruta = $1,
+      cv_nombre = $2,
+      cv_mime = $3,
+      cv_actualizado = CURRENT_TIMESTAMP
+  WHERE id = $4
+  RETURNING id, cv_nombre, cv_actualizado
+`;
+
+export const CLEAR_CV = `
+  UPDATE empleados
+  SET cv_ruta = NULL,
+      cv_nombre = NULL,
+      cv_mime = NULL,
+      cv_actualizado = NULL
+  WHERE id = $1
+  RETURNING id
+`;

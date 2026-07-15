@@ -2,6 +2,7 @@ import { Router } from 'express';
 import * as empleadosController from "../controllers/empleados.controllers.js";
 import { validarEmpleado } from '../middlewares/validarEmpleado.middleware.js';
 import { requierePermiso } from '../middlewares/role.middleware.js';
+import { subirCV } from '../middlewares/subirCV.middleware.js';
 
 const router = Router();
 
@@ -46,6 +47,24 @@ router.put('/:id', requierePermiso("EMPLEADOS_EDITAR"), empleadosController.upda
  * Elimina un empleado por ID
  */
 router.delete('/:id', requierePermiso("EMPLEADOS_ELIMINAR"), empleadosController.deleteEmpleado);
+
+/**
+ * POST /api/empleados/:id/cv
+ * Sube o reemplaza el CV del empleado (form-data, campo "cv", PDF/DOCX, máx 5MB)
+ */
+router.post('/:id/cv', requierePermiso("EMPLEADOS_EDITAR"), subirCV, empleadosController.subirCV);
+
+/**
+ * GET /api/empleados/:id/cv
+ * Descarga el CV del empleado (el archivo nunca se expone por URL pública)
+ */
+router.get('/:id/cv', requierePermiso("EMPLEADOS_VER"), empleadosController.descargarCV);
+
+/**
+ * DELETE /api/empleados/:id/cv
+ * Elimina el CV del empleado
+ */
+router.delete('/:id/cv', requierePermiso("EMPLEADOS_EDITAR"), empleadosController.eliminarCV);
 
 
 export default router;

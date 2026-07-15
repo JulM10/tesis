@@ -50,6 +50,17 @@ export const MENSAJES = {
     SIN_EMPLEADO: "Tu usuario no tiene un empleado vinculado"
   },
 
+  CV: {
+    SUBIDO_OK: "CV subido correctamente",
+    ELIMINADO_OK: "CV eliminado correctamente",
+    NO_ENCONTRADO: "El empleado no tiene CV cargado",
+    TIPO_INVALIDO: "Solo se permiten archivos PDF o DOCX",
+    MUY_GRANDE: "El archivo supera el máximo de 5MB",
+    ARCHIVO_REQUERIDO: "Falta el archivo (campo 'cv')",
+    NO_CONFIGURADO: "El almacenamiento de archivos no está configurado en el servidor",
+    ERROR_STORAGE: "Error al comunicarse con el almacenamiento de archivos"
+  },
+
   AUTH: {
     NO_AUTORIZADO: "No autorizado",
     TOKEN_INVALIDO: "Token inválido o expirado",

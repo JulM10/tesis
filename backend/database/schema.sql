@@ -67,6 +67,12 @@ CREATE TABLE empleados (
   telefono VARCHAR(20),
   direccion VARCHAR(200),
   notas TEXT,
+  -- CV adjunto: solo la referencia al archivo (el binario vive en
+  -- Supabase Storage, bucket privado; se accede vía backend con RBAC)
+  cv_ruta VARCHAR(300),
+  cv_nombre VARCHAR(200),
+  cv_mime VARCHAR(100),
+  cv_actualizado TIMESTAMP,
   id_puesto INT REFERENCES puestos(id),
   id_lugar INT REFERENCES lugares_trabajo(id),
   id_estado INT REFERENCES Estados(id),
@@ -161,6 +167,8 @@ SELECT
   e.telefono,
   e.direccion,
   e.notas,
+  e.cv_nombre,
+  e.cv_actualizado,
   e.fecha_creacion,
   e.id_puesto,
   e.id_lugar,

@@ -32,6 +32,34 @@ export const getMisHorarios = async (req, res) => {
   }
 };
 
+export const subirMiCV = async (req, res) => {
+  try {
+    const resultado = await meService.subirMiCV(req.usuario.sub, req.file);
+
+    res.status(201).json({
+      message: MENSAJES.CV.SUBIDO_OK,
+      data: resultado
+    });
+  } catch (error) {
+    responderError(res, error);
+  }
+};
+
+export const descargarMiCV = async (req, res) => {
+  try {
+    const { buffer, nombre, mime } = await meService.descargarMiCV(req.usuario.sub);
+
+    res.setHeader("Content-Type", mime);
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="${encodeURIComponent(nombre)}"`
+    );
+    res.send(buffer);
+  } catch (error) {
+    responderError(res, error);
+  }
+};
+
 export const updateMisDatos = async (req, res) => {
   try {
     const empleado = await meService.updateMisDatos(req.usuario.sub, req.body);

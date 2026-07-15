@@ -9,6 +9,10 @@ import {
   updateEmpleado,
   deleteEmpleado,
   getCatalogos,
+  subirCV,
+  descargarCV,
+  eliminarCV,
+  descargarBlob,
 } from "@/services/empleados.services";
 
 import { Button } from "@/components/ui/button";
@@ -77,6 +81,11 @@ export default function Empleados() {
   // Dialog de confirmación de borrado
   const [empleadoABorrar, setEmpleadoABorrar] = useState(null);
 
+  // CV adjunto (solo en edición)
+  const [cvActual, setCvActual] = useState(null);
+  const [archivoCV, setArchivoCV] = useState(null);
+  const [subiendoCV, setSubiendoCV] = useState(false);
+
   const cargarDatos = async () => {
     try {
       const [listaEmpleados, listaCatalogos] = await Promise.all([
@@ -104,6 +113,8 @@ export default function Empleados() {
   const abrirAlta = () => {
     setEditandoId(null);
     setForm(FORM_VACIO);
+    setCvActual(null);
+    setArchivoCV(null);
     setDialogAbierto(true);
   };
 
@@ -120,7 +131,47 @@ export default function Empleados() {
       id_lugar: empleado.id_lugar ? String(empleado.id_lugar) : "",
       id_estado: empleado.id_estado ? String(empleado.id_estado) : "",
     });
+    setCvActual(empleado.cv_nombre ?? null);
+    setArchivoCV(null);
     setDialogAbierto(true);
+  };
+
+  /* ===== CV adjunto ===== */
+
+  const subirArchivoCV = async () => {
+    if (!archivoCV) return;
+    setSubiendoCV(true);
+    try {
+      const resultado = await subirCV(editandoId, archivoCV);
+      toast.success("CV subido correctamente");
+      setCvActual(resultado.data?.cv_nombre ?? archivoCV.name);
+      setArchivoCV(null);
+      await cargarDatos();
+    } catch (error) {
+      toast.error(error.response?.data?.error || "No se pudo subir el CV");
+    } finally {
+      setSubiendoCV(false);
+    }
+  };
+
+  const descargarArchivoCV = async () => {
+    try {
+      const blob = await descargarCV(editandoId);
+      descargarBlob(blob, cvActual || "cv");
+    } catch (error) {
+      toast.error(error.response?.data?.error || "No se pudo descargar el CV");
+    }
+  };
+
+  const quitarArchivoCV = async () => {
+    try {
+      await eliminarCV(editandoId);
+      toast.success("CV eliminado correctamente");
+      setCvActual(null);
+      await cargarDatos();
+    } catch (error) {
+      toast.error(error.response?.data?.error || "No se pudo eliminar el CV");
+    }
   };
 
   const setCampo = (campo) => (e) => setForm({ ...form, [campo]: e.target.value });
@@ -290,6 +341,47 @@ export default function Empleados() {
                   value={form.notas}
                   onChange={setCampo("notas")}
                 />
+              </div>
+
+              <div className="col-span-2 space-y-2">
+                <Label>CV adjunto (PDF o DOCX, máx. 5MB)</Label>
+                {!editandoId ? (
+                  <p className="text-xs text-gray-400">
+                    Guardá el empleado primero para poder adjuntar su CV.
+                  </p>
+                ) : (
+                  <>
+                    {cvActual ? (
+                      <div className="flex items-center gap-2 text-sm bg-gray-50 rounded-md px-2 py-1.5">
+                        <span className="truncate flex-1">📄 {cvActual}</span>
+                        <Button type="button" variant="outline" size="sm" onClick={descargarArchivoCV}>
+                          Descargar
+                        </Button>
+                        <Button type="button" variant="outline" size="sm" onClick={quitarArchivoCV}>
+                          Quitar
+                        </Button>
+                      </div>
+                    ) : (
+                      <p className="text-xs text-gray-400">Sin CV cargado.</p>
+                    )}
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="file"
+                        accept=".pdf,.docx"
+                        className="text-sm flex-1"
+                        onChange={(e) => setArchivoCV(e.target.files?.[0] ?? null)}
+                      />
+                      <Button
+                        type="button"
+                        size="sm"
+                        disabled={!archivoCV || subiendoCV}
+                        onClick={subirArchivoCV}
+                      >
+                        {subiendoCV ? "Subiendo..." : cvActual ? "Reemplazar" : "Subir"}
+                      </Button>
+                    </div>
+                  </>
+                )}
               </div>
               <div className="space-y-2">
                 <Label>Puesto</Label>

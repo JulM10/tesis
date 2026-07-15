@@ -2,6 +2,7 @@ import { pool } from "../config/database.js";
 import * as Queries from "../queries/empleados.queries.js";
 import { MENSAJES } from "../constantes/mensajes.js";
 import { httpError } from "../utils/httpError.js";
+import * as storage from "./storage.services.js";
 
 export const getAllEmpleados = async () => {
   const result = await pool.query(Queries.GET_ALL_EMPLEADOS);
@@ -107,6 +108,9 @@ export const updateEmpleado = async (id, empleado) => {
 };
 
 export const deleteEmpleado = async (id) => {
+  // Si tiene CV, se elimina del storage (best-effort) antes de borrar la fila
+  const cv = await pool.query(Queries.GET_CV, [id]);
+
   const result = await pool.query(
     Queries.DELETE_EMPLEADO,
     [id]
@@ -115,4 +119,90 @@ export const deleteEmpleado = async (id) => {
   if (result.rowCount === 0) {
     throw httpError(404, MENSAJES.EMPLEADOS.NO_ENCONTRADO);
   }
+
+  if (cv.rows[0]?.cv_ruta) {
+    try {
+      await storage.eliminarArchivo(cv.rows[0].cv_ruta);
+    } catch {
+      // El empleado ya se borró; un archivo huérfano en storage no es crítico
+    }
+  }
+};
+
+/* =====================================================
+   CV adjunto (el binario vive en Supabase Storage)
+   ===================================================== */
+
+const EXTENSION_POR_MIME = {
+  "application/pdf": "pdf",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "docx"
+};
+
+export const subirCV = async (id, archivo) => {
+  const existente = await pool.query(Queries.GET_CV, [id]);
+
+  if (existente.rowCount === 0) {
+    throw httpError(404, MENSAJES.EMPLEADOS.NO_ENCONTRADO);
+  }
+
+  // Ruta interna determinística y sin datos del nombre original
+  // (el nombre original solo se guarda para la descarga)
+  const extension = EXTENSION_POR_MIME[archivo.mimetype];
+  const ruta = `empleado-${id}/cv-${Date.now()}.${extension}`;
+
+  await storage.subirArchivo(ruta, archivo.buffer, archivo.mimetype);
+
+  // Si había un CV anterior, se elimina del storage
+  const rutaAnterior = existente.rows[0].cv_ruta;
+  if (rutaAnterior) {
+    await storage.eliminarArchivo(rutaAnterior);
+  }
+
+  const nombreOriginal = Buffer.from(archivo.originalname, "latin1")
+    .toString("utf8")
+    .slice(0, 200);
+
+  const result = await pool.query(Queries.SET_CV, [
+    ruta,
+    nombreOriginal,
+    archivo.mimetype,
+    id
+  ]);
+
+  return result.rows[0];
+};
+
+export const descargarCV = async (id) => {
+  const result = await pool.query(Queries.GET_CV, [id]);
+
+  if (result.rowCount === 0) {
+    throw httpError(404, MENSAJES.EMPLEADOS.NO_ENCONTRADO);
+  }
+
+  const { cv_ruta, cv_nombre, cv_mime } = result.rows[0];
+
+  if (!cv_ruta) {
+    throw httpError(404, MENSAJES.CV.NO_ENCONTRADO);
+  }
+
+  const buffer = await storage.descargarArchivo(cv_ruta);
+
+  return { buffer, nombre: cv_nombre, mime: cv_mime };
+};
+
+export const eliminarCV = async (id) => {
+  const result = await pool.query(Queries.GET_CV, [id]);
+
+  if (result.rowCount === 0) {
+    throw httpError(404, MENSAJES.EMPLEADOS.NO_ENCONTRADO);
+  }
+
+  const { cv_ruta } = result.rows[0];
+
+  if (!cv_ruta) {
+    throw httpError(404, MENSAJES.CV.NO_ENCONTRADO);
+  }
+
+  await storage.eliminarArchivo(cv_ruta);
+  await pool.query(Queries.CLEAR_CV, [id]);
 };

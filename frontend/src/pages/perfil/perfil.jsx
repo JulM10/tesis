@@ -1,7 +1,14 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import Layout from "@/components/Layout";
-import { getMe, getMisHorarios, updateMisDatos } from "@/services/me.services";
+import {
+  getMe,
+  getMisHorarios,
+  updateMisDatos,
+  subirMiCV,
+  descargarMiCV,
+} from "@/services/me.services";
+import { descargarBlob } from "@/services/empleados.services";
 import { hoyISO, soloFecha, formatearFecha, horaCorta } from "@/lib/fechas";
 
 import { Button } from "@/components/ui/button";
@@ -39,6 +46,10 @@ export default function Perfil() {
   const [dialogAbierto, setDialogAbierto] = useState(false);
   const [form, setForm] = useState({ telefono: "", direccion: "", notas: "" });
   const [guardando, setGuardando] = useState(false);
+
+  // CV propio
+  const [archivoCV, setArchivoCV] = useState(null);
+  const [subiendoCV, setSubiendoCV] = useState(false);
 
   const cargarDatos = async () => {
     try {
@@ -86,6 +97,30 @@ export default function Perfil() {
       toast.error(error.response?.data?.error || "No se pudieron guardar tus datos");
     } finally {
       setGuardando(false);
+    }
+  };
+
+  const subirArchivoCV = async () => {
+    if (!archivoCV) return;
+    setSubiendoCV(true);
+    try {
+      await subirMiCV(archivoCV);
+      toast.success("CV subido correctamente");
+      setArchivoCV(null);
+      await cargarDatos();
+    } catch (error) {
+      toast.error(error.response?.data?.error || "No se pudo subir el CV");
+    } finally {
+      setSubiendoCV(false);
+    }
+  };
+
+  const descargarArchivoCV = async () => {
+    try {
+      const blob = await descargarMiCV();
+      descargarBlob(blob, empleado?.cv_nombre || "cv");
+    } catch (error) {
+      toast.error(error.response?.data?.error || "No se pudo descargar el CV");
     }
   };
 
@@ -197,6 +232,38 @@ export default function Perfil() {
                         <span className="text-gray-500">Sobre mí:</span>{" "}
                         {empleado.notas ?? "—"}
                       </p>
+
+                      <div className="pt-2 border-t border-gray-100 space-y-2">
+                        <p className="text-gray-500 text-xs font-medium uppercase">
+                          Mi CV (PDF o DOCX, máx. 5MB)
+                        </p>
+                        {empleado.cv_nombre ? (
+                          <div className="flex items-center gap-2 bg-gray-50 rounded-md px-2 py-1.5">
+                            <span className="truncate flex-1">📄 {empleado.cv_nombre}</span>
+                            <Button type="button" variant="outline" size="sm" onClick={descargarArchivoCV}>
+                              Descargar
+                            </Button>
+                          </div>
+                        ) : (
+                          <p className="text-xs text-gray-400">Todavía no cargaste tu CV.</p>
+                        )}
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="file"
+                            accept=".pdf,.docx"
+                            className="text-sm flex-1"
+                            onChange={(e) => setArchivoCV(e.target.files?.[0] ?? null)}
+                          />
+                          <Button
+                            type="button"
+                            size="sm"
+                            disabled={!archivoCV || subiendoCV}
+                            onClick={subirArchivoCV}
+                          >
+                            {subiendoCV ? "Subiendo..." : empleado.cv_nombre ? "Reemplazar" : "Subir"}
+                          </Button>
+                        </div>
+                      </div>
                     </>
                   )}
                 </CardContent>

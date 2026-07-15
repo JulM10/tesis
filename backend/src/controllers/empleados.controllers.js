@@ -69,3 +69,43 @@ export const deleteEmpleado = async (req, res) => {
     responderError(res, error);
   }
 };
+
+export const subirCV = async (req, res) => {
+  try {
+    const resultado = await empleadosService.subirCV(req.params.id, req.file);
+
+    res.status(201).json({
+      message: MENSAJES.CV.SUBIDO_OK,
+      data: resultado
+    });
+  } catch (error) {
+    responderError(res, error);
+  }
+};
+
+export const descargarCV = async (req, res) => {
+  try {
+    const { buffer, nombre, mime } = await empleadosService.descargarCV(req.params.id);
+
+    res.setHeader("Content-Type", mime);
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="${encodeURIComponent(nombre)}"`
+    );
+    res.send(buffer);
+  } catch (error) {
+    responderError(res, error);
+  }
+};
+
+export const eliminarCV = async (req, res) => {
+  try {
+    await empleadosService.eliminarCV(req.params.id);
+
+    res.json({
+      message: MENSAJES.CV.ELIMINADO_OK
+    });
+  } catch (error) {
+    responderError(res, error);
+  }
+};

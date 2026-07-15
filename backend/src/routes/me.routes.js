@@ -1,5 +1,6 @@
 import { Router } from "express";
 import * as meController from "../controllers/me.controllers.js";
+import { subirCV } from "../middlewares/subirCV.middleware.js";
 
 const router = Router();
 
@@ -26,5 +27,17 @@ router.get("/horarios", meController.getMisHorarios);
  * Actualiza datos propios: { telefono?, direccion?, notas? }
  */
 router.put("/", meController.updateMisDatos);
+
+/**
+ * POST /api/me/cv
+ * Sube o reemplaza el CV propio (form-data, campo "cv", PDF/DOCX, máx 5MB)
+ */
+router.post("/cv", subirCV, meController.subirMiCV);
+
+/**
+ * GET /api/me/cv
+ * Descarga el CV propio
+ */
+router.get("/cv", meController.descargarMiCV);
 
 export default router;
