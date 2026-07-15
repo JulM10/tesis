@@ -381,7 +381,15 @@ Cierra §6.1 (completo), §6.2 y parte de §6.8/§6.13:
 - **Campo `notas` TEXT** en empleados (descripción/experiencia/referencias), editable por RRHH en `/empleados` y por el propio empleado en su perfil.
 - Verificado: 15 pruebas de API + navegador completo. Lint y build en verde.
 
-**Siguiente:** P3 (reportes CSV sobre `vw_reporte_*`) y P4 (tests + CI + deploy Vercel/Railway). Propuesta pendiente de aprobación: CV adjunto (PDF/DOCX) por empleado como BYTEA en Postgres.
+### 2026-07-06 — CV adjunto por empleado con Supabase Storage ✅ (commit `40d7520`)
+- Decisión (Julio): almacenamiento externo; se evaluó Cloudinary y se eligió **Supabase Storage** (bucket privado de fábrica, sin restricción de PDFs en tier gratuito). El proveedor quedó aislado en [storage.services.js](../backend/src/services/storage.services.js) — cambiarlo toca un solo archivo.
+- La descarga **siempre** pasa por el backend con RBAC (los CVs son datos personales, Ley 25.326 — nunca URL pública). Subida con multer en memoria: solo PDF/DOCX, máx 5MB.
+- Endpoints: `POST/GET/DELETE /api/empleados/:id/cv` (RRHH/admin) y `POST/GET /api/me/cv` (autogestión). UI en el dialog de empleados y en `/mi-perfil`.
+- Sin credenciales configuradas responde **503 con mensaje claro** y el resto del sistema no se ve afectado.
+- Verificado: 8 pruebas de API + UI end-to-end (falta solo el ciclo real contra Supabase, bloqueado por credenciales).
+- **PASO PENDIENTE DE JULIO:** crear proyecto gratuito en supabase.com → crear bucket **privado** llamado `cvs` (Storage → New bucket, sin marcar "public") → copiar Project URL y `service_role` key (Settings → API) a `backend/.env` → `docker restart hotel-yacanto-backend` → probar subir/descargar un PDF real.
+
+**Siguiente:** P3 (reportes CSV sobre `vw_reporte_*`) y P4 (tests + CI + deploy Vercel/Railway — recordar agregar las 3 vars de Supabase en Railway).
 
 **Deuda restante conocida:** `DATABASE_URL` para Railway (§6.8 backend), Dockerfile con CMD dev (§6.10), detalles de schema §6.12 (email/DNI en empleados, UNIQUE en catálogos, `edad`→`fecha_nacimiento`), tests y CI.
 
