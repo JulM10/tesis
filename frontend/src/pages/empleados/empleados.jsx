@@ -46,13 +46,29 @@ import {
 const FORM_VACIO = {
   nombre: "",
   apellido: "",
-  edad: "",
+  fecha_nacimiento: "",
   telefono: "",
   direccion: "",
   notas: "",
   id_puesto: "",
   id_lugar: "",
   id_estado: "",
+};
+
+// La edad no se carga: se deriva de la fecha de nacimiento
+const calcularEdad = (fechaNacimiento) => {
+  if (!fechaNacimiento) return null;
+  const hoy = new Date();
+  const nacimiento = new Date(fechaNacimiento);
+  if (isNaN(nacimiento.getTime())) return null;
+
+  let edad = hoy.getFullYear() - nacimiento.getFullYear();
+  const cumplioEsteAño =
+    hoy.getMonth() > nacimiento.getMonth() ||
+    (hoy.getMonth() === nacimiento.getMonth() && hoy.getDate() >= nacimiento.getDate());
+  if (!cumplioEsteAño) edad--;
+
+  return edad >= 0 ? edad : null;
 };
 
 // Colores de badge según estado del empleado
@@ -123,7 +139,7 @@ export default function Empleados() {
     setForm({
       nombre: empleado.nombre ?? "",
       apellido: empleado.apellido ?? "",
-      edad: empleado.edad ?? "",
+      fecha_nacimiento: (empleado.fecha_nacimiento ?? "").slice(0, 10),
       telefono: empleado.telefono ?? "",
       direccion: empleado.direccion ?? "",
       notas: empleado.notas ?? "",
@@ -180,7 +196,7 @@ export default function Empleados() {
   const armarPayload = () => ({
     nombre: form.nombre.trim(),
     apellido: form.apellido.trim(),
-    edad: form.edad === "" ? null : Number(form.edad),
+    fecha_nacimiento: form.fecha_nacimiento || null,
     telefono: form.telefono.trim() || null,
     direccion: form.direccion.trim() || null,
     notas: form.notas.trim() || null,
@@ -297,7 +313,7 @@ export default function Empleados() {
 
       {/* Dialog de alta / edición */}
       <Dialog open={dialogAbierto} onOpenChange={setDialogAbierto}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="max-w-3xl">
           <DialogHeader>
             <DialogTitle>
               {editandoId ? "Editar empleado" : "Nuevo empleado"}
@@ -310,41 +326,102 @@ export default function Empleados() {
           </DialogHeader>
 
           <form onSubmit={guardar} className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="nombre">Nombre *</Label>
-                <Input id="nombre" value={form.nombre} onChange={setCampo("nombre")} required />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="apellido">Apellido *</Label>
-                <Input id="apellido" value={form.apellido} onChange={setCampo("apellido")} required />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="edad">Edad</Label>
-                <Input id="edad" type="number" min="16" max="99" value={form.edad} onChange={setCampo("edad")} />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="telefono">Teléfono</Label>
-                <Input id="telefono" value={form.telefono} onChange={setCampo("telefono")} />
-              </div>
-              <div className="col-span-2 space-y-2">
-                <Label htmlFor="direccion">Dirección</Label>
-                <Input id="direccion" value={form.direccion} onChange={setCampo("direccion")} />
-              </div>
-              <div className="col-span-2 space-y-2">
-                <Label htmlFor="notas">Notas / Descripción</Label>
-                <textarea
-                  id="notas"
-                  rows={3}
-                  className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                  placeholder="Experiencia, referencias, temporadas trabajadas, observaciones..."
-                  value={form.notas}
-                  onChange={setCampo("notas")}
-                />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Columna izquierda: información personal y puesto */}
+              <div className="grid grid-cols-2 gap-4 content-start">
+                <div className="space-y-2">
+                  <Label htmlFor="nombre">Nombre *</Label>
+                  <Input id="nombre" value={form.nombre} onChange={setCampo("nombre")} required />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="apellido">Apellido *</Label>
+                  <Input id="apellido" value={form.apellido} onChange={setCampo("apellido")} required />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="fecha_nacimiento">Fecha de nacimiento</Label>
+                  <Input
+                    id="fecha_nacimiento"
+                    type="date"
+                    max={new Date().toISOString().slice(0, 10)}
+                    value={form.fecha_nacimiento}
+                    onChange={setCampo("fecha_nacimiento")}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edad">Edad</Label>
+                  <Input
+                    id="edad"
+                    value={calcularEdad(form.fecha_nacimiento) ?? "—"}
+                    disabled
+                    readOnly
+                    title="Se calcula automáticamente desde la fecha de nacimiento"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="telefono">Teléfono</Label>
+                  <Input id="telefono" value={form.telefono} onChange={setCampo("telefono")} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="direccion">Dirección</Label>
+                  <Input id="direccion" value={form.direccion} onChange={setCampo("direccion")} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Puesto</Label>
+                  <Select value={form.id_puesto} onValueChange={(v) => setForm({ ...form, id_puesto: v })}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Seleccionar puesto" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {catalogos.puestos.map((p) => (
+                        <SelectItem key={p.id} value={String(p.id)}>{p.nombre}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Lugar de trabajo</Label>
+                  <Select value={form.id_lugar} onValueChange={(v) => setForm({ ...form, id_lugar: v })}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Seleccionar lugar" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {catalogos.lugares.map((l) => (
+                        <SelectItem key={l.id} value={String(l.id)}>{l.nombre}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Estado</Label>
+                  <Select value={form.id_estado} onValueChange={(v) => setForm({ ...form, id_estado: v })}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Seleccionar estado" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {catalogos.estados.map((s) => (
+                        <SelectItem key={s.id} value={String(s.id)}>{s.nombre}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
 
-              <div className="col-span-2 space-y-2">
-                <Label>CV adjunto (PDF o DOCX, máx. 5MB)</Label>
+              {/* Columna derecha: descripción y CV */}
+              <div className="space-y-4 content-start">
+                <div className="space-y-2">
+                  <Label htmlFor="notas">Notas / Descripción</Label>
+                  <textarea
+                    id="notas"
+                    rows={10}
+                    className="w-full resize-none rounded-md border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    placeholder="Experiencia, referencias, temporadas trabajadas, observaciones..."
+                    value={form.notas}
+                    onChange={setCampo("notas")}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label>CV adjunto (PDF o DOCX, máx. 5MB)</Label>
                 {!editandoId ? (
                   <p className="text-xs text-gray-400">
                     Guardá el empleado primero para poder adjuntar su CV.
@@ -382,45 +459,7 @@ export default function Empleados() {
                     </div>
                   </>
                 )}
-              </div>
-              <div className="space-y-2">
-                <Label>Puesto</Label>
-                <Select value={form.id_puesto} onValueChange={(v) => setForm({ ...form, id_puesto: v })}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Seleccionar puesto" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {catalogos.puestos.map((p) => (
-                      <SelectItem key={p.id} value={String(p.id)}>{p.nombre}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>Lugar de trabajo</Label>
-                <Select value={form.id_lugar} onValueChange={(v) => setForm({ ...form, id_lugar: v })}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Seleccionar lugar" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {catalogos.lugares.map((l) => (
-                      <SelectItem key={l.id} value={String(l.id)}>{l.nombre}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>Estado</Label>
-                <Select value={form.id_estado} onValueChange={(v) => setForm({ ...form, id_estado: v })}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Seleccionar estado" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {catalogos.estados.map((s) => (
-                      <SelectItem key={s.id} value={String(s.id)}>{s.nombre}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                </div>
               </div>
             </div>
 

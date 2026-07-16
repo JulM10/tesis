@@ -8,7 +8,6 @@
     "logsBack": "docker logs hotel-yacanto-backend"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.110.6",
     "bcryptjs": "^3.0.3",
     "cors": "^2.8.5",
     "dotenv": "^16.4.0",

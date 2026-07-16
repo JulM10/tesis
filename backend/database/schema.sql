@@ -63,17 +63,10 @@ CREATE TABLE empleados (
   id_usuario INT UNIQUE,
   nombre VARCHAR(100) NOT NULL,
   apellido VARCHAR(100) NOT NULL,
-  edad INT,
   fecha_nacimiento DATE,
   telefono VARCHAR(20),
   direccion VARCHAR(200),
   notas TEXT,
-  -- CV adjunto: solo la referencia al archivo (el binario vive en
-  -- Supabase Storage, bucket privado; se accede vía backend con RBAC)
-  cv_ruta VARCHAR(300),
-  cv_nombre VARCHAR(200),
-  cv_mime VARCHAR(100),
-  cv_actualizado TIMESTAMP,
   id_puesto INT REFERENCES puestos(id),
   id_lugar INT REFERENCES lugares_trabajo(id),
   id_estado INT REFERENCES Estados(id),
@@ -96,6 +89,23 @@ CREATE TABLE asignacion_horario (
   id_empleado INT NOT NULL REFERENCES empleados(id) ON DELETE CASCADE,
   id_calendario INT NOT NULL REFERENCES calendario(id) ON DELETE CASCADE,
   UNIQUE (id_empleado, id_calendario)
+);
+
+/*
+  CV adjunto del empleado (binario en Postgres, columna BYTEA).
+  Tabla separada de "empleados" a propósito:
+  - Los SELECT del listado nunca arrastran el binario (rendimiento).
+  - Relación 1:1 forzada por PRIMARY KEY = FK.
+  - ON DELETE CASCADE: al borrar el empleado, el CV se va con él.
+  Mejora a futuro: mover el binario a un object storage (S3, Supabase,
+  Cloudflare R2) tocando solo el módulo de queries/servicio de CV.
+*/
+CREATE TABLE empleados_cv (
+  id_empleado INT PRIMARY KEY REFERENCES empleados(id) ON DELETE CASCADE,
+  nombre VARCHAR(200) NOT NULL,
+  mime VARCHAR(100) NOT NULL,
+  archivo BYTEA NOT NULL,
+  actualizado TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 /* =====================================================
@@ -164,13 +174,14 @@ SELECT
   e.id       AS empleado_id,
   e.nombre,
   e.apellido,
-  e.edad,
   e.fecha_nacimiento,
+  -- La edad no se almacena: se deriva de la fecha de nacimiento
+  EXTRACT(YEAR FROM age(e.fecha_nacimiento))::int AS edad,
   e.telefono,
   e.direccion,
   e.notas,
-  e.cv_nombre,
-  e.cv_actualizado,
+  cv.nombre      AS cv_nombre,
+  cv.actualizado AS cv_actualizado,
   e.fecha_creacion,
   e.id_puesto,
   e.id_lugar,
@@ -183,6 +194,7 @@ SELECT
   u.activo,
   r.nombre   AS rol
 FROM empleados e
+LEFT JOIN empleados_cv cv ON cv.id_empleado = e.id
 LEFT JOIN usuarios u ON u.id = e.id_usuario
 LEFT JOIN usuarios_roles ur ON ur.id_usuario = u.id
 LEFT JOIN roles r ON r.id = ur.id_rol

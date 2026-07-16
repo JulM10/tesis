@@ -2,7 +2,6 @@ import { pool } from "../config/database.js";
 import * as Queries from "../queries/empleados.queries.js";
 import { MENSAJES } from "../constantes/mensajes.js";
 import { httpError } from "../utils/httpError.js";
-import * as storage from "./storage.services.js";
 
 export const getAllEmpleados = async () => {
   const result = await pool.query(Queries.GET_ALL_EMPLEADOS);
@@ -32,7 +31,7 @@ export const createEmpleado = async (empleado) => {
     id_usuario = null,
     nombre,
     apellido,
-    edad = null,
+    fecha_nacimiento = null,
     telefono = null,
     direccion = null,
     notas = null,
@@ -48,7 +47,7 @@ export const createEmpleado = async (empleado) => {
         id_usuario,
         nombre,
         apellido,
-        edad,
+        fecha_nacimiento,
         telefono,
         direccion,
         notas,
@@ -76,7 +75,7 @@ export const updateEmpleado = async (id, empleado) => {
   const {
     nombre = null,
     apellido = null,
-    edad = null,
+    fecha_nacimiento = null,
     telefono = null,
     direccion = null,
     notas = null,
@@ -90,7 +89,7 @@ export const updateEmpleado = async (id, empleado) => {
     // (COALESCE en la query). Limitación: no permite setear un campo a NULL.
     const result = await pool.query(
       Queries.UPDATE_EMPLEADO,
-      [nombre, apellido, edad, telefono, direccion, notas, id_puesto, id_lugar, id_estado, id]
+      [nombre, apellido, fecha_nacimiento, telefono, direccion, notas, id_puesto, id_lugar, id_estado, id]
     );
 
     if (!result.rows[0]) {
@@ -108,9 +107,7 @@ export const updateEmpleado = async (id, empleado) => {
 };
 
 export const deleteEmpleado = async (id) => {
-  // Si tiene CV, se elimina del storage (best-effort) antes de borrar la fila
-  const cv = await pool.query(Queries.GET_CV, [id]);
-
+  // El CV (empleados_cv) se borra solo por ON DELETE CASCADE
   const result = await pool.query(
     Queries.DELETE_EMPLEADO,
     [id]
@@ -119,90 +116,59 @@ export const deleteEmpleado = async (id) => {
   if (result.rowCount === 0) {
     throw httpError(404, MENSAJES.EMPLEADOS.NO_ENCONTRADO);
   }
-
-  if (cv.rows[0]?.cv_ruta) {
-    try {
-      await storage.eliminarArchivo(cv.rows[0].cv_ruta);
-    } catch {
-      // El empleado ya se borró; un archivo huérfano en storage no es crítico
-    }
-  }
 };
 
 /* =====================================================
-   CV adjunto (el binario vive en Supabase Storage)
+   CV adjunto (el binario vive en Postgres, tabla empleados_cv)
    ===================================================== */
 
-const EXTENSION_POR_MIME = {
-  "application/pdf": "pdf",
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "docx"
+const validarEmpleadoExiste = async (id) => {
+  const result = await pool.query(Queries.EXISTE_EMPLEADO, [id]);
+
+  if (result.rowCount === 0) {
+    throw httpError(404, MENSAJES.EMPLEADOS.NO_ENCONTRADO);
+  }
 };
 
 export const subirCV = async (id, archivo) => {
-  const existente = await pool.query(Queries.GET_CV, [id]);
+  await validarEmpleadoExiste(id);
 
-  if (existente.rowCount === 0) {
-    throw httpError(404, MENSAJES.EMPLEADOS.NO_ENCONTRADO);
-  }
-
-  // Ruta interna determinística y sin datos del nombre original
-  // (el nombre original solo se guarda para la descarga)
-  const extension = EXTENSION_POR_MIME[archivo.mimetype];
-  const ruta = `empleado-${id}/cv-${Date.now()}.${extension}`;
-
-  await storage.subirArchivo(ruta, archivo.buffer, archivo.mimetype);
-
-  // Si había un CV anterior, se elimina del storage
-  const rutaAnterior = existente.rows[0].cv_ruta;
-  if (rutaAnterior) {
-    await storage.eliminarArchivo(rutaAnterior);
-  }
-
+  // multer entrega el nombre original en latin1; se normaliza a UTF-8
   const nombreOriginal = Buffer.from(archivo.originalname, "latin1")
     .toString("utf8")
     .slice(0, 200);
 
+  // Upsert: alta o reemplazo del CV en una sola operación atómica
   const result = await pool.query(Queries.SET_CV, [
-    ruta,
+    id,
     nombreOriginal,
     archivo.mimetype,
-    id
+    archivo.buffer
   ]);
 
   return result.rows[0];
 };
 
 export const descargarCV = async (id) => {
+  await validarEmpleadoExiste(id);
+
   const result = await pool.query(Queries.GET_CV, [id]);
 
   if (result.rowCount === 0) {
-    throw httpError(404, MENSAJES.EMPLEADOS.NO_ENCONTRADO);
-  }
-
-  const { cv_ruta, cv_nombre, cv_mime } = result.rows[0];
-
-  if (!cv_ruta) {
     throw httpError(404, MENSAJES.CV.NO_ENCONTRADO);
   }
 
-  const buffer = await storage.descargarArchivo(cv_ruta);
+  const { nombre, mime, archivo } = result.rows[0];
 
-  return { buffer, nombre: cv_nombre, mime: cv_mime };
+  return { buffer: archivo, nombre, mime };
 };
 
 export const eliminarCV = async (id) => {
-  const result = await pool.query(Queries.GET_CV, [id]);
+  await validarEmpleadoExiste(id);
+
+  const result = await pool.query(Queries.CLEAR_CV, [id]);
 
   if (result.rowCount === 0) {
-    throw httpError(404, MENSAJES.EMPLEADOS.NO_ENCONTRADO);
-  }
-
-  const { cv_ruta } = result.rows[0];
-
-  if (!cv_ruta) {
     throw httpError(404, MENSAJES.CV.NO_ENCONTRADO);
   }
-
-  await storage.eliminarArchivo(cv_ruta);
-  await pool.query(Queries.CLEAR_CV, [id]);
 };

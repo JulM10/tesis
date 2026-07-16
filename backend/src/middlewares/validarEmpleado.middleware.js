@@ -2,7 +2,7 @@ export const validarEmpleado = (req, res, next) => {
   const {
     nombre,
     apellido,
-    edad,
+    fecha_nacimiento,
     telefono,
     id_usuario
   } = req.body;
@@ -13,10 +13,20 @@ export const validarEmpleado = (req, res, next) => {
     });
   }
 
-  if (edad !== undefined && edad !== null && edad < 0) {
-    return res.status(400).json({
-      message: 'La edad no puede ser negativa'
-    });
+  if (fecha_nacimiento !== undefined && fecha_nacimiento !== null) {
+    const fecha = new Date(fecha_nacimiento);
+
+    if (isNaN(fecha.getTime())) {
+      return res.status(400).json({
+        message: 'La fecha de nacimiento no es válida'
+      });
+    }
+
+    if (fecha > new Date()) {
+      return res.status(400).json({
+        message: 'La fecha de nacimiento no puede ser futura'
+      });
+    }
   }
 
   if (telefono && telefono.length > 20) {
