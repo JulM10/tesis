@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
-import { toast } from "sonner";
 import "./login.css";
 
 import { Button } from "@/components/ui/button";
@@ -23,6 +22,7 @@ export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
   // Si ya hay sesión activa, no mostrar el login
   if (usuario) {
@@ -32,13 +32,14 @@ export default function Login() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
+    setError("");
 
     try {
       await login(email, password);
       navigate("/", { replace: true });
-    } catch (error) {
-      toast.error(
-        error.response?.data?.error || "No se pudo conectar con el servidor"
+    } catch (err) {
+      setError(
+        err.response?.data?.error || "No se pudo conectar con el servidor"
       );
     } finally {
       setLoading(false);
@@ -67,6 +68,7 @@ export default function Login() {
                   id="email"
                   type="email"
                   placeholder="usuario@hotelyacanto.com"
+                  autoComplete="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
@@ -79,6 +81,7 @@ export default function Login() {
                   id="password"
                   type="password"
                   placeholder="••••••••"
+                  autoComplete="current-password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
@@ -93,6 +96,12 @@ export default function Login() {
             >
               {loading ? "Ingresando..." : "Ingresar"}
             </Button>
+
+            {error && (
+              <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded text-red-800 text-sm">
+                {error}
+              </div>
+            )}
           </form>
         </CardContent>
       </Card>

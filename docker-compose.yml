@@ -6,6 +6,10 @@ services:
       - "3000:3000"
     env_file:
       - ./backend/.env
+    environment:
+      # Dentro de la red de Docker, la BD se llama por el nombre del servicio.
+      # Esto pisa el DB_HOST=localhost del .env (que es para npm run dev local).
+      DB_HOST: postgres
     volumes:
       - ./backend:/app
       - /app/node_modules

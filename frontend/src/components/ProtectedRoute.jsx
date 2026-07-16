@@ -1,4 +1,5 @@
 import { Navigate } from "react-router-dom";
+import { Toaster } from "sonner";
 import { useAuth } from "@/context/AuthContext";
 
 export default function ProtectedRoute({ children }) {
@@ -8,5 +9,10 @@ export default function ProtectedRoute({ children }) {
     return <Navigate to="/login" replace />;
   }
 
-  return children;
+  return (
+    <>
+      <Toaster richColors position="top-right" />
+      {children}
+    </>
+  );
 }
