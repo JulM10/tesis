@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, Navigate } from "react-router-dom";
 import { toast } from "sonner";
-import { Users, UserCheck, Plane, CalendarDays } from "lucide-react";
+import { Users, UserCheck, Plane, CalendarDays, Cake, AlertCircle } from "lucide-react";
 import Layout from "@/components/Layout";
 import { useAuth } from "@/context/AuthContext";
 import { getEmpleadosDetalle, getCatalogos } from "@/services/empleados.services";
@@ -133,6 +133,28 @@ export default function Dashboard() {
     return Object.entries(mapa).sort((a, b) => b[1] - a[1]);
   }, [empleados]);
 
+  const empleadoMasAntiguo = useMemo(() => {
+    if (empleados.length === 0) return null;
+    return empleados.reduce((antiguo, actual) => {
+      const antiguo_fecha = new Date(antiguo.fecha_creacion);
+      const actual_fecha = new Date(actual.fecha_creacion);
+      return actual_fecha < antiguo_fecha ? actual : antiguo;
+    });
+  }, [empleados]);
+
+  const cumpleañosHoy = useMemo(() => {
+    return empleados.filter((e) => {
+      if (!e.fecha_nacimiento) return false;
+      const hoyParts = hoy.split("-");
+      const fnacParts = e.fecha_nacimiento.split("-");
+      return hoyParts[1] === fnacParts[1] && hoyParts[2] === fnacParts[2];
+    });
+  }, [empleados, hoy]);
+
+  const proximosVacaciones = useMemo(() => {
+    return empleados.filter((e) => e.estado === "Vacaciones");
+  }, [empleados]);
+
   const FilaTurno = ({ turno }) => {
     const asignados = asignadosPorTurno[turno.id] ?? [];
     return (
@@ -192,7 +214,7 @@ export default function Dashboard() {
               />
               <StatCard
                 titulo="De vacaciones"
-                valor={indicadores.vacaciones}
+                valor={proximosVacaciones.length}
                 icono={<Plane className="h-6 w-6" />}
                 color="bg-yellow-100 text-yellow-700"
               />
@@ -202,6 +224,71 @@ export default function Dashboard() {
                 icono={<CalendarDays className="h-6 w-6" />}
                 color="bg-purple-100 text-purple-700"
               />
+            </div>
+
+            {/* Información especial */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              {/* Empleado más antiguo */}
+              <Card>
+                <CardContent className="flex items-center gap-4 p-4">
+                  <div className="rounded-lg p-3 bg-orange-100 text-orange-700">
+                    <Users className="h-6 w-6" />
+                  </div>
+                  <div>
+                    {empleadoMasAntiguo ? (
+                      <>
+                        <p className="text-sm font-semibold leading-none text-gray-900">
+                          {empleadoMasAntiguo.nombre} {empleadoMasAntiguo.apellido}
+                        </p>
+                        <p className="text-xs text-gray-500 mt-1">Empleado más antiguo</p>
+                      </>
+                    ) : (
+                      <p className="text-sm text-gray-500">Sin datos</p>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Cumpleaños */}
+              <Card>
+                <CardContent className="flex items-center gap-4 p-4">
+                  <div className="rounded-lg p-3 bg-pink-100 text-pink-700">
+                    <Cake className="h-6 w-6" />
+                  </div>
+                  <div>
+                    {cumpleañosHoy.length > 0 ? (
+                      <>
+                        <p className="text-sm font-semibold leading-none text-gray-900">
+                          {cumpleañosHoy.map((e) => `${e.nombre}`).join(", ")}
+                        </p>
+                        <p className="text-xs text-gray-500 mt-1">
+                          {cumpleañosHoy.length === 1 ? "Cumpleaños hoy" : "Cumpleaños hoy"}
+                        </p>
+                      </>
+                    ) : (
+                      <>
+                        <p className="text-sm font-semibold leading-none text-gray-900">—</p>
+                        <p className="text-xs text-gray-500 mt-1">Sin cumpleaños hoy</p>
+                      </>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Próximos a vacaciones */}
+              <Card>
+                <CardContent className="flex items-center gap-4 p-4">
+                  <div className="rounded-lg p-3 bg-red-100 text-red-700">
+                    <AlertCircle className="h-6 w-6" />
+                  </div>
+                  <div>
+                    <p className="text-2xl font-bold leading-none text-gray-900">
+                      {proximosVacaciones.length}
+                    </p>
+                    <p className="text-xs text-gray-500 mt-1">En vacaciones</p>
+                  </div>
+                </CardContent>
+              </Card>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">

@@ -121,23 +121,23 @@ INSERT INTO estados (nombre) VALUES
    ===================================================== */
 
 -- Empleado ACTIVO con usuario activo (caso happy path)
-INSERT INTO empleados (id_usuario,nombre,apellido,edad,telefono,direccion,id_puesto,id_lugar,id_estado)
-SELECT u.id,'Juan','Pérez',30,'3544550482','Calle Principal 123',2,1,1
+INSERT INTO empleados (id_usuario,nombre,apellido,edad,fecha_nacimiento,telefono,direccion,id_puesto,id_lugar,id_estado)
+SELECT u.id,'Juan','Pérez',30,'1996-03-10','3544550482','Calle Principal 123',2,1,1
 FROM usuarios u WHERE u.email='empleado@hotel.com';
 
 -- Empleado ACTIVO con usuario activo pero sin horarios asignados
-INSERT INTO empleados (id_usuario,nombre,apellido,edad,telefono,direccion,id_puesto,id_lugar,id_estado)
-SELECT u.id,'Ana','Gómez',28,'3511234567','Av. Siempre Viva 742',4,5,1
+INSERT INTO empleados (id_usuario,nombre,apellido,edad,fecha_nacimiento,telefono,direccion,id_puesto,id_lugar,id_estado)
+SELECT u.id,'Ana','Gómez',28,'1998-07-15','3511234567','Av. Siempre Viva 742',4,5,1
 FROM usuarios u WHERE u.email='empleado2@hotel.com';
 
 -- Empleado INACTIVO asociado a usuario inactivo
-INSERT INTO empleados (id_usuario,nombre,apellido,edad,telefono,direccion,id_puesto,id_lugar,id_estado)
-SELECT u.id,'Carlos','Ruiz',45,'3419876543','Ruta 9 Km 12',3,1,2
+INSERT INTO empleados (id_usuario,nombre,apellido,edad,fecha_nacimiento,telefono,direccion,id_puesto,id_lugar,id_estado)
+SELECT u.id,'Carlos','Ruiz',45,'1981-05-22','3419876543','Ruta 9 Km 12',3,1,2
 FROM usuarios u WHERE u.email='inactivo@hotel.com';
 
 -- Empleado SIN usuario asociado (caso onboarding / alta previa a usuario)
-INSERT INTO empleados (nombre,apellido,edad,telefono,direccion,id_puesto,id_lugar,id_estado)
-VALUES ('Lucía','Fernández',22,'3515558899','Pasaje Norte 55',2,1,1);
+INSERT INTO empleados (nombre,apellido,edad,fecha_nacimiento,telefono,direccion,id_puesto,id_lugar,id_estado)
+VALUES ('Lucía','Fernández',22,'2004-09-08','3515558899','Pasaje Norte 55',2,1,1);
 
 /* =====================================================
    CALENDARIO
