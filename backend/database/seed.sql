@@ -120,24 +120,24 @@ INSERT INTO estados (nombre) VALUES
    EMPLEADOS
    ===================================================== */
 
--- Empleado ACTIVO con usuario activo (caso happy path)
-INSERT INTO empleados (id_usuario,nombre,apellido,edad,fecha_nacimiento,telefono,direccion,id_puesto,id_lugar,id_estado)
-SELECT u.id,'Juan','Pérez',30,'1996-03-10','3544550482','Calle Principal 123',2,1,1
+-- Empleado ACTIVO con usuario activo (caso happy path) - Más antiguo (2020)
+INSERT INTO empleados (id_usuario,nombre,apellido,edad,fecha_nacimiento,telefono,direccion,id_puesto,id_lugar,id_estado,fecha_creacion)
+SELECT u.id,'Juan','Pérez',30,'1996-03-10','3544550482','Calle Principal 123',2,1,1,'2020-05-10T10:30:00Z'
 FROM usuarios u WHERE u.email='empleado@hotel.com';
 
--- Empleado ACTIVO con usuario activo pero sin horarios asignados
-INSERT INTO empleados (id_usuario,nombre,apellido,edad,fecha_nacimiento,telefono,direccion,id_puesto,id_lugar,id_estado)
-SELECT u.id,'Ana','Gómez',28,'1998-07-15','3511234567','Av. Siempre Viva 742',4,5,1
+-- Empleado ACTIVO con usuario activo pero sin horarios asignados (2022)
+INSERT INTO empleados (id_usuario,nombre,apellido,edad,fecha_nacimiento,telefono,direccion,id_puesto,id_lugar,id_estado,fecha_creacion)
+SELECT u.id,'Ana','Gómez',28,'1998-07-15','3511234567','Av. Siempre Viva 742',4,5,1,'2022-06-15T14:20:00Z'
 FROM usuarios u WHERE u.email='empleado2@hotel.com';
 
--- Empleado INACTIVO asociado a usuario inactivo
-INSERT INTO empleados (id_usuario,nombre,apellido,edad,fecha_nacimiento,telefono,direccion,id_puesto,id_lugar,id_estado)
-SELECT u.id,'Carlos','Ruiz',45,'1981-05-22','3419876543','Ruta 9 Km 12',3,1,2
+-- Empleado INACTIVO asociado a usuario inactivo (2021)
+INSERT INTO empleados (id_usuario,nombre,apellido,edad,fecha_nacimiento,telefono,direccion,id_puesto,id_lugar,id_estado,fecha_creacion)
+SELECT u.id,'Carlos','Ruiz',45,'1981-05-22','3419876543','Ruta 9 Km 12',3,1,2,'2021-11-20T09:45:00Z'
 FROM usuarios u WHERE u.email='inactivo@hotel.com';
 
--- Empleado SIN usuario asociado (caso onboarding / alta previa a usuario)
-INSERT INTO empleados (nombre,apellido,edad,fecha_nacimiento,telefono,direccion,id_puesto,id_lugar,id_estado)
-VALUES ('Lucía','Fernández',22,'2004-09-08','3515558899','Pasaje Norte 55',2,1,1);
+-- Empleado SIN usuario asociado (caso onboarding / alta previa a usuario) (2023)
+INSERT INTO empleados (nombre,apellido,edad,fecha_nacimiento,telefono,direccion,id_puesto,id_lugar,id_estado,fecha_creacion)
+VALUES ('Lucía','Fernández',22,'2004-09-08','3515558899','Pasaje Norte 55',2,1,1,'2023-01-30T11:15:00Z');
 
 /* =====================================================
    CALENDARIO

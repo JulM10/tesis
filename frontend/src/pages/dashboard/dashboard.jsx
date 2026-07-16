@@ -155,6 +155,41 @@ export default function Dashboard() {
     return empleados.filter((e) => e.estado === "Vacaciones");
   }, [empleados]);
 
+  const proximosCumpleaños = useMemo(() => {
+    const hoyDate = new Date(hoy);
+    const empleadosConFecha = empleados
+      .filter((e) => e.fecha_nacimiento)
+      .map((e) => {
+        const fnac = new Date(e.fecha_nacimiento);
+        const hoyParts = hoy.split("-");
+        const fnacParts = e.fecha_nacimiento.split("-");
+
+        let diasFalta = 0;
+        const hoyMes = parseInt(hoyParts[1]);
+        const hoyDia = parseInt(hoyParts[2]);
+        const fnacMes = parseInt(fnacParts[1]);
+        const fnacDia = parseInt(fnacParts[2]);
+
+        if (fnacMes > hoyMes || (fnacMes === hoyMes && fnacDia >= hoyDia)) {
+          diasFalta = new Date(hoyDate.getFullYear(), fnacMes - 1, fnacDia) - hoyDate;
+        } else {
+          diasFalta = new Date(hoyDate.getFullYear() + 1, fnacMes - 1, fnacDia) - hoyDate;
+        }
+
+        return { ...e, diasFalta: Math.ceil(diasFalta / (1000 * 60 * 60 * 24)) };
+      })
+      .sort((a, b) => a.diasFalta - b.diasFalta)
+      .slice(0, 5);
+
+    return empleadosConFecha;
+  }, [empleados, hoy]);
+
+  const empleadosMasAntiguos = useMemo(() => {
+    return [...empleados]
+      .sort((a, b) => new Date(a.fecha_creacion) - new Date(b.fecha_creacion))
+      .slice(0, 5);
+  }, [empleados]);
+
   const FilaTurno = ({ turno }) => {
     const asignados = asignadosPorTurno[turno.id] ?? [];
     return (
@@ -226,70 +261,77 @@ export default function Dashboard() {
               />
             </div>
 
-            {/* Información especial */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              {/* Empleado más antiguo */}
-              <Card>
-                <CardContent className="flex items-center gap-4 p-4">
-                  <div className="rounded-lg p-3 bg-orange-100 text-orange-700">
-                    <Users className="h-6 w-6" />
-                  </div>
-                  <div>
-                    {empleadoMasAntiguo ? (
-                      <>
-                        <p className="text-sm font-semibold leading-none text-gray-900">
-                          {empleadoMasAntiguo.nombre} {empleadoMasAntiguo.apellido}
+            {/* Próximos Cumpleaños */}
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Cake className="h-5 w-5 text-pink-600" />
+                  Próximo Cumpleaños
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {proximosCumpleaños.length === 0 ? (
+                  <p className="text-sm text-gray-400">No hay cumpleaños próximos</p>
+                ) : (
+                  proximosCumpleaños.map((empleado, idx) => (
+                    <div key={empleado.empleado_id} className="flex items-center gap-3 pb-3 border-b border-gray-100 last:border-0 last:pb-0">
+                      <div className="flex-shrink-0 w-10 h-10 rounded-full bg-pink-100 text-pink-700 flex items-center justify-center font-semibold text-sm">
+                        🎂
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-gray-900 truncate">
+                          {empleado.nombre} {empleado.apellido}
                         </p>
-                        <p className="text-xs text-gray-500 mt-1">Empleado más antiguo</p>
-                      </>
-                    ) : (
-                      <p className="text-sm text-gray-500">Sin datos</p>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
+                        <p className="text-xs text-gray-500">{empleado.puesto}</p>
+                      </div>
+                      <span className="flex-shrink-0 text-xs font-medium text-pink-600 bg-pink-50 px-2 py-1 rounded">
+                        En {empleado.diasFalta} días
+                      </span>
+                    </div>
+                  ))
+                )}
+              </CardContent>
+            </Card>
 
-              {/* Cumpleaños */}
-              <Card>
-                <CardContent className="flex items-center gap-4 p-4">
-                  <div className="rounded-lg p-3 bg-pink-100 text-pink-700">
-                    <Cake className="h-6 w-6" />
-                  </div>
-                  <div>
-                    {cumpleañosHoy.length > 0 ? (
-                      <>
-                        <p className="text-sm font-semibold leading-none text-gray-900">
-                          {cumpleañosHoy.map((e) => `${e.nombre}`).join(", ")}
-                        </p>
-                        <p className="text-xs text-gray-500 mt-1">
-                          {cumpleañosHoy.length === 1 ? "Cumpleaños hoy" : "Cumpleaños hoy"}
-                        </p>
-                      </>
-                    ) : (
-                      <>
-                        <p className="text-sm font-semibold leading-none text-gray-900">—</p>
-                        <p className="text-xs text-gray-500 mt-1">Sin cumpleaños hoy</p>
-                      </>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Próximos a vacaciones */}
-              <Card>
-                <CardContent className="flex items-center gap-4 p-4">
-                  <div className="rounded-lg p-3 bg-red-100 text-red-700">
-                    <AlertCircle className="h-6 w-6" />
-                  </div>
-                  <div>
-                    <p className="text-2xl font-bold leading-none text-gray-900">
-                      {proximosVacaciones.length}
-                    </p>
-                    <p className="text-xs text-gray-500 mt-1">En vacaciones</p>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
+            {/* Top 5 - Empleados Más Antiguos */}
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Users className="h-5 w-5 text-emerald-600" />
+                  Top 5 - Empleados Más Antiguos
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {empleadosMasAntiguos.length === 0 ? (
+                  <p className="text-sm text-gray-400">No hay empleados</p>
+                ) : (
+                  empleadosMasAntiguos.map((empleado, idx) => {
+                    const fechaCreacion = new Date(empleado.fecha_creacion);
+                    const hoyDate = new Date(hoy);
+                    const años = Math.max(0, Math.floor((hoyDate - fechaCreacion) / (365.25 * 24 * 60 * 60 * 1000)));
+                    const mes = fechaCreacion.toLocaleString("es-ES", { month: "short" });
+                    const año = fechaCreacion.getFullYear();
+                    return (
+                      <div key={empleado.empleado_id} className="flex items-center gap-3 pb-3 border-b border-gray-100 last:border-0 last:pb-0">
+                        <div className="flex-shrink-0 w-10 h-10 rounded-full bg-gray-200 text-gray-700 flex items-center justify-center font-bold text-sm">
+                          {idx + 1}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-semibold text-gray-900 truncate">
+                            {empleado.nombre} {empleado.apellido}
+                          </p>
+                          <p className="text-xs text-gray-500">{empleado.puesto}</p>
+                        </div>
+                        <div className="flex-shrink-0 text-right">
+                          <p className="text-sm font-semibold text-emerald-600">{años} años</p>
+                          <p className="text-xs text-gray-500">{mes} {año}</p>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </CardContent>
+            </Card>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               {/* Turnos de hoy */}
