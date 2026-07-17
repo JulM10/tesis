@@ -63,9 +63,17 @@ CREATE TABLE empleados (
   id_usuario INT UNIQUE,
   nombre VARCHAR(100) NOT NULL,
   apellido VARCHAR(100) NOT NULL,
-  fecha_nacimiento DATE,
-  telefono VARCHAR(20),
-  direccion VARCHAR(200),
+  /*
+    Datos personales cifrados con AES-256-GCM EN LA APLICACIÓN
+    (Ley 25.326, art. 9). La BD solo ve "enc:<iv>:<tag>:<cifrado>";
+    la clave vive en el backend y nunca llega a Postgres.
+    Por eso son TEXT y no DATE/VARCHAR: el cifrado ocupa más.
+    Nombre y apellido quedan en claro por proporcionalidad
+    (necesarios para listar/buscar; no son datos sensibles).
+  */
+  fecha_nacimiento TEXT,
+  telefono TEXT,
+  direccion TEXT,
   notas TEXT,
   id_puesto INT REFERENCES puestos(id),
   id_lugar INT REFERENCES lugares_trabajo(id),
@@ -174,9 +182,9 @@ SELECT
   e.id       AS empleado_id,
   e.nombre,
   e.apellido,
+  -- Cifrada: SQL no puede leerla. El backend la descifra y calcula
+  -- la edad en la capa de servicios (utils/cifrado.js).
   e.fecha_nacimiento,
-  -- La edad no se almacena: se deriva de la fecha de nacimiento
-  EXTRACT(YEAR FROM age(e.fecha_nacimiento))::int AS edad,
   e.telefono,
   e.direccion,
   e.notas,
