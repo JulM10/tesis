@@ -127,7 +127,39 @@
 
 ---
 
-## 7. Preguntas probables del tribunal (con respuesta corta)
+## 7. Base de datos: rutinas de reportes, mínimo privilegio y backups — ✅ IMPLEMENTADO
+
+### Rutinas SQL: cada herramienta para su trabajo (pregunta clásica: "¿usaron stored procedures?")
+
+| Necesidad | Herramienta | Implementación |
+|---|---|---|
+| Reportes de forma fija | **Vistas** | `vw_reporte_historial_horarios`, `vw_reporte_empleados_puesto_lugar` |
+| Agregación con parámetros | **Función** | `fn_horas_trabajadas(desde, hasta)` → turnos y horas por empleado/puesto |
+| Archivado (muta datos) | **Procedimiento** | `archivar_turnos_completados()` — el caso legítimo de un stored procedure |
+
+- **Archivado automático e idempotente:** el backend invoca el procedimiento al arrancar; copia al historial inmutable los turnos con fecha pasada y los marca (`archivado`), así correrlo dos veces no duplica. Verificado: 20 turnos archivados en el primer arranque, 0 duplicados al reiniciar.
+- **El historial funciona sin descifrar nada:** guarda solo datos operativos + nombres (en claro por proporcionalidad). Los reportes y el CSV se resuelven 100% en SQL a pesar del cifrado — el diseño desnormalizado y el criterio de qué cifrar encajan solos.
+- Índices para reportes: `historial(fecha)`, `historial(puesto)`, más un índice parcial para el archivador (`WHERE NOT archivado`).
+
+### Mínimo privilegio: el backend no es superusuario
+
+- El backend se conecta como **`hotel_app`**: solo SELECT/INSERT/UPDATE/DELETE sobre las tablas de la app. **Sin DDL** — verificado: `DROP TABLE` y `CREATE TABLE` fallan con permission denied.
+- Si comprometen el backend, no pueden alterar ni destruir el esquema. El superusuario `postgres` queda solo para administración (`docker exec`).
+- **Defensa en profundidad** (frase para el tribunal): RBAC en la app (permisos por rol) + rol de BD con mínimos privilegios + cifrado de datos personales + hash de credenciales — cuatro capas independientes; comprometer una no rinde las demás.
+
+### Superficie de red reducida
+
+- El puerto 5432 quedó atado a `127.0.0.1`: Postgres es invisible desde la red; solo el backend (red interna de Docker) y la propia máquina llegan a él.
+
+### Backups (el documento de tesis los promete — gap cerrado)
+
+- `npm run db:backup` / `db:restore`: `pg_dump -Fc` vía Docker, retención de 7 dumps, `backups/` fuera del repo. Detalle operativo en [backups.md](backups.md).
+- **Punto fuerte:** los backups son **seguros por diseño** — los datos personales dentro del dump están cifrados, así que un backup robado tampoco expone nada. Contracara honesta: la `DATA_ENCRYPTION_KEY` se resguarda por separado; sin ella el backup es irrecuperable.
+- **Restore ensayado** (17/07/2026): borrado de 17 empleados → restore → 20 empleados y el historial de vuelta, API descifrando normal.
+
+---
+
+## 8. Preguntas probables del tribunal (con respuesta corta)
 
 **"¿Por qué no encriptaron toda la base?"**
 → Proporcionalidad: se protege el dato personal (25.326), no el operativo. Encriptar todo rompe búsquedas/índices sin beneficio real. Las credenciales van con hash, que es más fuerte que encriptar.
@@ -144,9 +176,18 @@
 **"¿Por qué un turno no puede cruzar la medianoche?"**
 → Limitación conocida y documentada en el schema (`CHECK hora_fin > hora_inicio`). Decisión consciente de alcance; la extensión es conocida (fecha_fin o turnos partidos).
 
+**"¿Tienen estrategia de backups?"**
+→ Sí: `pg_dump` comprimido con retención de 7, restore documentado y **ensayado**. Y por el cifrado, un backup robado no expone datos personales — la clave se resguarda por separado.
+
+**"¿Usaron procedimientos almacenados?"**
+→ Sí, donde corresponde: un procedimiento para el archivado del historial (muta datos, transaccional, idempotente). Para lecturas usamos vistas, y una función SQL parametrizada para agregaciones por rango de fechas. Cada herramienta para su trabajo.
+
+**"¿Qué pasa si comprometen el servidor backend?"**
+→ El rol de BD `hotel_app` no tiene DDL: no pueden alterar ni tirar el esquema. Las contraseñas siguen siendo hashes irreversibles. Lo que sí obtendrían es la clave de cifrado (vive en el backend) — por eso la mejora a futuro documentada es un gestor de secretos (KMS/Vault).
+
 ---
 
-## 8. Verificaciones hechas (por si piden evidencia)
+## 9. Verificaciones hechas (por si piden evidencia)
 
 - Ciclo completo de CV probado por API y UI: subir → vincular → descargar (binario idéntico, verificado con `cmp`) → reemplazar → eliminar.
 - Validaciones de borde: fecha de nacimiento futura rechazada (400); MIME de CV restringido a PDF/DOCX; máximo 5MB.
@@ -154,3 +195,8 @@
 - Login con usuario inactivo bloqueado; usuario sin rol loguea sin permisos.
 - Cifrado: en psql los campos personales muestran `enc:...` y el CV no arranca con `%PDF`; la API devuelve todo en claro; adulterar un byte en la BD produce error 500 con mensaje de integridad (GCM); el CV descargado tras cifrar/descifrar es idéntico byte a byte al original.
 - Dashboard (cumpleaños, top antigüedad, turnos asignados) y perfil funcionan igual que antes del cifrado — el frontend no se tocó.
+- Archivado: 20 turnos pasados copiados al historial en el primer arranque; reiniciar el backend no duplica (idempotencia verificada).
+- `fn_horas_trabajadas('2026-07-01','2026-07-31')` devuelve turnos y horas agregadas por empleado/puesto.
+- Mínimo privilegio: `DROP TABLE` y `CREATE TABLE` como `hotel_app` fallan con permission denied; la API opera normal con ese rol.
+- Puerto: `docker port` confirma 5432 → solo `127.0.0.1`.
+- Backup/restore: dump de 50KB, borrado intencional de 17 empleados, restore, y los 20 empleados + historial de vuelta con la API descifrando normal.

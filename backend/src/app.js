@@ -8,6 +8,7 @@ import authRoutes from "./routes/auth.routes.js";
 import catalogosRoutes from "./routes/catalogos.routes.js";
 import usuariosRoutes from "./routes/usuarios.routes.js";
 import meRoutes from "./routes/me.routes.js";
+import reportesRoutes from "./routes/reportes.routes.js";
 import { autenticar } from "./middlewares/auth.middleware.js";
 
 
@@ -33,6 +34,7 @@ app.use("/api/horarios", autenticar, horariosRoutes);
 app.use("/api/catalogos", autenticar, catalogosRoutes);
 app.use("/api/usuarios", autenticar, usuariosRoutes);
 app.use("/api/me", autenticar, meRoutes);
+app.use("/api/reportes", autenticar, reportesRoutes);
 
 // Middleware 404
 app.use((req, res) => {

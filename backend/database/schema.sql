@@ -96,6 +96,9 @@ CREATE TABLE asignacion_horario (
   id SERIAL PRIMARY KEY,
   id_empleado INT NOT NULL REFERENCES empleados(id) ON DELETE CASCADE,
   id_calendario INT NOT NULL REFERENCES calendario(id) ON DELETE CASCADE,
+  -- Marca de archivado: true cuando el turno ya fue copiado al historial
+  -- por archivar_turnos_completados(). Evita duplicados (idempotencia).
+  archivado BOOLEAN NOT NULL DEFAULT false,
   UNIQUE (id_empleado, id_calendario)
 );
 
@@ -142,6 +145,12 @@ CREATE INDEX idx_empleado_usuario ON empleados(id_usuario);
 CREATE INDEX idx_empleado_puesto ON empleados(id_puesto);
 CREATE INDEX idx_calendario_puesto ON calendario(id_puesto);
 CREATE INDEX idx_asignacion_empleado ON asignacion_horario(id_empleado);
+
+-- Reportes: el historial se filtra por rango de fechas y por puesto
+CREATE INDEX idx_historial_fecha ON asignacion_horario_historial(fecha);
+CREATE INDEX idx_historial_puesto ON asignacion_horario_historial(puesto);
+-- Índice parcial: el archivador solo busca turnos NO archivados
+CREATE INDEX idx_asignacion_no_archivada ON asignacion_horario(id) WHERE NOT archivado;
 
 /* =====================================================
    VISTAS
@@ -263,3 +272,97 @@ SELECT
   fecha_registro
 FROM asignacion_horario_historial
 ORDER BY fecha_registro DESC;
+
+/* =====================================================
+   RUTINAS DE REPORTES
+   Cada herramienta para su trabajo:
+   - Vistas: reportes de forma fija (solo lectura)
+   - Función: agregaciones parametrizadas (rango de fechas)
+   - Procedimiento: archivado (muta datos, transaccional)
+   El historial guarda solo datos operativos + nombres (en
+   claro por proporcionalidad), por lo que los reportes
+   funcionan 100% en SQL sin descifrar nada.
+   ===================================================== */
+
+/*
+  Procedimiento: archivar_turnos_completados
+  Copia al historial los turnos con fecha pasada que aún no
+  fueron archivados y los marca (idempotente: correr dos veces
+  no duplica). El backend lo invoca al arrancar.
+  Devuelve en el parámetro INOUT la cantidad archivada.
+  El puesto registrado es el del turno (qué rol se cubrió);
+  el lugar, el del empleado.
+*/
+CREATE PROCEDURE archivar_turnos_completados(INOUT archivados INT)
+LANGUAGE plpgsql AS $$
+BEGIN
+  WITH pendientes AS (
+    SELECT ah.id, e.nombre, e.apellido,
+           COALESCE(pt.nombre, pe.nombre, 'Sin puesto') AS puesto,
+           COALESCE(l.nombre, 'Sin lugar') AS lugar,
+           c.fecha, c.hora_inicio, c.hora_fin
+    FROM asignacion_horario ah
+    JOIN calendario c ON c.id = ah.id_calendario
+    JOIN empleados e ON e.id = ah.id_empleado
+    LEFT JOIN puestos pt ON pt.id = c.id_puesto
+    LEFT JOIN puestos pe ON pe.id = e.id_puesto
+    LEFT JOIN lugares_trabajo l ON l.id = e.id_lugar
+    WHERE c.fecha < CURRENT_DATE
+      AND NOT ah.archivado
+  ),
+  insertados AS (
+    INSERT INTO asignacion_horario_historial
+      (empleado_nombre, empleado_apellido, puesto, lugar_trabajo, fecha, hora_inicio, hora_fin)
+    SELECT nombre, apellido, puesto, lugar, fecha, hora_inicio, hora_fin
+    FROM pendientes
+    RETURNING 1
+  )
+  UPDATE asignacion_horario
+  SET archivado = true
+  WHERE id IN (SELECT id FROM pendientes);
+
+  GET DIAGNOSTICS archivados = ROW_COUNT;
+END;
+$$;
+
+/*
+  Función: fn_horas_trabajadas
+  Agregación parametrizada sobre el historial: turnos y horas
+  trabajadas por empleado y puesto en un rango de fechas.
+  Base del reporte con filtros y del export CSV.
+*/
+CREATE FUNCTION fn_horas_trabajadas(p_desde DATE, p_hasta DATE)
+RETURNS TABLE (
+  empleado_nombre VARCHAR,
+  empleado_apellido VARCHAR,
+  puesto VARCHAR,
+  turnos BIGINT,
+  horas NUMERIC
+)
+LANGUAGE sql STABLE AS $$
+  SELECT
+    empleado_nombre,
+    empleado_apellido,
+    puesto,
+    COUNT(*) AS turnos,
+    ROUND(SUM(EXTRACT(EPOCH FROM (hora_fin - hora_inicio)) / 3600)::numeric, 2) AS horas
+  FROM asignacion_horario_historial
+  WHERE fecha BETWEEN p_desde AND p_hasta
+  GROUP BY empleado_nombre, empleado_apellido, puesto
+  ORDER BY horas DESC;
+$$;
+
+/* =====================================================
+   SEGURIDAD: ROL DE APLICACIÓN CON MÍNIMOS PRIVILEGIOS
+   El backend NO se conecta como superusuario: usa hotel_app,
+   que solo puede hacer DML (SELECT/INSERT/UPDATE/DELETE) sobre
+   las tablas de la app. Sin DDL: si comprometen el backend, no
+   pueden alterar ni tirar el esquema. El superusuario postgres
+   queda solo para administración (docker exec).
+   ===================================================== */
+
+CREATE ROLE hotel_app LOGIN PASSWORD 'hotel_app_dev_2026';
+
+GRANT USAGE ON SCHEMA public TO hotel_app;
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO hotel_app;
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO hotel_app;

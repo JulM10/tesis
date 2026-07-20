@@ -45,6 +45,11 @@ export default function Layout({ children }) {
                   Usuarios
                 </Link>
               )}
+              {tienePermiso("REPORTES_VER") && (
+                <Link className={linkClass("/reportes")} to="/reportes">
+                  Reportes
+                </Link>
+              )}
               <Link className={linkClass("/mi-perfil")} to="/mi-perfil">
                 Mi perfil
               </Link>

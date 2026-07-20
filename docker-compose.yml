@@ -25,7 +25,10 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
     ports:
-      - "5432:5432"
+      # Solo loopback: accesible desde esta máquina (psql local),
+      # invisible para el resto de la red. El backend le pega por
+      # la red interna de Docker, no por este puerto.
+      - "127.0.0.1:5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./backend/database/schema.sql:/docker-entrypoint-initdb.d/01_schema.sql:ro

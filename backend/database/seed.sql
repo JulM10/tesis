@@ -23,7 +23,8 @@ INSERT INTO permisos (nombre) VALUES
 ('CALENDARIO_VER'),
 ('CALENDARIO_CREAR'),
 ('CALENDARIO_EDITAR'),
-('CALENDARIO_ELIMINAR');
+('CALENDARIO_ELIMINAR'),
+('REPORTES_VER');
 
 /* =====================================================
    ROLES → PERMISOS

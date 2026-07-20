@@ -5,6 +5,9 @@ npm-debug.log*
 # Env
 .env
 
+# Backups de la BD (contienen datos; nunca al repo)
+backups/
+
 # Build
 dist/
 

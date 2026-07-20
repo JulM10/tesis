@@ -5,6 +5,7 @@ import Empleados from './pages/empleados/empleados.jsx';
 import Calendario from './pages/calendario/calendario.jsx';
 import Usuarios from './pages/usuarios/usuarios.jsx';
 import Perfil from './pages/perfil/perfil.jsx';
+import Reportes from './pages/reportes/reportes.jsx';
 import ProtectedRoute from './components/ProtectedRoute.jsx';
 
 export default function Router() {
@@ -53,6 +54,15 @@ export default function Router() {
         element={
           <ProtectedRoute>
             <Perfil />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/reportes"
+        element={
+          <ProtectedRoute>
+            <Reportes />
           </ProtectedRoute>
         }
       />
