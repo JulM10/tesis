@@ -35,10 +35,16 @@ SELECT r.id, p.id
 FROM roles r, permisos p
 WHERE r.nombre = 'ADMINISTRADOR';
 
+/*
+  RRHH gestiona empleados, calendario y reportes, pero la administración
+  de CUENTAS (crear/editar/eliminar usuarios, resetear contraseñas, cambiar
+  roles) es exclusiva del ADMINISTRADOR. RRHH conserva USUARIOS_VER para
+  consultar el listado en modo lectura, pero no los permisos que mutan.
+*/
 INSERT INTO roles_permisos
 SELECT r.id, p.id
 FROM roles r
-JOIN permisos p ON p.nombre <> 'USUARIOS_ELIMINAR'
+JOIN permisos p ON p.nombre NOT IN ('USUARIOS_CREAR', 'USUARIOS_EDITAR', 'USUARIOS_ELIMINAR')
 WHERE r.nombre = 'RRHH';
 
 /*
@@ -66,13 +72,19 @@ WHERE r.nombre = 'EMPLEADO';
   inactivo@hotel.com  → Inactivo123!  (no puede loguear: activo = false)
   sinrol@hotel.com    → Sinrol123!    (loguea pero sin permisos)
 */
-INSERT INTO usuarios (email, password_hash, activo) VALUES
-('admin@hotel.com',    '$2b$10$45Q30PUV25yBDDFCUSWF0.ZmocJmoa5LE6ECFhYe3QibPCLi4PZFi', true),
-('rrhh@hotel.com',     '$2b$10$k9jtyHf5kVCji88wNESS.Om.yqP8fkxu2cLALd4xbTziYJ3N7/Iya', true),
-('empleado@hotel.com', '$2b$10$t7VcEeUniVKpc.fdbVT4k.MNZxwVc7NJAD0ZkNcaBO6ZEocbRjSZ2', true),
-('empleado2@hotel.com','$2b$10$6UBLfVdYv0HxtHgWb1POuu4LVG1AzzbF/JIWhhCLjdbnP9vvtjmza', true),
-('inactivo@hotel.com', '$2b$10$fTAFEYlxhIxWZRCl2PH.yuaJmNYD46cBek4RZrm7XP8M5MmAEPueW', false),
-('sinrol@hotel.com',   '$2b$10$Cl2F.3V8KNZe1FwQNbGJBOch2Sk.S8kKoSBiXIyb930hpRSzKCu2C', true);
+/*
+  debe_cambiar_password = false en los usuarios demo: sus passwords son
+  conocidas y documentadas acá arriba, se usan para probar la API con
+  Postman. Las cuentas que crea el sistema al dar de alta un empleado sí
+  nacen con el flag en true (DEFAULT del schema).
+*/
+INSERT INTO usuarios (email, password_hash, activo, debe_cambiar_password) VALUES
+('admin@hotel.com',    '$2b$10$45Q30PUV25yBDDFCUSWF0.ZmocJmoa5LE6ECFhYe3QibPCLi4PZFi', true,  false),
+('rrhh@hotel.com',     '$2b$10$k9jtyHf5kVCji88wNESS.Om.yqP8fkxu2cLALd4xbTziYJ3N7/Iya', true,  false),
+('empleado@hotel.com', '$2b$10$t7VcEeUniVKpc.fdbVT4k.MNZxwVc7NJAD0ZkNcaBO6ZEocbRjSZ2', true,  false),
+('empleado2@hotel.com','$2b$10$6UBLfVdYv0HxtHgWb1POuu4LVG1AzzbF/JIWhhCLjdbnP9vvtjmza', true,  false),
+('inactivo@hotel.com', '$2b$10$fTAFEYlxhIxWZRCl2PH.yuaJmNYD46cBek4RZrm7XP8M5MmAEPueW', false, false),
+('sinrol@hotel.com',   '$2b$10$Cl2F.3V8KNZe1FwQNbGJBOch2Sk.S8kKoSBiXIyb930hpRSzKCu2C', true,  false);
 
 /* =====================================================
    USUARIOS → ROLES
@@ -127,69 +139,69 @@ INSERT INTO estados (nombre) VALUES
    ===================================================== */
 
 /* =====================================================
-   CALENDARIO (Semana del 15-21 de julio de 2026)
+   CALENDARIO (Semana del 01-07 de agosto de 2026)
    ===================================================== */
 
--- LUNES 15/07 (Mozo - Puesto 1)
+-- VIERNES 01/08 (Mozo - Puesto 1)
 INSERT INTO calendario (fecha, hora_inicio, hora_fin, id_puesto) VALUES
-('2026-07-15', '08:00', '16:00', 1),
-('2026-07-15', '16:00', '23:00', 1);
+('2026-08-01', '08:00', '16:00', 1),
+('2026-08-01', '16:00', '23:00', 1);
 
--- LUNES 15/07 (Cocinero - Puesto 2)
+-- VIERNES 01/08 (Cocinero - Puesto 2)
 INSERT INTO calendario (fecha, hora_inicio, hora_fin, id_puesto) VALUES
-('2026-07-15', '09:00', '17:00', 2),
-('2026-07-15', '17:00', '22:00', 2);
+('2026-08-01', '09:00', '17:00', 2),
+('2026-08-01', '17:00', '22:00', 2);
 
--- LUNES 15/07 (Mantenimiento - Puesto 3)
+-- VIERNES 01/08 (Mantenimiento - Puesto 3)
 INSERT INTO calendario (fecha, hora_inicio, hora_fin, id_puesto) VALUES
-('2026-07-15', '07:00', '15:00', 3);
+('2026-08-01', '07:00', '15:00', 3);
 
--- LUNES 15/07 (Mucama - Puesto 4)
+-- VIERNES 01/08 (Mucama - Puesto 4)
 INSERT INTO calendario (fecha, hora_inicio, hora_fin, id_puesto) VALUES
-('2026-07-15', '10:00', '18:00', 4),
-('2026-07-15', '18:00', '23:00', 4);
+('2026-08-01', '10:00', '18:00', 4),
+('2026-08-01', '18:00', '23:00', 4);
 
--- MARTES 16/07
+-- SÁBADO 02/08
 INSERT INTO calendario (fecha, hora_inicio, hora_fin, id_puesto) VALUES
-('2026-07-16', '08:00', '16:00', 1),
-('2026-07-16', '09:00', '17:00', 2),
-('2026-07-16', '07:00', '15:00', 3),
-('2026-07-16', '10:00', '18:00', 4);
+('2026-08-02', '08:00', '16:00', 1),
+('2026-08-02', '09:00', '17:00', 2),
+('2026-08-02', '07:00', '15:00', 3),
+('2026-08-02', '10:00', '18:00', 4);
 
--- MIÉRCOLES 17/07
+-- DOMINGO 03/08
 INSERT INTO calendario (fecha, hora_inicio, hora_fin, id_puesto) VALUES
-('2026-07-17', '16:00', '23:00', 1),
-('2026-07-17', '17:00', '22:00', 2),
-('2026-07-17', '08:00', '16:00', 3),
-('2026-07-17', '18:00', '23:00', 4);
+('2026-08-03', '16:00', '23:00', 1),
+('2026-08-03', '17:00', '22:00', 2),
+('2026-08-03', '08:00', '16:00', 3),
+('2026-08-03', '18:00', '23:00', 4);
 
--- JUEVES 18/07
+-- LUNES 04/08
 INSERT INTO calendario (fecha, hora_inicio, hora_fin, id_puesto) VALUES
-('2026-07-18', '08:00', '16:00', 1),
-('2026-07-18', '09:00', '17:00', 2),
-('2026-07-18', '16:00', '23:00', 3),
-('2026-07-18', '10:00', '18:00', 4);
+('2026-08-04', '08:00', '16:00', 1),
+('2026-08-04', '09:00', '17:00', 2),
+('2026-08-04', '16:00', '23:00', 3),
+('2026-08-04', '10:00', '18:00', 4);
 
--- VIERNES 19/07
+-- MARTES 05/08
 INSERT INTO calendario (fecha, hora_inicio, hora_fin, id_puesto) VALUES
-('2026-07-19', '08:00', '16:00', 1),
-('2026-07-19', '09:00', '17:00', 2),
-('2026-07-19', '07:00', '15:00', 3),
-('2026-07-19', '18:00', '23:00', 4);
+('2026-08-05', '08:00', '16:00', 1),
+('2026-08-05', '09:00', '17:00', 2),
+('2026-08-05', '07:00', '15:00', 3),
+('2026-08-05', '18:00', '23:00', 4);
 
--- SÁBADO 20/07
+-- MIÉRCOLES 06/08
 INSERT INTO calendario (fecha, hora_inicio, hora_fin, id_puesto) VALUES
-('2026-07-20', '16:00', '23:00', 1),
-('2026-07-20', '17:00', '22:00', 2),
-('2026-07-20', '08:00', '16:00', 3),
-('2026-07-20', '10:00', '18:00', 4);
+('2026-08-06', '16:00', '23:00', 1),
+('2026-08-06', '17:00', '22:00', 2),
+('2026-08-06', '08:00', '16:00', 3),
+('2026-08-06', '10:00', '18:00', 4);
 
--- DOMINGO 21/07
+-- JUEVES 07/08
 INSERT INTO calendario (fecha, hora_inicio, hora_fin, id_puesto) VALUES
-('2026-07-21', '08:00', '16:00', 1),
-('2026-07-21', '09:00', '17:00', 2),
-('2026-07-21', '16:00', '23:00', 3),
-('2026-07-21', '10:00', '18:00', 4);
+('2026-08-07', '08:00', '16:00', 1),
+('2026-08-07', '09:00', '17:00', 2),
+('2026-08-07', '16:00', '23:00', 3),
+('2026-08-07', '10:00', '18:00', 4);
 
 /* =====================================================
    ASIGNACIÓN HORARIA: se carga junto con los empleados

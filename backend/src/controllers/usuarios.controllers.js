@@ -55,6 +55,29 @@ export const updateUsuario = async (req, res) => {
   }
 };
 
+export const resetPassword = async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+
+    // El admin no se resetea a sí mismo desde acá: para cambiar su propia
+    // clave está POST /api/auth/cambiar-password (que exige la actual).
+    if (id === req.usuario.sub) {
+      return res.status(400).json({
+        error: MENSAJES.USUARIOS.NO_AUTORESET
+      });
+    }
+
+    const resultado = await usuariosService.resetPassword(id);
+
+    res.json({
+      message: MENSAJES.USUARIOS.PASSWORD_RESETEADA,
+      data: resultado
+    });
+  } catch (error) {
+    responderError(res, error);
+  }
+};
+
 export const deleteUsuario = async (req, res) => {
   try {
     const id = Number(req.params.id);

@@ -2,7 +2,7 @@
   "info": {
     "name": "RRHH API - Backend",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
-    "description": "Colección de APIs del sistema RRHH (Auth, Empleados, Calendario y Horarios).\n\nUso: ejecutar primero 'POST - Login' (carpeta Auth). El token se guarda solo en la variable TOKEN y el resto de los requests lo usan automáticamente.\n\nUsuarios demo (ver backend/database/seed.sql): admin@hotel.com / Admin123!, rrhh@hotel.com / Rrhh123!, empleado@hotel.com / Empleado123!"
+    "description": "Colección de APIs del sistema RRHH (Auth, Empleados, Calendario y Horarios).\n\nUso: ejecutar primero 'POST - Login' (carpeta Auth). El token se guarda solo en la variable TOKEN y el resto de los requests lo usan automáticamente.\n\nUsuarios demo (ver backend/database/seed.sql): admin@hotel.com / Admin123!, rrhh@hotel.com / Rrhh123!, empleado@hotel.com / Empleado123!\n\nNota: al crear un empleado (POST - Crear empleado) se provisiona automáticamente su cuenta de acceso. La respuesta trae la contraseña inicial una única vez; el empleado debe cambiarla en el primer login (POST - Cambiar contraseña)."
   },
   "auth": {
     "type": "bearer",
@@ -44,7 +44,25 @@
               "raw": "{{BASE_URL}}/auth/login",
               "host": ["{{BASE_URL}}"],
               "path": ["auth", "login"]
-            }
+            },
+            "description": "La respuesta incluye usuario.debe_cambiar_password. Si es true, la cuenta todavía tiene su contraseña inicial y el frontend obliga a cambiarla antes de operar."
+          }
+        },
+        {
+          "name": "POST - Cambiar contraseña",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"password_actual\": \"Admin123!\",\n  \"password_nueva\": \"NuevaClave2026\"\n}"
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/auth/cambiar-password",
+              "host": ["{{BASE_URL}}"],
+              "path": ["auth", "cambiar-password"]
+            },
+            "description": "Rota la contraseña del usuario autenticado (usa el TOKEN) y baja el flag debe_cambiar_password. Exige la contraseña actual, la nueva debe tener 8+ caracteres y ser distinta de la actual."
           }
         }
       ]
@@ -81,13 +99,14 @@
             "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"nombre\": \"Juan\",\n  \"apellido\": \"Pérez\",\n  \"edad\": 30,\n  \"id_puesto\": 1,\n  \"id_lugar\": 1\n}"
+              "raw": "{\n  \"nombre\": \"Juan\",\n  \"apellido\": \"Pérez\",\n  \"dni\": \"20123456\",\n  \"email\": \"juan.perez.demo@hotel.com\",\n  \"fecha_nacimiento\": \"1995-04-12\",\n  \"telefono\": \"3544550482\",\n  \"direccion\": \"Calle Falsa 123\",\n  \"id_puesto\": 1,\n  \"id_lugar\": 1,\n  \"id_estado\": 1\n}"
             },
             "url": {
               "raw": "{{BASE_URL}}/empleados",
               "host": ["{{BASE_URL}}"],
               "path": ["empleados"]
-            }
+            },
+            "description": "Crea el empleado Y su cuenta de acceso en una sola transacción. email y dni son obligatorios. La respuesta incluye 'password_inicial' (Nombre+Apellido+últimos 4 del DNI, ej. JuanPerez3456): es la única vez que la contraseña viaja en claro. La cuenta nace con debe_cambiar_password = true."
           }
         },
         {
@@ -97,13 +116,14 @@
             "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"nombre\": \"Juan\",\n  \"apellido\": \"Gómez\",\n  \"edad\": 31,\n  \"id_puesto\": 2,\n  \"id_lugar\": 1\n}"
+              "raw": "{\n  \"nombre\": \"Juan\",\n  \"apellido\": \"Gómez\",\n  \"dni\": \"20123456\",\n  \"telefono\": \"3544550482\",\n  \"id_puesto\": 2,\n  \"id_lugar\": 1,\n  \"id_estado\": 1\n}"
             },
             "url": {
               "raw": "{{BASE_URL}}/empleados/1",
               "host": ["{{BASE_URL}}"],
               "path": ["empleados", "1"]
-            }
+            },
+            "description": "Actualización parcial: los campos omitidos conservan su valor. El email NO se edita acá (vive en usuarios): se administra desde el módulo de usuarios."
           }
         },
         {
@@ -115,6 +135,75 @@
               "host": ["{{BASE_URL}}"],
               "path": ["empleados", "1"]
             }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Usuarios",
+      "description": "Gestión de cuentas. Todas las mutaciones requieren rol ADMINISTRADOR (loguear con admin@hotel.com). Con RRHH devuelven 403.",
+      "item": [
+        {
+          "name": "GET - Listar usuarios",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{BASE_URL}}/usuarios",
+              "host": ["{{BASE_URL}}"],
+              "path": ["usuarios"]
+            }
+          }
+        },
+        {
+          "name": "GET - Listar roles",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{BASE_URL}}/usuarios/roles",
+              "host": ["{{BASE_URL}}"],
+              "path": ["usuarios", "roles"]
+            }
+          }
+        },
+        {
+          "name": "PUT - Editar usuario (email/rol/estado)",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"nuevo.email@hotel.com\",\n  \"id_rol\": 2,\n  \"activo\": true\n}"
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/usuarios/8",
+              "host": ["{{BASE_URL}}"],
+              "path": ["usuarios", "8"]
+            },
+            "description": "Actualiza solo los campos enviados. email valida formato (400) y unicidad (409). Solo ADMINISTRADOR."
+          }
+        },
+        {
+          "name": "POST - Resetear contraseña",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{BASE_URL}}/usuarios/8/reset-password",
+              "host": ["{{BASE_URL}}"],
+              "path": ["usuarios", "8", "reset-password"]
+            },
+            "description": "Genera una contraseña temporal aleatoria (se muestra una vez en 'data.password_temporal') y fuerza el cambio en el próximo login. No permite resetearse a uno mismo. Solo ADMINISTRADOR."
+          }
+        },
+        {
+          "name": "DELETE - Eliminar usuario",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{BASE_URL}}/usuarios/8",
+              "host": ["{{BASE_URL}}"],
+              "path": ["usuarios", "8"]
+            },
+            "description": "El empleado vinculado se conserva (id_usuario queda NULL). No permite auto-eliminarse. Solo ADMINISTRADOR."
           }
         }
       ]

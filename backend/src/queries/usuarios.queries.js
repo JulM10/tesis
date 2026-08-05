@@ -51,6 +51,26 @@ WHERE id = $2
 RETURNING id, email, activo;
 `;
 
+export const UPDATE_USUARIO_EMAIL = `
+UPDATE usuarios
+SET email = $1
+WHERE id = $2
+RETURNING id, email, activo;
+`;
+
+/*
+  Reset de contraseña por el administrador: fija un hash nuevo y vuelve a
+  levantar debe_cambiar_password para que el usuario la cambie al ingresar.
+  El id sale del path param, nunca del body.
+*/
+export const RESET_PASSWORD = `
+UPDATE usuarios
+SET password_hash = $1,
+    debe_cambiar_password = TRUE
+WHERE id = $2
+RETURNING id, email;
+`;
+
 export const DELETE_USUARIO = `
 DELETE FROM usuarios
 WHERE id = $1;

@@ -183,7 +183,7 @@ Nota: turnos que cruzan medianoche (23:00–07:00) no están soportados por el m
 
 ### 6.12 Detalles de schema 🟡
 - `edad INT` envejece: guardar `fecha_nacimiento DATE` y calcular la edad.
-- La tesis (CU01 y diccionario) pide **email/teléfono del empleado y detección de duplicados**; la tabla `empleados` no tiene email ni DNI, así que no hay forma de detectar duplicados reales.
+- ✅ **Resuelto (email/DNI):** el empleado ya tiene email (vía su `usuarios.email`, `UNIQUE`) y DNI (cifrado en `empleados.dni`). El alta provisiona la cuenta automáticamente. Duplicados: el **email** sí se detecta (UNIQUE → 409); el **DNI no**, porque el cifrado no determinístico impide `UNIQUE` sobre el valor. Detectar DNI duplicado exigiría un índice ciego (HMAC del DNI) — anotado como trabajo futuro, hoy el DNI es solo dato de ficha.
 - `puestos.nombre`, `lugares_trabajo.nombre`, `estados.nombre` sin `UNIQUE`: los catálogos aceptan duplicados.
 - Redundancia conceptual entre `usuarios.activo` y `empleados.id_estado` (estados incluye Activo/Inactivo): definir cuál manda y documentarlo.
 
@@ -213,7 +213,7 @@ Nota: turnos que cruzan medianoche (23:00–07:00) no están soportados por el m
 | Ley 25.326 (minimización, acceso restringido) | ⚠️ Contradicha por logs con datos personales y API abierta | 🔴 P1 |
 | Acceso concurrente multi-equipo | ⚠️ Funciona, con la race condition señalada | 🟠 P1 |
 | Aplicación responsiva | ⚠️ Tailwind presente; solo login construido | 🟠 P2 |
-| Diccionario de datos: empleado con email | ❌ La tabla no tiene email/DNI | 🟠 P0/P2 |
+| Diccionario de datos: empleado con email | ✅ Email vía usuarios (UNIQUE) + DNI cifrado; alta unificada | ✔️ |
 
 **Sugerencia estratégica:** lo que no llegues a implementar (auditoría completa, backups automatizados), **re-alcanzalo explícitamente en el documento** como "Trabajo Futuro" en lugar de dejarlo prometido en presente. Un alcance honesto y cumplido defiende mejor que uno amplio e incompleto.
 
@@ -389,9 +389,16 @@ Cierra §6.1 (completo), §6.2 y parte de §6.8/§6.13:
 - Verificado: 8 pruebas de API + UI end-to-end (falta solo el ciclo real contra Supabase, bloqueado por credenciales).
 - **PASO PENDIENTE DE JULIO:** crear proyecto gratuito en supabase.com → crear bucket **privado** llamado `cvs` (Storage → New bucket, sin marcar "public") → copiar Project URL y `service_role` key (Settings → API) a `backend/.env` → `docker restart hotel-yacanto-backend` → probar subir/descargar un PDF real.
 
-**Siguiente:** P3 (reportes CSV sobre `vw_reporte_*`) y P4 (tests + CI + deploy Vercel/Railway — recordar agregar las 3 vars de Supabase en Railway).
+### 2026-08-01 — DNI + alta unificada + gestión de cuentas admin-only ✅
+- **DNI cifrado** en `empleados.dni` (AES-256-GCM, TEXT). Solo de visualización: el cifrado no determinístico impide UNIQUE/búsqueda (documentado; salida = índice ciego HMAC si hiciera falta).
+- **Alta de empleado provisiona la cuenta** en una transacción (usuario + rol EMPLEADO + ficha). Email obligatorio (identidad de login, único en `usuarios`). Contraseña inicial derivada (`Nombre+Apellido+últimos 4 del DNI`), devuelta una vez, con `debe_cambiar_password = true`.
+- **Cambio de contraseña**: `POST /api/auth/cambiar-password` (exige la actual, ≥8, distinta) baja el flag. El login expone `debe_cambiar_password`.
+- **Gestión de usuarios reservada al ADMINISTRADOR**: se quitó el alta manual; la pantalla es lectura + edición. Admin edita email/rol/estado (`PUT /api/usuarios/:id`) y resetea contraseña a una temporal aleatoria (`POST /api/usuarios/:id/reset-password`, se muestra una vez, fuerza cambio). RRHH quedó con solo `USUARIOS_VER`: la API devuelve 403 a RRHH aunque llame directo (enforcement en backend, no solo UI).
+- Verificado: baterías de API (alta, cambio y reset de contraseña, 403 de RRHH, email duplicado/ inválido, no auto-reset) + UI end-to-end en navegador. Build y lint en verde.
 
-**Deuda restante conocida:** `DATABASE_URL` para Railway (§6.8 backend), Dockerfile con CMD dev (§6.10), detalles de schema §6.12 (email/DNI en empleados, UNIQUE en catálogos, `edad`→`fecha_nacimiento`), tests y CI.
+**Siguiente:** P3 (reportes CSV sobre `vw_reporte_*`) y P4 (tests + CI + deploy Vercel/Railway — recordar agregar las 3 vars de Supabase en Railway). Pendiente de UI: pantalla de cambio de contraseña forzado que consuma `debe_cambiar_password` (el endpoint ya existe).
+
+**Deuda restante conocida:** `DATABASE_URL` para Railway (§6.8 backend), Dockerfile con CMD dev (§6.10), detalles de schema §6.12 (UNIQUE en catálogos; email/DNI ya resueltos con alta unificada), tests y CI.
 
 **Nota de entorno (recurrente):** Docker Desktop 4.60 crashea al iniciar por sockets AF_UNIX huérfanos que rotan de componente (`dockerInference`, `docker-secrets-engine\engine.sock`), con error "initializing X: listening on unix://...: remove ...: acceso denegado". Ni Windows ni WSL pueden borrar el socket (handle de kernel). Lo que funciona sin reiniciar Windows: **renombrar la carpeta padre** del socket (`Rename-Item %LOCALAPPDATA%\docker-secrets-engine docker-secrets-engine.old`) y relanzar Docker — crea una carpeta nueva limpia. Deshabilitar Docker AI en settings reduce la frecuencia. Observaciones nuevas: (a) `SelectValidacionHorarios` y `VALIDAR_SOLAPAMIENTO_HORARIO` son casi duplicadas (la primera ya detecta solapamiento), por lo que el 409 de solapamiento puede responder el mensaje de "ya asignado" — cleanup menor; (b) `HorariosTable` muestra la fecha corrida un día (`new Date('2025-11-20')` se parsea como UTC y en UTC-3 se ve 19/11) — corregir al construir el módulo Calendario en P2.
 

@@ -109,7 +109,7 @@
 
 ## 5. RBAC y privacidad (Ley 25.326)
 
-- Tres roles: ADMINISTRADOR (todo), RRHH (todo menos eliminar usuarios), EMPLEADO (mínimo).
+- Tres roles: ADMINISTRADOR (todo, incluida la gestión de cuentas), RRHH (empleados/calendario/reportes; sobre usuarios solo lectura), EMPLEADO (mínimo).
 - **El rol EMPLEADO no tiene `EMPLEADOS_VER`**: los datos personales del resto del personal no le corresponden (Ley 25.326). Su propia información la accede vía `GET /api/me`, resuelta **desde el token JWT, nunca por parámetro** → un empleado no puede pedir datos de otro ni manipulando la request.
 - Sí conserva `CALENDARIO_VER`: la grilla de turnos es dato operativo, no personal.
 - Autogestión limitada (`PUT /api/me`): el empleado rectifica solo sus datos de contacto y descripción — puesto/lugar/estado los gestiona RRHH (derecho de rectificación de la 25.326, acotado).

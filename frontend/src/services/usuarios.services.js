@@ -19,10 +19,18 @@ export const createUsuario = async (data) => {
 };
 
 /**
- * Actualiza estado y/o rol: { activo?, id_rol? }
+ * Actualiza email, estado y/o rol: { email?, activo?, id_rol? }
  */
 export const updateUsuario = async (id, data) => {
   const response = await api.put(`/usuarios/${id}`, data);
+  return response.data;
+};
+
+/**
+ * Resetea la contraseña a una temporal. Devuelve { data: { email, password_temporal } }.
+ */
+export const resetPassword = async (id) => {
+  const response = await api.post(`/usuarios/${id}/reset-password`);
   return response.data;
 };
 

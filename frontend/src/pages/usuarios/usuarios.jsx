@@ -6,11 +6,10 @@ import { useAuth } from "@/context/AuthContext";
 import {
   getUsuarios,
   getRoles,
-  createUsuario,
   updateUsuario,
   deleteUsuario,
+  resetPassword,
 } from "@/services/usuarios.services";
-import { getEmpleadosDetalle } from "@/services/empleados.services";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -40,31 +39,44 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-const FORM_VACIO = { email: "", password: "", id_rol: "", id_empleado: "" };
+/*
+  Gestión de usuarios — solo lectura y edición.
+
+  El alta manual se eliminó: las cuentas se provisionan automáticamente al
+  dar de alta un empleado (una cuenta por empleado, con password inicial
+  derivada de sus datos).
+
+  Toda mutación (editar email/rol/estado, resetear contraseña, eliminar)
+  es exclusiva del ADMINISTRADOR. Se refuerza en dos capas: acá se chequea
+  el rol, y en el backend los permisos USUARIOS_CREAR/EDITAR/ELIMINAR solo
+  los tiene el administrador (RRHH conserva únicamente USUARIOS_VER).
+*/
 
 export default function Usuarios() {
-  const { usuario: sesion, tienePermiso } = useAuth();
+  const { usuario: sesion, tienePermiso, esAdministrador } = useAuth();
 
   const [usuarios, setUsuarios] = useState([]);
   const [roles, setRoles] = useState([]);
-  const [empleados, setEmpleados] = useState([]);
   const [loading, setLoading] = useState(true);
-
-  const [dialogAbierto, setDialogAbierto] = useState(false);
-  const [form, setForm] = useState(FORM_VACIO);
-  const [guardando, setGuardando] = useState(false);
   const [usuarioABorrar, setUsuarioABorrar] = useState(null);
+
+  // Edición
+  const [editando, setEditando] = useState(null);
+  const [form, setForm] = useState({ email: "", id_rol: "", activo: "true" });
+  const [guardando, setGuardando] = useState(false);
+  const [reseteando, setReseteando] = useState(false);
+
+  // Contraseña temporal del reset: se muestra una única vez
+  const [credenciales, setCredenciales] = useState(null);
 
   const cargarDatos = async () => {
     try {
-      const [listaUsuarios, listaRoles, listaEmpleados] = await Promise.all([
+      const [listaUsuarios, listaRoles] = await Promise.all([
         getUsuarios(),
         getRoles(),
-        getEmpleadosDetalle(),
       ]);
       setUsuarios(listaUsuarios);
       setRoles(listaRoles);
-      setEmpleados(listaEmpleados);
     } catch (error) {
       toast.error(error.response?.data?.error || "No se pudieron cargar los usuarios");
     } finally {
@@ -81,41 +93,58 @@ export default function Usuarios() {
     return <Navigate to="/" replace />;
   }
 
-  // Solo empleados sin usuario pueden vincularse en el alta
-  const empleadosSinUsuario = empleados.filter((e) => !e.usuario_id);
-
-  const abrirAlta = () => {
-    setForm(FORM_VACIO);
-    setDialogAbierto(true);
+  const abrirEdicion = (u) => {
+    setEditando(u);
+    setForm({
+      email: u.email ?? "",
+      id_rol: u.id_rol ? String(u.id_rol) : "",
+      activo: String(u.activo),
+    });
   };
 
   const guardar = async (e) => {
     e.preventDefault();
     setGuardando(true);
     try {
-      await createUsuario({
-        email: form.email.trim(),
-        password: form.password,
-        id_rol: Number(form.id_rol),
-        id_empleado: form.id_empleado ? Number(form.id_empleado) : null,
-      });
-      toast.success("Usuario creado correctamente");
-      setDialogAbierto(false);
+      // Solo se envían los campos que realmente cambiaron
+      const payload = {};
+      if (form.email.trim() !== editando.email) payload.email = form.email.trim();
+      // id_rol solo si se eligió uno y difiere (no se manda "sin rol")
+      if (form.id_rol && Number(form.id_rol) !== editando.id_rol) {
+        payload.id_rol = Number(form.id_rol);
+      }
+      if ((form.activo === "true") !== editando.activo) payload.activo = form.activo === "true";
+
+      if (Object.keys(payload).length === 0) {
+        setEditando(null);
+        return;
+      }
+
+      await updateUsuario(editando.id, payload);
+      toast.success("Usuario actualizado correctamente");
+      setEditando(null);
       await cargarDatos();
     } catch (error) {
-      toast.error(error.response?.data?.error || "No se pudo crear el usuario");
+      toast.error(error.response?.data?.error || "No se pudo actualizar el usuario");
     } finally {
       setGuardando(false);
     }
   };
 
-  const cambiarActivo = async (u) => {
+  const resetear = async () => {
+    setReseteando(true);
     try {
-      await updateUsuario(u.id, { activo: !u.activo });
-      toast.success(u.activo ? "Usuario desactivado" : "Usuario activado");
+      const respuesta = await resetPassword(editando.id);
+      setCredenciales({
+        email: respuesta.data.email,
+        password: respuesta.data.password_temporal,
+      });
+      setEditando(null);
       await cargarDatos();
     } catch (error) {
-      toast.error(error.response?.data?.error || "No se pudo actualizar el usuario");
+      toast.error(error.response?.data?.error || "No se pudo resetear la contraseña");
+    } finally {
+      setReseteando(false);
     }
   };
 
@@ -133,11 +162,12 @@ export default function Usuarios() {
   return (
     <Layout>
       <div className="space-y-4">
-        <div className="flex items-center justify-between">
+        <div>
           <h2 className="text-xl font-bold">Gestión de Usuarios</h2>
-          {tienePermiso("USUARIOS_CREAR") && (
-            <Button onClick={abrirAlta}>Nuevo usuario</Button>
-          )}
+          <p className="text-sm text-gray-500 mt-1">
+            Las cuentas se crean automáticamente al dar de alta un empleado.
+            {!esAdministrador && " Solo un administrador puede modificarlas."}
+          </p>
         </div>
 
         {loading ? (
@@ -151,7 +181,7 @@ export default function Usuarios() {
                   <TableHead>Rol</TableHead>
                   <TableHead>Empleado vinculado</TableHead>
                   <TableHead>Estado</TableHead>
-                  <TableHead className="text-right">Acciones</TableHead>
+                  {esAdministrador && <TableHead className="text-right">Acciones</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -184,18 +214,24 @@ export default function Usuarios() {
                           {u.activo ? "Activo" : "Inactivo"}
                         </span>
                       </TableCell>
-                      <TableCell className="text-right space-x-2">
-                        {tienePermiso("USUARIOS_EDITAR") && !esSesionActual && (
-                          <Button variant="outline" size="sm" onClick={() => cambiarActivo(u)}>
-                            {u.activo ? "Desactivar" : "Activar"}
-                          </Button>
-                        )}
-                        {tienePermiso("USUARIOS_ELIMINAR") && !esSesionActual && (
-                          <Button variant="destructive" size="sm" onClick={() => setUsuarioABorrar(u)}>
-                            Eliminar
-                          </Button>
-                        )}
-                      </TableCell>
+                      {esAdministrador && (
+                        <TableCell className="text-right space-x-2">
+                          {!esSesionActual && (
+                            <>
+                              <Button variant="outline" size="sm" onClick={() => abrirEdicion(u)}>
+                                Editar
+                              </Button>
+                              <Button
+                                variant="destructive"
+                                size="sm"
+                                onClick={() => setUsuarioABorrar(u)}
+                              >
+                                Eliminar
+                              </Button>
+                            </>
+                          )}
+                        </TableCell>
+                      )}
                     </TableRow>
                   );
                 })}
@@ -205,18 +241,21 @@ export default function Usuarios() {
         )}
       </div>
 
-      {/* Dialog: nuevo usuario */}
-      <Dialog open={dialogAbierto} onOpenChange={setDialogAbierto}>
+      {/* Dialog: editar usuario */}
+      <Dialog open={!!editando} onOpenChange={(abierto) => !abierto && setEditando(null)}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Nuevo usuario</DialogTitle>
+            <DialogTitle>Editar usuario</DialogTitle>
             <DialogDescription>
-              Credenciales de acceso al sistema. Opcionalmente vinculalo a un empleado.
+              Modificá el acceso de <strong>{editando?.empleado_id
+                ? `${editando.empleado_nombre} ${editando.empleado_apellido}`
+                : editando?.email}</strong>.
             </DialogDescription>
           </DialogHeader>
+
           <form onSubmit={guardar} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="email">Email *</Label>
+              <Label htmlFor="email">Email</Label>
               <Input
                 id="email"
                 type="email"
@@ -226,21 +265,10 @@ export default function Usuarios() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="password">Contraseña * (mínimo 8 caracteres)</Label>
-              <Input
-                id="password"
-                type="password"
-                minLength={8}
-                value={form.password}
-                onChange={(e) => setForm({ ...form, password: e.target.value })}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Rol *</Label>
+              <Label>Rol</Label>
               <Select value={form.id_rol} onValueChange={(v) => setForm({ ...form, id_rol: v })}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Seleccionar rol" />
+                  <SelectValue placeholder="Sin rol" />
                 </SelectTrigger>
                 <SelectContent>
                   {roles.map((r) => (
@@ -250,37 +278,88 @@ export default function Usuarios() {
               </Select>
             </div>
             <div className="space-y-2">
-              <Label>Empleado a vincular (opcional)</Label>
-              <Select
-                value={form.id_empleado}
-                onValueChange={(v) => setForm({ ...form, id_empleado: v })}
-              >
+              <Label>Estado</Label>
+              <Select value={form.activo} onValueChange={(v) => setForm({ ...form, activo: v })}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Sin vincular" />
+                  <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {empleadosSinUsuario.map((e) => (
-                    <SelectItem key={e.empleado_id} value={String(e.empleado_id)}>
-                      {e.nombre} {e.apellido}{e.puesto ? ` — ${e.puesto}` : ""}
-                    </SelectItem>
-                  ))}
+                  <SelectItem value="true">Activo</SelectItem>
+                  <SelectItem value="false">Inactivo</SelectItem>
                 </SelectContent>
               </Select>
-              {empleadosSinUsuario.length === 0 && (
-                <p className="text-xs text-gray-400">
-                  Todos los empleados ya tienen usuario asociado.
-                </p>
-              )}
             </div>
+
+            <div className="rounded-md border bg-gray-50 px-3 py-2 flex items-center justify-between gap-3">
+              <div className="text-sm">
+                <p className="font-medium">Contraseña</p>
+                <p className="text-xs text-gray-500">
+                  No se puede ver (se guarda cifrada). Generá una temporal.
+                </p>
+              </div>
+              <Button type="button" variant="outline" size="sm" disabled={reseteando} onClick={resetear}>
+                {reseteando ? "Reseteando..." : "Resetear"}
+              </Button>
+            </div>
+
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setDialogAbierto(false)}>
+              <Button type="button" variant="outline" onClick={() => setEditando(null)}>
                 Cancelar
               </Button>
-              <Button type="submit" disabled={guardando || !form.id_rol}>
+              <Button type="submit" disabled={guardando}>
                 {guardando ? "Guardando..." : "Guardar"}
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog: contraseña temporal (se muestra una sola vez) */}
+      <Dialog open={!!credenciales} onOpenChange={(abierto) => !abierto && setCredenciales(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Contraseña reseteada</DialogTitle>
+            <DialogDescription>
+              Entregale esta contraseña temporal al usuario. No se vuelve a mostrar:
+              en el sistema solo queda guardada cifrada.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3">
+            <div className="space-y-1">
+              <Label>Email</Label>
+              <div className="rounded-md bg-gray-50 border px-3 py-2 font-mono text-sm break-all">
+                {credenciales?.email}
+              </div>
+            </div>
+            <div className="space-y-1">
+              <Label>Contraseña temporal</Label>
+              <div className="rounded-md bg-gray-50 border px-3 py-2 font-mono text-sm break-all">
+                {credenciales?.password}
+              </div>
+            </div>
+            <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
+              El sistema le va a exigir cambiar esta contraseña la primera vez que ingrese.
+            </p>
+          </div>
+
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                navigator.clipboard?.writeText(
+                  `Email: ${credenciales.email}\nContraseña: ${credenciales.password}`
+                );
+                toast.success("Credenciales copiadas");
+              }}
+            >
+              Copiar
+            </Button>
+            <Button type="button" onClick={() => setCredenciales(null)}>
+              Listo
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 

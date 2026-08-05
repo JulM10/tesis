@@ -3,6 +3,7 @@ import { pool } from "../config/database.js";
 import * as Queries from "../queries/usuarios.queries.js";
 import { MENSAJES } from "../constantes/mensajes.js";
 import { httpError } from "../utils/httpError.js";
+import { generarPasswordAleatoria } from "../utils/passwordInicial.js";
 
 export const getUsuarios = async () => {
   const result = await pool.query(Queries.GET_ALL_USUARIOS);
@@ -66,16 +67,38 @@ export const createUsuario = async ({ email, password, id_rol, id_empleado = nul
   }
 };
 
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 /**
- * Actualiza estado (activo) y/o rol de un usuario.
+ * Actualiza email, estado (activo) y/o rol de un usuario.
+ * Los tres son opcionales: se aplica solo lo que venga en el body.
  */
-export const updateUsuario = async (id, { activo, id_rol }) => {
+export const updateUsuario = async (id, { activo, id_rol, email }) => {
   const client = await pool.connect();
 
   try {
     await client.query("BEGIN");
 
     let usuario = null;
+
+    if (email !== undefined) {
+      const limpio = String(email).trim();
+      if (!EMAIL_RE.test(limpio)) {
+        throw httpError(400, MENSAJES.USUARIOS.EMAIL_INVALIDO);
+      }
+      try {
+        const result = await client.query(Queries.UPDATE_USUARIO_EMAIL, [limpio, id]);
+        usuario = result.rows[0];
+      } catch (error) {
+        if (error.code === "23505") {
+          throw httpError(409, MENSAJES.USUARIOS.EMAIL_YA_EXISTE);
+        }
+        throw error;
+      }
+      if (!usuario) {
+        throw httpError(404, MENSAJES.USUARIOS.NO_ENCONTRADO);
+      }
+    }
 
     if (activo !== undefined) {
       const result = await client.query(Queries.UPDATE_USUARIO_ACTIVO, [activo, id]);
@@ -105,6 +128,28 @@ export const updateUsuario = async (id, { activo, id_rol }) => {
   } finally {
     client.release();
   }
+};
+
+/**
+ * Reset de contraseña por el administrador.
+ * Genera una contraseña temporal aleatoria, la guarda hasheada y fuerza
+ * el cambio en el próximo login. Devuelve la contraseña en claro UNA vez
+ * (nunca queda almacenada legible) para que el admin se la entregue.
+ */
+export const resetPassword = async (id) => {
+  const passwordTemporal = generarPasswordAleatoria();
+  const passwordHash = await bcrypt.hash(passwordTemporal, 10);
+
+  const result = await pool.query(Queries.RESET_PASSWORD, [passwordHash, id]);
+
+  if (!result.rows[0]) {
+    throw httpError(404, MENSAJES.USUARIOS.NO_ENCONTRADO);
+  }
+
+  return {
+    email: result.rows[0].email,
+    password_temporal: passwordTemporal
+  };
 };
 
 export const deleteUsuario = async (id) => {

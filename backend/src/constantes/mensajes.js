@@ -41,9 +41,12 @@ export const MENSAJES = {
     ACTUALIZADO_OK: "Usuario actualizado correctamente",
     ELIMINADO_OK: "Usuario eliminado correctamente",
     EMAIL_YA_EXISTE: "Ya existe un usuario con ese email",
+    EMAIL_INVALIDO: "El email no tiene un formato válido",
     EMPLEADO_YA_VINCULADO: "El empleado ya tiene un usuario asociado o no existe",
     NO_AUTOELIMINAR: "No podés eliminar tu propio usuario",
-    NO_AUTODESACTIVAR: "No podés desactivar tu propio usuario"
+    NO_AUTODESACTIVAR: "No podés desactivar tu propio usuario",
+    NO_AUTORESET: "Para cambiar tu propia contraseña usá el cambio de contraseña",
+    PASSWORD_RESETEADA: "Contraseña reseteada correctamente"
   },
 
   ME: {
@@ -63,6 +66,9 @@ export const MENSAJES = {
     NO_AUTORIZADO: "No autorizado",
     TOKEN_INVALIDO: "Token inválido o expirado",
     CREDENCIALES_INVALIDAS: "Credenciales inválidas",
-    SIN_PERMISO: "No tiene permisos para realizar esta acción"
+    SIN_PERMISO: "No tiene permisos para realizar esta acción",
+    PASSWORD_MUY_CORTA: "La nueva contraseña debe tener al menos 8 caracteres",
+    PASSWORD_REPETIDA: "La nueva contraseña debe ser distinta de la actual",
+    PASSWORD_ACTUALIZADA: "Contraseña actualizada correctamente"
   }
 };

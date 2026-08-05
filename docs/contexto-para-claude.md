@@ -42,9 +42,14 @@
 
 | Rol | Descripción | Permisos típicos |
 |---|---|---|
-| **ADMIN** | Administrador del sistema | Todo: crear usuarios/empleados, asignar roles, ver todo |
-| **RRHH** | Gestor de RRHH | Crear/editar empleados, gestionar calendario, ver datos, **NO** eliminar usuarios |
+| **ADMIN** | Administrador del sistema | Todo: gestión de cuentas (editar email/rol/estado, resetear contraseñas, eliminar), empleados, calendario, reportes |
+| **RRHH** | Gestor de RRHH | Empleados, calendario y reportes. Sobre usuarios: **solo lectura** (`USUARIOS_VER`). No crea, edita ni elimina cuentas |
 | **EMPLEADO** | Empleado base | Ver su propio perfil, su calendario, **NO** ver datos de otros empleados (privacidad Ley 25.326) |
+
+**Gestión de usuarios (exclusiva del ADMINISTRADOR):**
+- No hay alta manual de usuarios: las cuentas se crean con el empleado. La pantalla es lectura + edición.
+- El admin puede **editar** email, rol y estado, y **resetear** la contraseña (genera una temporal aleatoria que se muestra una vez y obliga a cambiarla). Las contraseñas nunca se muestran: son hash bcrypt irreversible.
+- Enforcement en dos capas: el frontend chequea el rol; el backend, el permiso (RRHH no tiene `USUARIOS_EDITAR/CREAR/ELIMINAR`, así que la API devuelve 403 aunque se la llame directo).
 
 ### Tablas clave
 
@@ -55,11 +60,19 @@ roles (id, nombre, descripcion)
 roles_permisos (rol_id, permiso_id)
 permisos (id, nombre, descripcion)
 
-empleados (id, nombre, apellido, telefono_enc, direccion_enc, puesto_id, lugar_trabajo_id, estado_id, fecha_nacimiento_enc, notas_enc, ...)
+usuarios (id, email, password_hash, activo, debe_cambiar_password, ...)
+empleados (id, nombre, apellido, dni_enc, telefono_enc, direccion_enc, puesto_id, lugar_trabajo_id, estado_id, fecha_nacimiento_enc, notas_enc, ...)
 empleados_cv (id_empleado, archivo_enc, nombrearchivo, creado_en)
 ```
 
-**Invariante clave:** Nuevo usuario puede crear un empleado vinculado o solo una cuenta de usuario. En el flujo unificado, crear un empleado genera automáticamente el usuario.
+**Invariante clave:** crear un empleado genera automáticamente su usuario, en una sola transacción (usuario + rol EMPLEADO + ficha). Detalles:
+
+- El **email** es obligatorio en el alta y es la identidad de login. Vive solo en `usuarios` (fuente de verdad única); las búsquedas por email usan la vista `vw_empleados_detalle` sobre `idx_usuario_email`.
+- El **DNI** es obligatorio en el alta y se guarda cifrado. Aporta los 4 dígitos de la contraseña inicial. Es solo de visualización: al ser el cifrado no determinístico, no se puede buscar ni exigir único.
+- La **contraseña inicial** se deriva de los datos del empleado: `Nombre + Apellido + últimos 4 del DNI` (ej. `JuanPerez3456`). Se devuelve una única vez en el alta; en la BD solo queda el hash bcrypt.
+- La cuenta nace con `debe_cambiar_password = true`: el login lo expone y el frontend obliga a rotarla (`POST /api/auth/cambiar-password`) antes de operar. Convierte una contraseña débil (4 dígitos secretos) en una credencial de un solo uso.
+
+Ya no existe el alta manual de usuarios: la pantalla de Usuarios quedó como lectura + edición de rol/estado, reservada al **ADMINISTRADOR**.
 
 ### El usuario especial: `sinrol@hotel.com`
 
@@ -253,7 +266,8 @@ Las cuatro capas son independientes; comprometer una no rinde las demás.
 
 ### Deuda técnica menor (si quedó pendiente)
 
-- [ ] Cambios en schema (email/DNI en empleados, UNIQUE en catálogos) si no se implementaron.
+- [x] DNI en empleados (cifrado) y email vía usuarios: implementado. Alta unificada con provisión automática de cuenta y `debe_cambiar_password`.
+- [ ] UNIQUE en catálogos (puestos, lugares, estados) si no se implementó.
 - [ ] Detalle de backups automatizados (hoy: `npm run db:backup` manual).
 - [ ] Dockerfile con `npm start` para producción (ahora usa dev nodemon).
 

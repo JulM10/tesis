@@ -31,8 +31,19 @@ export function AuthProvider({ children }) {
   const tienePermiso = (permiso) =>
     usuario?.permisos?.includes(permiso) ?? false;
 
+  /*
+    Chequeo por ROL, no por permiso. Se usa donde el criterio es el cargo
+    y no una capacidad puntual: la gestión de usuarios queda reservada al
+    administrador aunque RRHH tenga el permiso USUARIOS_EDITAR.
+  */
+  const tieneRol = (rol) => usuario?.roles?.includes(rol) ?? false;
+
+  const esAdministrador = tieneRol("ADMINISTRADOR");
+
   return (
-    <AuthContext.Provider value={{ usuario, login, logout, tienePermiso }}>
+    <AuthContext.Provider
+      value={{ usuario, login, logout, tienePermiso, tieneRol, esAdministrador }}
+    >
       {children}
     </AuthContext.Provider>
   );

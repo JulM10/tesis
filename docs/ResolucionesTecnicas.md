@@ -76,7 +76,7 @@ El sistema implementa un modelo de **Control de Acceso Basado en Roles (RBAC)**.
 Se definieron los siguientes roles:
 
 - **Administrador**: control total del sistema.
-- **RRHH**: gestión de empleados y horarios, sin permisos para eliminar usuarios.
+- **RRHH**: gestión de empleados, horarios y reportes. Sobre usuarios tiene solo lectura: la administración de cuentas (crear/editar/eliminar, resetear contraseñas) es exclusiva del Administrador.
 - **Empleado**: acceso únicamente a información visual y personal.
 
 Los roles se almacenan en una tabla específica y se relacionan con los usuarios, permitiendo que los permisos se administren desde la base de datos y no de forma rígida en el código de la aplicación.

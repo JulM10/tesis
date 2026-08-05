@@ -29,6 +29,14 @@ CREATE TABLE usuarios (
   email VARCHAR(150) NOT NULL UNIQUE,
   password_hash VARCHAR(255) NOT NULL,
   activo BOOLEAN NOT NULL DEFAULT TRUE,
+  /*
+    La cuenta de un empleado se crea con una password DERIVADA de sus
+    datos (nombre + apellido + últimos 4 dígitos del DNI). Es predecible
+    a propósito: sirve para entregar la credencial, no para protegerla.
+    Este flag la convierte en un secreto de un solo uso — mientras esté
+    en TRUE el frontend obliga a cambiarla antes de operar.
+  */
+  debe_cambiar_password BOOLEAN NOT NULL DEFAULT TRUE,
   fecha_creacion_usuario TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -70,7 +78,19 @@ CREATE TABLE empleados (
     Por eso son TEXT y no DATE/VARCHAR: el cifrado ocupa más.
     Nombre y apellido quedan en claro por proporcionalidad
     (necesarios para listar/buscar; no son datos sensibles).
+
+    El DNI va TEXT y no INT por dos motivos independientes:
+    1) Cifrado, el valor almacenado es una cadena de ~58 caracteres.
+    2) Aun en claro sería texto: es un identificador, no una cantidad.
+       Como INT perdería los ceros a la izquierda (04123456 -> 4123456)
+       y no admitiría CUIT ni pasaporte de personal extranjero.
+    Consecuencia asumida: al ser el cifrado no determinístico (IV
+    aleatorio por valor), NO se puede poner UNIQUE ni buscar por DNI.
+    El sistema no detecta DNI duplicados. Se aceptó porque el DNI es
+    solo un dato de ficha; si hiciera falta, se resolvería con un
+    índice ciego (columna extra con HMAC-SHA256 del DNI normalizado).
   */
+  dni TEXT,
   fecha_nacimiento TEXT,
   telefono TEXT,
   direccion TEXT,
@@ -191,6 +211,8 @@ SELECT
   e.id       AS empleado_id,
   e.nombre,
   e.apellido,
+  -- Cifrado: solo se muestra en la ficha, no es filtrable desde SQL.
+  e.dni,
   -- Cifrada: SQL no puede leerla. El backend la descifra y calcula
   -- la edad en la capa de servicios (utils/cifrado.js).
   e.fecha_nacimiento,
@@ -207,8 +229,12 @@ SELECT
   l.nombre   AS lugar_trabajo,
   s.nombre   AS estado,
   u.id       AS usuario_id,
+  -- El email del empleado vive acá y solo acá: usuarios es la única
+  -- fuente de verdad. Es UNIQUE y tiene índice (idx_usuario_email),
+  -- así que las búsquedas por email se resuelven sin duplicar el dato.
   u.email,
   u.activo,
+  u.debe_cambiar_password,
   r.nombre   AS rol
 FROM empleados e
 LEFT JOIN empleados_cv cv ON cv.id_empleado = e.id

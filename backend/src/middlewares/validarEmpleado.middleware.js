@@ -1,15 +1,44 @@
+/*
+  Validación del ALTA de empleado (solo POST /api/empleados).
+
+  Desde que el alta provisiona automáticamente la cuenta de acceso,
+  email y DNI dejaron de ser opcionales: el email es la identidad de
+  login y el DNI aporta los 4 dígitos de la password inicial.
+  El PUT no pasa por acá, así que la edición sigue siendo parcial.
+*/
+
+// Formato de email deliberadamente laxo: algo@algo.algo, sin espacios.
+// La garantía fuerte de unicidad la da el UNIQUE de usuarios.email.
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 export const validarEmpleado = (req, res, next) => {
   const {
     nombre,
     apellido,
+    dni,
+    email,
     fecha_nacimiento,
-    telefono,
-    id_usuario
+    telefono
   } = req.body;
 
   if (!nombre || !apellido) {
     return res.status(400).json({
       message: 'Nombre y apellido son obligatorios'
+    });
+  }
+
+  if (!email || !EMAIL_RE.test(String(email).trim())) {
+    return res.status(400).json({
+      message: 'El email es obligatorio y debe tener un formato válido'
+    });
+  }
+
+  // Se valida sobre los dígitos: se aceptan "20.123.456" y "20123456".
+  const dniDigitos = String(dni ?? '').replace(/\D/g, '');
+
+  if (dniDigitos.length < 7 || dniDigitos.length > 8) {
+    return res.status(400).json({
+      message: 'El DNI es obligatorio y debe tener 7 u 8 dígitos'
     });
   }
 
@@ -32,12 +61,6 @@ export const validarEmpleado = (req, res, next) => {
   if (telefono && telefono.length > 20) {
     return res.status(400).json({
       message: 'El teléfono supera el máximo permitido'
-    });
-  }
-
-  if (id_usuario && isNaN(Number(id_usuario))) {
-    return res.status(400).json({
-      message: 'id_usuario debe ser numérico'
     });
   }
 

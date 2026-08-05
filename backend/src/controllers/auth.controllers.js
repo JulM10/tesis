@@ -20,3 +20,23 @@ export const login = async (req, res) => {
     });
   }
 };
+
+export const cambiarPassword = async (req, res) => {
+  try {
+    const { password_actual, password_nueva } = req.body;
+
+    // El id sale del token, nunca del body: así un usuario autenticado
+    // no puede cambiarle la password a otro.
+    const resultado = await authService.cambiarPassword(
+      req.usuario.sub,
+      password_actual,
+      password_nueva
+    );
+
+    res.json(resultado);
+  } catch (error) {
+    res.status(error.status || 500).json({
+      error: error.status ? error.message : MENSAJES.GENERAL.ERROR_INTERNO
+    });
+  }
+};

@@ -261,7 +261,70 @@ export default function Dashboard() {
               />
             </div>
 
-            {/* Próximos Cumpleaños */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              {/* Turnos de hoy */}
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base">Turnos de hoy</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  {turnosHoy.length === 0 && (
+                    <p className="text-sm text-gray-400">
+                      No hay turnos programados para hoy.{" "}
+                      <Link to="/calendario" className="text-emerald-700 underline">
+                        Ir al calendario
+                      </Link>
+                    </p>
+                  )}
+                  {turnosHoy.map((t) => (
+                    <FilaTurno key={t.id} turno={t} />
+                  ))}
+                </CardContent>
+              </Card>
+
+              {/* Próximos turnos */}
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base">Próximos turnos (7 días)</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  {proximosTurnos.length === 0 && (
+                    <p className="text-sm text-gray-400">
+                      No hay turnos programados para los próximos días.
+                    </p>
+                  )}
+                  {proximosTurnos.map((t) => (
+                    <FilaTurno key={t.id} turno={t} />
+                  ))}
+                </CardContent>
+              </Card>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              {/* Dotación por puesto */}
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base">Empleados por puesto</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2">
+                    {empleadosPorPuesto.map(([puesto, cantidad]) => (
+                      <div key={puesto} className="flex items-center gap-2">
+                        <span className="w-32 text-sm text-gray-600 truncate">{puesto}</span>
+                        <div className="flex-1 bg-gray-100 rounded-full h-2.5">
+                          <div
+                            className="bg-emerald-500 h-2.5 rounded-full"
+                            style={{ width: `${(cantidad / indicadores.total) * 100}%` }}
+                          />
+                        </div>
+                        <span className="w-6 text-right text-sm font-semibold">{cantidad}</span>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+
+{/* Próximos Cumpleaños */}
             <Card>
               <CardHeader className="pb-3">
                 <CardTitle className="text-base flex items-center gap-2">
@@ -332,69 +395,6 @@ export default function Dashboard() {
                 )}
               </CardContent>
             </Card>
-
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              {/* Turnos de hoy */}
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-base">Turnos de hoy</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-2">
-                  {turnosHoy.length === 0 && (
-                    <p className="text-sm text-gray-400">
-                      No hay turnos programados para hoy.{" "}
-                      <Link to="/calendario" className="text-emerald-700 underline">
-                        Ir al calendario
-                      </Link>
-                    </p>
-                  )}
-                  {turnosHoy.map((t) => (
-                    <FilaTurno key={t.id} turno={t} />
-                  ))}
-                </CardContent>
-              </Card>
-
-              {/* Próximos turnos */}
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-base">Próximos turnos (7 días)</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-2">
-                  {proximosTurnos.length === 0 && (
-                    <p className="text-sm text-gray-400">
-                      No hay turnos programados para los próximos días.
-                    </p>
-                  )}
-                  {proximosTurnos.map((t) => (
-                    <FilaTurno key={t.id} turno={t} />
-                  ))}
-                </CardContent>
-              </Card>
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              {/* Dotación por puesto */}
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-base">Empleados por puesto</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-2">
-                    {empleadosPorPuesto.map(([puesto, cantidad]) => (
-                      <div key={puesto} className="flex items-center gap-2">
-                        <span className="w-32 text-sm text-gray-600 truncate">{puesto}</span>
-                        <div className="flex-1 bg-gray-100 rounded-full h-2.5">
-                          <div
-                            className="bg-emerald-500 h-2.5 rounded-full"
-                            style={{ width: `${(cantidad / indicadores.total) * 100}%` }}
-                          />
-                        </div>
-                        <span className="w-6 text-right text-sm font-semibold">{cantidad}</span>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
 
               {/* Dotación por estado */}
               <Card>

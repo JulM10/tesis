@@ -26,9 +26,16 @@ router.post("/", requierePermiso("USUARIOS_CREAR"), validarUsuario, usuariosCont
 
 /**
  * PUT /api/usuarios/:id
- * Actualiza estado y/o rol: { activo?, id_rol? }
+ * Actualiza email, estado y/o rol: { email?, activo?, id_rol? }
  */
 router.put("/:id", requierePermiso("USUARIOS_EDITAR"), usuariosController.updateUsuario);
+
+/**
+ * POST /api/usuarios/:id/reset-password
+ * Resetea la contraseña de un usuario a una temporal aleatoria y fuerza
+ * su cambio en el próximo login. Devuelve la temporal una única vez.
+ */
+router.post("/:id/reset-password", requierePermiso("USUARIOS_EDITAR"), usuariosController.resetPassword);
 
 /**
  * DELETE /api/usuarios/:id

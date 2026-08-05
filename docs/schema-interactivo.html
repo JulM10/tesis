@@ -1,0 +1,652 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hotel Yacanto &mdash; Diagrama Entidad-Relacion</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#0b1220; --panel:#111c31; --line:#1e2d47;
+  --ink:#e6edf7; --muted:#8fa3bf;
+  --pk:#f5b301; --fk:#f07178; --enc:#c792ea;
+  --accent:#38bdf8; --accent2:#a78bfa;
+  --wire:#3b5170; --wireOn:#38bdf8;
+}
+body{
+  font-family:'Segoe UI',system-ui,sans-serif;
+  background:var(--bg); color:var(--ink); padding:24px;
+  background-image:radial-gradient(circle at 1px 1px,#16233a 1px,transparent 0);
+  background-size:28px 28px;
+}
+.wrap{max-width:1500px;margin:0 auto}
+
+header{margin-bottom:22px}
+header h1{font-size:1.9em;letter-spacing:-.5px}
+header h1 span{color:var(--accent)}
+header p{color:var(--muted);margin-top:4px;font-size:.95em}
+
+.toolbar{
+  display:flex;gap:10px;align-items:center;flex-wrap:wrap;
+  margin:18px 0 12px;
+}
+.btn{
+  background:var(--panel);border:1px solid var(--line);color:var(--ink);
+  padding:7px 14px;border-radius:8px;cursor:pointer;font-size:.86em;
+  transition:.15s;
+}
+.btn:hover{border-color:var(--accent);color:var(--accent)}
+.btn.on{background:var(--accent);color:#08111f;border-color:var(--accent);font-weight:600}
+.hint{color:var(--muted);font-size:.84em;margin-left:auto}
+
+/* ---------- lienzo ERD ---------- */
+.canvas-shell{
+  background:#08111f;border:1px solid var(--line);border-radius:14px;
+  overflow:auto;position:relative;max-height:82vh;
+}
+.zoomer{width:1000px;height:870px}
+.canvas{position:relative;width:1000px;height:870px;transform-origin:0 0}
+.wires{position:absolute;inset:0;pointer-events:none;overflow:visible}
+.wire{fill:none;stroke:var(--wire);stroke-width:1.6;transition:.2s}
+.wire.on{stroke:var(--wireOn);stroke-width:2.6}
+.wire.off{opacity:.12}
+
+.node{
+  position:absolute;width:270px;background:var(--panel);
+  border:1px solid var(--line);border-radius:10px;overflow:hidden;
+  box-shadow:0 8px 22px rgba(0,0,0,.45);cursor:pointer;transition:.2s;
+}
+.node:hover{border-color:var(--accent);transform:translateY(-2px)}
+.node.sel{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent),0 10px 26px rgba(56,189,248,.3)}
+.node.kin{border-color:var(--accent2)}
+.node.off{opacity:.22}
+.node-h{
+  padding:8px 11px;font-weight:700;font-size:.9em;letter-spacing:.2px;
+  background:linear-gradient(90deg,#1b2b47,#16233a);
+  border-bottom:1px solid var(--line);display:flex;align-items:center;gap:7px;
+}
+.dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.node-b{padding:5px 0}
+.col{
+  display:grid;grid-template-columns:26px 1fr auto;gap:6px;align-items:center;
+  padding:2px 11px;font-size:.78em;line-height:1.55;
+}
+.col .cn{font-family:Consolas,monospace}
+.col .ct{color:var(--muted);font-size:.9em}
+.k{font-size:.62em;font-weight:800;letter-spacing:.3px}
+.k.pk{color:var(--pk)} .k.fk{color:var(--fk)} .k.enc{color:var(--enc)}
+
+/* ---------- detalle ---------- */
+.grid2{display:grid;grid-template-columns:1.15fr .85fr;gap:18px;margin-top:20px}
+@media(max-width:1050px){.grid2{grid-template-columns:1fr}}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.panel-h{
+  padding:12px 16px;font-weight:600;font-size:.92em;
+  border-bottom:1px solid var(--line);color:var(--accent);
+}
+.panel-b{padding:16px}
+.muted{color:var(--muted)}
+.desc{color:#cbd8ea;font-size:.9em;line-height:1.65}
+.rel{
+  padding:8px 0;font-size:.86em;line-height:1.5;
+  border-bottom:1px solid rgba(255,255,255,.05);
+}
+.rel:last-child{border-bottom:none}
+.rel b{color:#cbd8ea}
+.go{color:var(--accent);cursor:pointer;font-weight:600;white-space:nowrap}
+.go:hover{text-decoration:underline}
+.sub{margin-top:14px}
+.sub-t{font-size:.76em;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:6px}
+.mono{font-family:Consolas,monospace;font-size:.79em;color:#b9c8dd;padding:2px 0}
+pre{
+  background:#08111f;border:1px solid var(--line);border-radius:8px;
+  padding:12px;overflow-x:auto;font-size:.76em;line-height:1.55;color:#b9c8dd;
+}
+
+/* ---------- stats ---------- */
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(125px,1fr));gap:12px}
+.stat{
+  background:#08111f;border:1px solid var(--line);border-radius:10px;
+  padding:14px;text-align:center;
+}
+.stat .n{font-size:1.8em;font-weight:800;line-height:1}
+.stat .l{font-size:.74em;color:var(--muted);margin-top:5px;text-transform:uppercase;letter-spacing:.6px}
+.legend{display:flex;flex-wrap:wrap;gap:14px;margin-top:16px;font-size:.8em;color:var(--muted)}
+.legend i{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:5px}
+.note{
+  font-size:.83em;line-height:1.65;color:#b9c8dd;
+  border-left:3px solid var(--accent);padding:9px 12px;margin-top:12px;
+  background:rgba(56,189,248,.06);border-radius:0 6px 6px 0;
+}
+.note b{color:var(--accent)}
+code{font-family:Consolas,monospace;color:var(--accent)}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{
+  background:#08111f;border:1px solid var(--line);border-radius:8px;
+  padding:8px 12px;font-size:.8em;cursor:pointer;transition:.15s;
+}
+.chip:hover{border-color:var(--accent);color:var(--accent)}
+.chip.sel{border-color:var(--accent);color:var(--accent)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>Hotel <span>Yacanto</span> &mdash; Diagrama Entidad-Relacion</h1>
+  <p>PostgreSQL 16 &middot; Plataforma de Gestion Integral de Empleados &middot; Tesis Analista en Sistemas</p>
+</header>
+
+<div class="toolbar">
+  <button class="btn on" data-g="todas">Todo el esquema</button>
+  <button class="btn" data-g="RBAC">Seguridad / RBAC</button>
+  <button class="btn" data-g="Dominio">Dominio</button>
+  <button class="btn" data-g="Reportes">Reportes</button>
+  <button class="btn" id="zin">Zoom +</button>
+  <button class="btn" id="zout">Zoom &minus;</button>
+  <span class="hint">Clic en una tabla para resaltar sus relaciones</span>
+</div>
+
+<div class="canvas-shell">
+  <div class="zoomer" id="zoomer">
+    <div class="canvas" id="canvas">
+      <svg class="wires" id="wires"></svg>
+    </div>
+  </div>
+</div>
+
+<div class="grid2">
+  <div class="panel">
+    <div class="panel-h" id="detTitle">Detalle</div>
+    <div class="panel-b" id="detBody"><span class="muted">Selecciona una tabla del diagrama.</span></div>
+  </div>
+
+  <div>
+    <div class="panel">
+      <div class="panel-h">Estadisticas del esquema</div>
+      <div class="panel-b">
+        <div class="stats">
+          <div class="stat"><div class="n" style="color:#38bdf8">13</div><div class="l">Tablas</div></div>
+          <div class="stat"><div class="n" style="color:#f07178">12</div><div class="l">Claves foraneas</div></div>
+          <div class="stat"><div class="n" style="color:#34d399">5</div><div class="l">Vistas</div></div>
+          <div class="stat"><div class="n" style="color:#f5b301">8</div><div class="l">Indices</div></div>
+          <div class="stat"><div class="n" style="color:#c792ea">2</div><div class="l">Rutinas</div></div>
+          <div class="stat"><div class="n" style="color:#a78bfa">5</div><div class="l">Campos cifrados</div></div>
+        </div>
+        <div class="legend">
+          <span><i style="background:#f5b301"></i>PK &mdash; clave primaria</span>
+          <span><i style="background:#f07178"></i>FK &mdash; clave foranea</span>
+          <span><i style="background:#c792ea"></i>Enc &mdash; cifrado AES-256-GCM</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel" style="margin-top:18px">
+      <div class="panel-h">Vistas y rutinas</div>
+      <div class="panel-b">
+        <div class="chips" id="chips"></div>
+      </div>
+    </div>
+
+    <div class="panel" style="margin-top:18px">
+      <div class="panel-h">Decisiones de diseno</div>
+      <div class="panel-b">
+        <div class="note"><b>Minimos privilegios:</b> el backend se conecta con el rol
+          <code>hotel_app</code>, limitado a DML. Sin permisos DDL: comprometer la aplicacion
+          no permite alterar ni eliminar el esquema.</div>
+        <div class="note"><b>Ley 25.326, art. 9:</b> DNI, fecha de nacimiento, telefono,
+          direccion y notas se cifran con AES-256-GCM en la aplicacion. Postgres solo almacena
+          <code>enc:iv:tag:cifrado</code>; la clave nunca llega al motor. Un DNI de 8 digitos
+          ocupa 58 caracteres una vez cifrado.</div>
+        <div class="note"><b>Historial desnormalizado:</b> la tabla de historial no tiene FK
+          a proposito. Guarda copias de texto para que el registro siga siendo correcto
+          aunque luego se renombre un puesto o se elimine un empleado.</div>
+        <div class="note"><b>Alta con provision automatica:</b> dar de alta un empleado crea
+          su cuenta en la misma transaccion (usuario + rol + ficha, todo o nada). La password
+          inicial se deriva de sus datos &mdash; <code>Nombre + Apellido + ultimos 4 del DNI</code>
+          &mdash; y es predecible a proposito: sirve para entregarla, no para protegerla. Por eso
+          la cuenta nace con <code>debe_cambiar_password = true</code> y el sistema exige rotarla
+          antes de operar, convirtiendola en un secreto de un solo uso.</div>
+        <div class="note"><b>Email sin duplicar:</b> el email vive solo en <code>usuarios</code>.
+          Replicarlo en <code>empleados</code> habria creado dos fuentes de verdad que divergen
+          al actualizar una sola. Las busquedas se resuelven sobre la vista, que ya llega al
+          indice <code>idx_usuario_email</code>.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</div>
+
+<script>
+/* ============ MODELO ============ */
+const T = {
+  permisos:{g:'RBAC',x:30,y:20,c:'#38bdf8',
+    d:'Catalogo de permisos granulares (EMPLEADOS_VER, CALENDARIO_CREAR, REPORTES_VER...). Cada endpoint de la API valida uno.',
+    cols:[['id','SERIAL','pk'],['nombre','VARCHAR(100)','']],
+    con:['PRIMARY KEY (id)','UNIQUE (nombre)']},
+
+  roles_permisos:{g:'RBAC',x:30,y:146,c:'#f5b301',
+    d:'Tabla puente N:M. Un rol tiene muchos permisos y un permiso pertenece a varios roles. La PK compuesta impide duplicados.',
+    cols:[['id_rol','INT','pk fk'],['id_permiso','INT','pk fk']],
+    con:['PRIMARY KEY (id_rol, id_permiso)']},
+
+  roles:{g:'RBAC',x:30,y:272,c:'#38bdf8',
+    d:'Catalogo de roles del sistema: ADMINISTRADOR, RRHH y EMPLEADO.',
+    cols:[['id','SERIAL','pk'],['nombre','VARCHAR(50)','']],
+    con:['PRIMARY KEY (id)','UNIQUE (nombre)']},
+
+  usuarios_roles:{g:'RBAC',x:30,y:398,c:'#f5b301',
+    d:'Tabla puente N:M entre usuarios y roles. Permite que un usuario acumule varios roles.',
+    cols:[['id_usuario','INT','pk fk'],['id_rol','INT','pk fk']],
+    con:['PRIMARY KEY (id_usuario, id_rol)']},
+
+  usuarios:{g:'RBAC',x:30,y:524,c:'#38bdf8',
+    d:'Credenciales de acceso. La contrasena se guarda como hash bcrypt (cost 10), nunca en claro. El flag activo deshabilita el login sin borrar el registro. Es ademas la UNICA fuente de verdad del email del empleado: no se duplica en la tabla empleados, por eso las busquedas por email se hacen sobre la vista vw_empleados_detalle usando idx_usuario_email.',
+    cols:[['id','SERIAL','pk'],['email','VARCHAR(150)',''],['password_hash','VARCHAR(255)',''],
+          ['activo','BOOLEAN',''],['debe_cambiar_password','BOOLEAN',''],['fecha_creacion_usuario','TIMESTAMP','']],
+    idx:['idx_usuario_email ON usuarios(email)'],
+    con:['PRIMARY KEY (id)','UNIQUE (email)','DEFAULT TRUE en debe_cambiar_password']},
+
+  puestos:{g:'Dominio',x:350,y:20,c:'#34d399',
+    d:'Catalogo de puestos: Mozo, Cocinero, Mantenimiento, Mucama, Administracion.',
+    cols:[['id','SERIAL','pk'],['nombre','VARCHAR(100)','']],
+    con:['PRIMARY KEY (id)']},
+
+  lugares_trabajo:{g:'Dominio',x:350,y:146,c:'#34d399',
+    d:'Catalogo de sectores fisicos: Cocina, Bar, Pileta, Oficina, Edificio Principal.',
+    cols:[['id','SERIAL','pk'],['nombre','VARCHAR(50)','']],
+    con:['PRIMARY KEY (id)']},
+
+  estados:{g:'Dominio',x:350,y:272,c:'#34d399',
+    d:'Situacion laboral del empleado: Activo, Inactivo, Vacaciones, Enfermo, Suspendido, Despedido.',
+    cols:[['id','SERIAL','pk'],['nombre','VARCHAR(50)','']],
+    con:['PRIMARY KEY (id)']},
+
+  empleados:{g:'Dominio',x:350,y:398,c:'#a78bfa',
+    d:'Tabla central del dominio. Los campos marcados Enc estan cifrados con AES-256-GCM en la capa de aplicacion: por eso son TEXT y no DATE o VARCHAR, el texto cifrado ocupa mas y no es consultable por SQL. El DNI va TEXT tambien por ser un identificador y no una cantidad: como INT perderia los ceros a la izquierda y no admitiria CUIT ni pasaporte. Como el cifrado usa IV aleatorio, el mismo DNI produce textos distintos: no se puede poner UNIQUE ni buscar por DNI, limitacion asumida porque es solo un dato de ficha. Nombre y apellido quedan en claro por proporcionalidad, son necesarios para listar y buscar. El email no esta aca: vive en usuarios.',
+    cols:[['id','SERIAL','pk'],['id_usuario','INT','fk'],['nombre','VARCHAR(100)',''],
+          ['apellido','VARCHAR(100)',''],['dni','TEXT','enc'],['fecha_nacimiento','TEXT','enc'],
+          ['telefono','TEXT','enc'],['direccion','TEXT','enc'],['notas','TEXT','enc'],
+          ['id_puesto','INT','fk'],['id_lugar','INT','fk'],['id_estado','INT','fk'],
+          ['fecha_creacion','TIMESTAMP','']],
+    idx:['idx_empleado_usuario ON empleados(id_usuario)','idx_empleado_puesto ON empleados(id_puesto)'],
+    con:['PRIMARY KEY (id)','UNIQUE (id_usuario)']},
+
+  empleados_cv:{g:'Dominio',x:670,y:20,c:'#34d399',
+    d:'CV adjunto en binario (BYTEA). Se separo de empleados a proposito: asi los SELECT del listado nunca arrastran el archivo. La relacion 1:1 se fuerza haciendo que la PK sea tambien la FK.',
+    cols:[['id_empleado','INT','pk fk'],['nombre','VARCHAR(200)',''],['mime','VARCHAR(100)',''],
+          ['archivo','BYTEA',''],['actualizado','TIMESTAMP','']],
+    con:['PRIMARY KEY (id_empleado)']},
+
+  calendario:{g:'Dominio',x:670,y:212,c:'#34d399',
+    d:'Turnos disponibles: fecha, franja horaria y puesto requerido. Es independiente del empleado, primero se publica el turno y despues se le asigna personal.',
+    cols:[['id','SERIAL','pk'],['fecha','DATE',''],['hora_inicio','TIME',''],
+          ['hora_fin','TIME',''],['id_puesto','INT','fk']],
+    idx:['idx_calendario_puesto ON calendario(id_puesto)'],
+    con:['PRIMARY KEY (id)','CHECK (hora_fin > hora_inicio)  -- no soporta turnos que cruzan la medianoche']},
+
+  asignacion_horario:{g:'Dominio',x:670,y:404,c:'#a78bfa',
+    d:'Vincula empleados con turnos del calendario. El UNIQUE compuesto evita asignar dos veces el mismo empleado al mismo turno. El flag archivado da idempotencia al proceso de archivado.',
+    cols:[['id','SERIAL','pk'],['id_empleado','INT','fk'],['id_calendario','INT','fk'],
+          ['archivado','BOOLEAN','']],
+    idx:['idx_asignacion_empleado ON asignacion_horario(id_empleado)',
+         'idx_asignacion_no_archivada ON asignacion_horario(id) WHERE NOT archivado  -- indice parcial'],
+    con:['PRIMARY KEY (id)','UNIQUE (id_empleado, id_calendario)']},
+
+  asignacion_horario_historial:{g:'Reportes',x:670,y:574,c:'#f07178',
+    d:'Registro historico inmutable y desnormalizado. Sin claves foraneas a proposito: guarda copias de texto para que el historico siga siendo correcto aunque se renombre un puesto o se elimine un empleado. Es la fuente de todos los reportes.',
+    cols:[['id','SERIAL','pk'],['empleado_nombre','VARCHAR(100)',''],['empleado_apellido','VARCHAR(100)',''],
+          ['puesto','VARCHAR(100)',''],['lugar_trabajo','VARCHAR(100)',''],['fecha','DATE',''],
+          ['hora_inicio','TIME',''],['hora_fin','TIME',''],['fecha_registro','TIMESTAMP','']],
+    idx:['idx_historial_fecha ON asignacion_horario_historial(fecha)',
+         'idx_historial_puesto ON asignacion_horario_historial(puesto)'],
+    con:['PRIMARY KEY (id)']}
+};
+
+/* from.col -> to.col  (12 FK reales del schema) */
+const FK = [
+  ['roles_permisos','id_rol','roles','id','ON DELETE CASCADE'],
+  ['roles_permisos','id_permiso','permisos','id','ON DELETE CASCADE'],
+  ['usuarios_roles','id_usuario','usuarios','id','ON DELETE CASCADE'],
+  ['usuarios_roles','id_rol','roles','id','ON DELETE CASCADE'],
+  ['empleados','id_usuario','usuarios','id','ON DELETE SET NULL'],
+  ['empleados','id_puesto','puestos','id',''],
+  ['empleados','id_lugar','lugares_trabajo','id',''],
+  ['empleados','id_estado','estados','id',''],
+  ['calendario','id_puesto','puestos','id',''],
+  ['asignacion_horario','id_empleado','empleados','id','ON DELETE CASCADE'],
+  ['asignacion_horario','id_calendario','calendario','id','ON DELETE CASCADE'],
+  ['empleados_cv','id_empleado','empleados','id','ON DELETE CASCADE']
+];
+
+const ROUT = {
+  vw_horarios_empleado:{k:'Vista',
+    d:'Turnos vigentes de cada empleado con su puesto y lugar. Consulta operativa que consume el frontend para dibujar la grilla.',
+    usa:['empleados','asignacion_horario','calendario','puestos','lugares_trabajo'],
+    sql:`SELECT e.id, e.nombre, e.apellido, c.id,
+       p.nombre AS puesto, l.nombre AS lugar_trabajo,
+       c.fecha, c.hora_inicio, c.hora_fin
+FROM empleados e
+JOIN asignacion_horario ah ON ah.id_empleado = e.id
+JOIN calendario c         ON c.id = ah.id_calendario
+JOIN puestos p            ON p.id = e.id_puesto
+JOIN lugares_trabajo l    ON l.id = e.id_lugar;`},
+
+  vw_empleados_detalle:{k:'Vista',
+    d:'Ficha completa: datos laborales, cuenta de usuario, rol y metadatos del CV. Usa LEFT JOIN en todo para que un empleado sin usuario, sin CV o sin rol siga apareciendo. Los campos cifrados salen tal cual, los descifra el backend.',
+    usa:['empleados','empleados_cv','usuarios','usuarios_roles','roles','puestos','lugares_trabajo','estados'],
+    sql:`SELECT e.id, e.nombre, e.apellido, e.dni,
+       e.fecha_nacimiento, e.telefono, e.direccion, e.notas,
+       cv.nombre AS cv_nombre, cv.actualizado AS cv_actualizado,
+       p.nombre AS puesto, l.nombre AS lugar_trabajo, s.nombre AS estado,
+       u.id AS usuario_id, u.email, u.activo,
+       u.debe_cambiar_password, r.nombre AS rol
+FROM empleados e
+LEFT JOIN empleados_cv cv   ON cv.id_empleado = e.id
+LEFT JOIN usuarios u        ON u.id  = e.id_usuario
+LEFT JOIN usuarios_roles ur ON ur.id_usuario = u.id
+LEFT JOIN roles r           ON r.id  = ur.id_rol
+LEFT JOIN puestos p         ON p.id  = e.id_puesto
+LEFT JOIN lugares_trabajo l ON l.id  = e.id_lugar
+LEFT JOIN estados s         ON s.id  = e.id_estado;`},
+
+  vw_usuarios_permisos:{k:'Vista',
+    d:'Permisos efectivos de cada usuario resolviendo la cadena usuario -> rol -> permiso. Se usa para auditoria y para validar seguridad.',
+    usa:['usuarios','usuarios_roles','roles','roles_permisos','permisos'],
+    sql:`SELECT u.id AS usuario_id, u.email,
+       r.nombre AS rol, p.nombre AS permiso
+FROM usuarios u
+JOIN usuarios_roles ur ON ur.id_usuario = u.id
+JOIN roles r           ON r.id = ur.id_rol
+JOIN roles_permisos rp ON rp.id_rol = r.id
+JOIN permisos p        ON p.id = rp.id_permiso;`},
+
+  vw_reporte_empleados_puesto_lugar:{k:'Vista',
+    d:'Reporte agregado: cantidad de empleados por puesto y lugar de trabajo.',
+    usa:['empleados','puestos','lugares_trabajo'],
+    sql:`SELECT p.nombre AS puesto, l.nombre AS lugar_trabajo,
+       COUNT(e.id) AS cantidad_empleados
+FROM empleados e
+JOIN puestos p         ON p.id = e.id_puesto
+JOIN lugares_trabajo l ON l.id = e.id_lugar
+GROUP BY p.nombre, l.nombre;`},
+
+  vw_reporte_historial_horarios:{k:'Vista',
+    d:'Listado historico de turnos ya cumplidos, ordenado por fecha de registro descendente.',
+    usa:['asignacion_horario_historial'],
+    sql:`SELECT empleado_nombre, empleado_apellido, puesto, lugar_trabajo,
+       fecha, hora_inicio, hora_fin, fecha_registro
+FROM asignacion_horario_historial
+ORDER BY fecha_registro DESC;`},
+
+  archivar_turnos_completados:{k:'Procedimiento',
+    d:'Procedimiento PL/pgSQL. Copia al historial los turnos con fecha anterior a hoy que aun no fueron archivados y los marca. Es idempotente: ejecutarlo dos veces no duplica registros. El backend lo invoca al arrancar. Parametro INOUT archivados INT devuelve cuantos se archivaron.',
+    usa:['asignacion_horario','calendario','empleados','puestos','lugares_trabajo','asignacion_horario_historial'],
+    sql:`CREATE PROCEDURE archivar_turnos_completados(INOUT archivados INT)
+LANGUAGE plpgsql AS $$
+BEGIN
+  WITH pendientes AS (
+    SELECT ah.id, e.nombre, e.apellido,
+           COALESCE(pt.nombre, pe.nombre, 'Sin puesto') AS puesto,
+           COALESCE(l.nombre, 'Sin lugar') AS lugar,
+           c.fecha, c.hora_inicio, c.hora_fin
+    FROM asignacion_horario ah
+    JOIN calendario c ON c.id = ah.id_calendario
+    JOIN empleados e  ON e.id = ah.id_empleado
+    LEFT JOIN puestos pt        ON pt.id = c.id_puesto
+    LEFT JOIN puestos pe        ON pe.id = e.id_puesto
+    LEFT JOIN lugares_trabajo l ON l.id  = e.id_lugar
+    WHERE c.fecha < CURRENT_DATE AND NOT ah.archivado
+  ),
+  insertados AS (
+    INSERT INTO asignacion_horario_historial (...)
+    SELECT ... FROM pendientes RETURNING 1
+  )
+  UPDATE asignacion_horario SET archivado = true
+  WHERE id IN (SELECT id FROM pendientes);
+
+  GET DIAGNOSTICS archivados = ROW_COUNT;
+END; $$;`},
+
+  fn_horas_trabajadas:{k:'Funcion',
+    d:'Funcion SQL STABLE. Agregacion parametrizada por rango de fechas: turnos y horas trabajadas por empleado y puesto. Base del reporte con filtros y del export CSV. Como el historial guarda los nombres en claro, el reporte se resuelve 100% en SQL sin descifrar nada.',
+    usa:['asignacion_horario_historial'],
+    sql:`CREATE FUNCTION fn_horas_trabajadas(p_desde DATE, p_hasta DATE)
+RETURNS TABLE (empleado_nombre VARCHAR, empleado_apellido VARCHAR,
+               puesto VARCHAR, turnos BIGINT, horas NUMERIC)
+LANGUAGE sql STABLE AS $$
+  SELECT empleado_nombre, empleado_apellido, puesto,
+         COUNT(*) AS turnos,
+         ROUND(SUM(EXTRACT(EPOCH FROM (hora_fin - hora_inicio))/3600)::numeric, 2) AS horas
+  FROM asignacion_horario_historial
+  WHERE fecha BETWEEN p_desde AND p_hasta
+  GROUP BY empleado_nombre, empleado_apellido, puesto
+  ORDER BY horas DESC;
+$$;`}
+};
+
+/* ============ RENDER ERD ============ */
+const canvas = document.getElementById('canvas');
+const svg = document.getElementById('wires');
+const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+for (const [name, t] of Object.entries(T)) {
+  const n = document.createElement('div');
+  n.className = 'node'; n.id = 'n_' + name;
+  n.style.left = t.x + 'px'; n.style.top = t.y + 'px';
+  let h = '<div class="node-h"><span class="dot" style="background:' + t.c + '"></span>' + name + '</div><div class="node-b">';
+  t.cols.forEach(([cn, ct, kk]) => {
+    const badge = kk.includes('pk') ? '<span class="k pk">PK</span>'
+                : kk.includes('fk') ? '<span class="k fk">FK</span>'
+                : kk.includes('enc') ? '<span class="k enc">ENC</span>' : '<span></span>';
+    h += '<div class="col" data-c="' + cn + '">' + badge +
+         '<span class="cn">' + cn + '</span><span class="ct">' + ct + '</span></div>';
+  });
+  n.innerHTML = h + '</div>';
+  n.onclick = e => { e.stopPropagation(); select(name); };
+  canvas.appendChild(n);
+}
+
+function anchor(table, col, side) {
+  const node = document.getElementById('n_' + table);
+  const row = node.querySelector('[data-c="' + col + '"]') || node;
+  const cb = canvas.getBoundingClientRect(), rb = row.getBoundingClientRect(), nb = node.getBoundingClientRect();
+  const s = zoom;
+  return {
+    x: ((side === 'l' ? nb.left : nb.right) - cb.left) / s,
+    y: (rb.top + rb.height / 2 - cb.top) / s
+  };
+}
+
+function drawWires() {
+  svg.innerHTML = '';
+  FK.forEach(([ft, fc, tt, tc], i) => {
+    const fn = T[ft], tn = T[tt];
+    const fSide = tn.x < fn.x ? 'l' : 'r';
+    const tSide = tn.x < fn.x ? 'r' : 'l';
+    const a = anchor(ft, fc, fSide), b = anchor(tt, tc, tSide);
+    const dx = Math.max(40, Math.abs(b.x - a.x) * 0.5);
+    const c1 = fSide === 'l' ? a.x - dx : a.x + dx;
+    const c2 = tSide === 'l' ? b.x - dx : b.x + dx;
+    const p = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    p.setAttribute('d', `M ${a.x} ${a.y} C ${c1} ${a.y}, ${c2} ${b.y}, ${b.x} ${b.y}`);
+    p.setAttribute('class', 'wire'); p.dataset.i = i;
+    svg.appendChild(p);
+    [[a, 3.5], [b, 4.5]].forEach(([pt, r], j) => {
+      const cEl = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      cEl.setAttribute('cx', pt.x); cEl.setAttribute('cy', pt.y); cEl.setAttribute('r', r);
+      cEl.setAttribute('fill', j ? '#f5b301' : '#f07178');
+      cEl.setAttribute('class', 'wire-dot'); cEl.dataset.i = i;
+      svg.appendChild(cEl);
+    });
+  });
+}
+
+/* ============ INTERACCION ============ */
+let selected = null, group = 'todas', zoom = 1;
+
+function kinOf(name) {
+  const k = new Set();
+  FK.forEach(([ft, fc, tt]) => {
+    if (ft === name) k.add(tt);
+    if (tt === name) k.add(ft);
+  });
+  return k;
+}
+
+function select(name) {
+  selected = name;
+  const kin = kinOf(name);
+  document.querySelectorAll('.node').forEach(n => {
+    const nm = n.id.slice(2);
+    n.classList.toggle('sel', nm === name);
+    n.classList.toggle('kin', kin.has(nm));
+    n.classList.toggle('off', nm !== name && !kin.has(nm));
+  });
+  svg.querySelectorAll('[data-i]').forEach(el => {
+    const [ft, , tt] = FK[+el.dataset.i];
+    const on = ft === name || tt === name;
+    el.classList.toggle('on', on && el.classList.contains('wire'));
+    el.classList.toggle('off', !on);
+  });
+  detail(name);
+}
+
+function clearSel() {
+  selected = null;
+  document.querySelectorAll('.node').forEach(n => n.classList.remove('sel', 'kin', 'off'));
+  svg.querySelectorAll('[data-i]').forEach(el => el.classList.remove('on', 'off'));
+}
+
+function detail(name) {
+  const t = T[name];
+  document.getElementById('detTitle').textContent = name + '   ·   ' + t.g;
+  let h = '<div class="desc">' + esc(t.d) + '</div>';
+
+  const out = FK.filter(f => f[0] === name);
+  const inc = FK.filter(f => f[2] === name);
+  h += '<div class="sub"><div class="sub-t">Relaciones</div>';
+  if (!out.length && !inc.length) h += '<div class="rel muted">Sin claves foraneas.</div>';
+  out.forEach(([, fc, tt, tc, rule]) => {
+    h += '<div class="rel">FK <b>' + fc + '</b> &rarr; <b>' + tt + '(' + tc + ')</b> ' +
+         (rule ? '<span class="muted">' + rule + '</span> ' : '') +
+         '<span class="go" data-go="' + tt + '">ver</span></div>';
+  });
+  inc.forEach(([ft, fc, , tc, rule]) => {
+    h += '<div class="rel">Recibe FK desde <b>' + ft + '(' + fc + ')</b> ' +
+         (rule ? '<span class="muted">' + rule + '</span> ' : '') +
+         '<span class="go" data-go="' + ft + '">ver</span></div>';
+  });
+  h += '</div>';
+
+  const usedBy = Object.entries(ROUT).filter(([, r]) => r.usa.includes(name));
+  if (usedBy.length) {
+    h += '<div class="sub"><div class="sub-t">La consumen</div>';
+    usedBy.forEach(([rn, r]) => {
+      h += '<div class="rel">' + r.k + ' <b>' + rn + '</b> <span class="go" data-rout="' + rn + '">ver</span></div>';
+    });
+    h += '</div>';
+  }
+
+  if (t.idx) {
+    h += '<div class="sub"><div class="sub-t">Indices</div>';
+    t.idx.forEach(i => h += '<div class="mono">' + esc(i) + '</div>');
+    h += '</div>';
+  }
+  if (t.con) {
+    h += '<div class="sub"><div class="sub-t">Restricciones</div>';
+    t.con.forEach(i => h += '<div class="mono">' + esc(i) + '</div>');
+    h += '</div>';
+  }
+  setDetail(h);
+}
+
+function detailRout(name) {
+  const r = ROUT[name];
+  document.getElementById('detTitle').textContent = name + '   ·   ' + r.k;
+  let h = '<div class="desc">' + esc(r.d) + '</div>';
+  h += '<div class="sub"><div class="sub-t">Tablas que utiliza</div>';
+  r.usa.forEach(u => h += '<div class="rel"><b>' + u + '</b> <span class="go" data-go="' + u + '">ver en el diagrama</span></div>');
+  h += '</div><div class="sub"><div class="sub-t">Definicion SQL</div><pre>' + esc(r.sql) + '</pre></div>';
+  setDetail(h);
+
+  document.querySelectorAll('.chip').forEach(c => c.classList.toggle('sel', c.dataset.rout === name));
+  const kin = new Set(r.usa);
+  document.querySelectorAll('.node').forEach(n => {
+    const nm = n.id.slice(2);
+    n.classList.remove('sel');
+    n.classList.toggle('kin', kin.has(nm));
+    n.classList.toggle('off', !kin.has(nm));
+  });
+  svg.querySelectorAll('[data-i]').forEach(el => {
+    const [ft, , tt] = FK[+el.dataset.i];
+    const on = kin.has(ft) && kin.has(tt);
+    el.classList.toggle('on', on && el.classList.contains('wire'));
+    el.classList.toggle('off', !on);
+  });
+}
+
+function setDetail(h) {
+  const b = document.getElementById('detBody');
+  b.innerHTML = h;
+  b.querySelectorAll('[data-go]').forEach(el => el.onclick = () => {
+    document.querySelectorAll('.chip').forEach(c => c.classList.remove('sel'));
+    const n = document.getElementById('n_' + el.dataset.go);
+    n.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' });
+    select(el.dataset.go);
+  });
+  b.querySelectorAll('[data-rout]').forEach(el => el.onclick = () => detailRout(el.dataset.rout));
+}
+
+/* chips de vistas y rutinas */
+const chips = document.getElementById('chips');
+Object.keys(ROUT).forEach(rn => {
+  const c = document.createElement('div');
+  c.className = 'chip'; c.dataset.rout = rn; c.textContent = rn;
+  c.onclick = () => detailRout(rn);
+  chips.appendChild(c);
+});
+
+/* filtros por grupo */
+document.querySelectorAll('.toolbar .btn[data-g]').forEach(btn => {
+  btn.onclick = () => {
+    group = btn.dataset.g;
+    document.querySelectorAll('.toolbar .btn[data-g]').forEach(b => b.classList.remove('on'));
+    btn.classList.add('on');
+    clearSel();
+    document.querySelectorAll('.chip').forEach(c => c.classList.remove('sel'));
+    document.querySelectorAll('.node').forEach(n => {
+      const t = T[n.id.slice(2)];
+      n.classList.toggle('off', group !== 'todas' && t.g !== group);
+    });
+    svg.querySelectorAll('[data-i]').forEach(el => {
+      const [ft, , tt] = FK[+el.dataset.i];
+      const vis = group === 'todas' || (T[ft].g === group && T[tt].g === group);
+      el.classList.toggle('off', !vis);
+    });
+  };
+});
+
+/* zoom */
+const zoomer = document.getElementById('zoomer');
+function applyZoom() {
+  canvas.style.transform = 'scale(' + zoom + ')';
+  zoomer.style.width = (1000 * zoom) + 'px';
+  zoomer.style.height = (870 * zoom) + 'px';
+}
+document.getElementById('zin').onclick = () => { zoom = Math.min(1.6, zoom + 0.15); applyZoom(); };
+document.getElementById('zout').onclick = () => { zoom = Math.max(0.5, zoom - 0.15); applyZoom(); };
+
+document.querySelector('.canvas-shell').addEventListener('click', e => {
+  if (e.target.closest('.node')) return;
+  clearSel();
+  document.getElementById('detTitle').textContent = 'Detalle';
+  document.getElementById('detBody').innerHTML = '<span class="muted">Selecciona una tabla del diagrama.</span>';
+});
+
+drawWires();
+select('empleados');
+</script>
+</body>
+</html>

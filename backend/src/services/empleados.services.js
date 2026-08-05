@@ -1,8 +1,11 @@
+import bcrypt from "bcryptjs";
 import { pool } from "../config/database.js";
 import * as Queries from "../queries/empleados.queries.js";
+import * as UsuariosQueries from "../queries/usuarios.queries.js";
 import { MENSAJES } from "../constantes/mensajes.js";
 import { httpError } from "../utils/httpError.js";
 import { cifrar, descifrar, cifrarBuffer, descifrarBuffer } from "../utils/cifrado.js";
+import { generarPasswordInicial, normalizarDni } from "../utils/passwordInicial.js";
 
 /*
   Datos personales cifrados (AES-256-GCM): la BD guarda solo bytes.
@@ -36,6 +39,7 @@ export const descifrarEmpleado = (fila) => {
     ...fila,
     fecha_nacimiento,
     edad: calcularEdad(fecha_nacimiento),
+    dni: descifrar(fila.dni),
     telefono: descifrar(fila.telefono),
     direccion: descifrar(fila.direccion),
     notas: descifrar(fila.notas),
@@ -65,27 +69,73 @@ export const getEmpleadoById = async (id) => {
   return descifrarEmpleado(result.rows[0]);
 };
 
+/*
+  Alta de empleado CON provisión automática de su cuenta.
+
+  Todo ocurre en una única transacción: usuario, rol y empleado se crean
+  juntos o no se crea nada. Sin transacción, un fallo a mitad de camino
+  dejaría un usuario huérfano sin empleado (o al revés).
+
+  La password inicial se deriva de los datos del propio empleado y se
+  devuelve UNA sola vez, en la respuesta del alta, para que RRHH pueda
+  entregársela. No queda almacenada en claro en ningún lado: en la BD
+  solo vive su hash bcrypt.
+*/
 export const createEmpleado = async (empleado) => {
   const {
-    id_usuario = null,
     nombre,
     apellido,
+    dni,
+    email,
     fecha_nacimiento = null,
     telefono = null,
     direccion = null,
     notas = null,
     id_puesto = null,
     id_lugar = null,
-    id_estado = null
+    id_estado = null,
+    rol = "EMPLEADO"
   } = empleado;
 
+  const dniNormalizado = normalizarDni(dni);
+  const passwordInicial = generarPasswordInicial(nombre, apellido, dniNormalizado);
+  const passwordHash = await bcrypt.hash(passwordInicial, 10);
+
+  const client = await pool.connect();
+
   try {
-    const result = await pool.query(
-      Queries.CREATE_EMPLEADO,
-      [
-        id_usuario,
+    await client.query("BEGIN");
+
+    // 1. Cuenta de acceso. Nace con debe_cambiar_password = true (DEFAULT).
+    let usuario;
+    try {
+      const result = await client.query(UsuariosQueries.CREATE_USUARIO, [
+        email,
+        passwordHash
+      ]);
+      usuario = result.rows[0];
+    } catch (error) {
+      if (error.code === "23505") {
+        throw httpError(409, MENSAJES.USUARIOS.EMAIL_YA_EXISTE);
+      }
+      throw error;
+    }
+
+    // 2. Rol. Se resuelve por nombre para no depender de ids del seed.
+    const rolResult = await client.query(Queries.GET_ROL_POR_NOMBRE, [rol]);
+    if (!rolResult.rows[0]) {
+      throw httpError(400, MENSAJES.VALIDACION.REFERENCIA_INVALIDA);
+    }
+    await client.query(UsuariosQueries.ASIGNAR_ROL, [usuario.id, rolResult.rows[0].id]);
+
+    // 3. Ficha del empleado, ya vinculada a la cuenta recién creada.
+    let empleadoCreado;
+    try {
+      const result = await client.query(Queries.CREATE_EMPLEADO, [
+        usuario.id,
         nombre,
         apellido,
+        cifrar(dniNormalizado),
         cifrar(fecha_nacimiento),
         cifrar(telefono),
         cifrar(direccion),
@@ -93,20 +143,31 @@ export const createEmpleado = async (empleado) => {
         id_puesto,
         id_lugar,
         id_estado
-      ]
-    );
-    return descifrarEmpleado(result.rows[0]);
-  } catch (error) {
-    // UNIQUE violation (id_usuario)
-    if (error.code === '23505') {
-      throw httpError(409, MENSAJES.EMPLEADOS.USUARIO_YA_ASOCIADO);
-    }
-    // FK violation (puesto, lugar, estado o usuario inexistente)
-    if (error.code === '23503') {
-      throw httpError(400, MENSAJES.VALIDACION.REFERENCIA_INVALIDA);
+      ]);
+      empleadoCreado = result.rows[0];
+    } catch (error) {
+      // FK violation: puesto, lugar o estado inexistente
+      if (error.code === "23503") {
+        throw httpError(400, MENSAJES.VALIDACION.REFERENCIA_INVALIDA);
+      }
+      throw error;
     }
 
+    await client.query("COMMIT");
+
+    return {
+      ...descifrarEmpleado(empleadoCreado),
+      email: usuario.email,
+      // Única vez que la credencial viaja en claro. El usuario está
+      // obligado a cambiarla en el primer login.
+      password_inicial: passwordInicial,
+      debe_cambiar_password: true
+    };
+  } catch (error) {
+    await client.query("ROLLBACK");
     throw error;
+  } finally {
+    client.release();
   }
 };
 
@@ -114,6 +175,7 @@ export const updateEmpleado = async (id, empleado) => {
   const {
     nombre = null,
     apellido = null,
+    dni = null,
     fecha_nacimiento = null,
     telefono = null,
     direccion = null,
@@ -131,6 +193,7 @@ export const updateEmpleado = async (id, empleado) => {
       [
         nombre,
         apellido,
+        dni === null ? null : cifrar(normalizarDni(dni)),
         cifrar(fecha_nacimiento),
         cifrar(telefono),
         cifrar(direccion),

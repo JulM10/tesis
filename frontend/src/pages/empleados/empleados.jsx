@@ -46,6 +46,8 @@ import {
 const FORM_VACIO = {
   nombre: "",
   apellido: "",
+  dni: "",
+  email: "",
   fecha_nacimiento: "",
   telefono: "",
   direccion: "",
@@ -97,6 +99,9 @@ export default function Empleados() {
   // Dialog de confirmación de borrado
   const [empleadoABorrar, setEmpleadoABorrar] = useState(null);
 
+  // Credenciales del alta: se muestran una única vez tras crear el empleado
+  const [credenciales, setCredenciales] = useState(null);
+
   // CV adjunto (solo en edición)
   const [cvActual, setCvActual] = useState(null);
   const [archivoCV, setArchivoCV] = useState(null);
@@ -139,6 +144,10 @@ export default function Empleados() {
     setForm({
       nombre: empleado.nombre ?? "",
       apellido: empleado.apellido ?? "",
+      dni: empleado.dni ?? "",
+      // Solo informativo en edición: el email vive en usuarios y se
+      // administra desde la pantalla de Usuarios.
+      email: empleado.email ?? "",
       fecha_nacimiento: (empleado.fecha_nacimiento ?? "").slice(0, 10),
       telefono: empleado.telefono ?? "",
       direccion: empleado.direccion ?? "",
@@ -196,6 +205,10 @@ export default function Empleados() {
   const armarPayload = () => ({
     nombre: form.nombre.trim(),
     apellido: form.apellido.trim(),
+    dni: form.dni.trim(),
+    // El email solo viaja en el alta: es la identidad de la cuenta que se
+    // crea junto al empleado. En edición se modifica desde Usuarios.
+    ...(editandoId ? {} : { email: form.email.trim() }),
     fecha_nacimiento: form.fecha_nacimiento || null,
     telefono: form.telefono.trim() || null,
     direccion: form.direccion.trim() || null,
@@ -214,8 +227,18 @@ export default function Empleados() {
         await updateEmpleado(editandoId, armarPayload());
         toast.success("Empleado actualizado correctamente");
       } else {
-        await createEmpleado(armarPayload());
+        const respuesta = await createEmpleado(armarPayload());
         toast.success("Empleado creado correctamente");
+        /*
+          La password inicial viaja UNA sola vez, en esta respuesta.
+          Se muestra en un diálogo aparte porque es el único momento en
+          que existe en claro: después solo queda su hash en la BD.
+        */
+        setCredenciales({
+          nombre: `${respuesta.data.nombre} ${respuesta.data.apellido}`,
+          email: respuesta.data.email,
+          password: respuesta.data.password_inicial,
+        });
       }
       setDialogAbierto(false);
       await cargarDatos();
@@ -259,6 +282,7 @@ export default function Empleados() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Nombre</TableHead>
+                  <TableHead>DNI</TableHead>
                   <TableHead>Puesto</TableHead>
                   <TableHead>Lugar</TableHead>
                   <TableHead>Estado</TableHead>
@@ -270,7 +294,7 @@ export default function Empleados() {
               <TableBody>
                 {empleados.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center text-gray-500">
+                    <TableCell colSpan={8} className="text-center text-gray-500">
                       No hay empleados registrados
                     </TableCell>
                   </TableRow>
@@ -280,6 +304,7 @@ export default function Empleados() {
                     <TableCell className="font-medium">
                       {emp.nombre} {emp.apellido}
                     </TableCell>
+                    <TableCell>{emp.dni ?? "—"}</TableCell>
                     <TableCell>{emp.puesto ?? "—"}</TableCell>
                     <TableCell>{emp.lugar_trabajo ?? "—"}</TableCell>
                     <TableCell>
@@ -321,7 +346,7 @@ export default function Empleados() {
             <DialogDescription>
               {editandoId
                 ? "Modificá los datos del empleado."
-                : "Completá los datos del nuevo empleado."}
+                : "Al guardar se crea automáticamente su cuenta de acceso con el email indicado. La contraseña inicial se genera a partir de su nombre y DNI, y deberá cambiarla en el primer ingreso."}
             </DialogDescription>
           </DialogHeader>
 
@@ -336,6 +361,35 @@ export default function Empleados() {
                 <div className="space-y-2">
                   <Label htmlFor="apellido">Apellido *</Label>
                   <Input id="apellido" value={form.apellido} onChange={setCampo("apellido")} required />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="dni">DNI *</Label>
+                  <Input
+                    id="dni"
+                    value={form.dni}
+                    onChange={setCampo("dni")}
+                    placeholder="20123456"
+                    inputMode="numeric"
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email {editandoId ? "" : "*"}</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    value={form.email}
+                    onChange={setCampo("email")}
+                    placeholder="nombre.apellido@hotel.com"
+                    required={!editandoId}
+                    disabled={!!editandoId}
+                    readOnly={!!editandoId}
+                    title={
+                      editandoId
+                        ? "El email es la identidad de la cuenta: se administra desde Usuarios"
+                        : "Con este email se crea la cuenta de acceso del empleado"
+                    }
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="fecha_nacimiento">Fecha de nacimiento</Label>
@@ -472,6 +526,55 @@ export default function Empleados() {
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog: credenciales generadas (se muestran una sola vez) */}
+      <Dialog open={!!credenciales} onOpenChange={(abierto) => !abierto && setCredenciales(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Cuenta creada</DialogTitle>
+            <DialogDescription>
+              Entregale estos datos a <strong>{credenciales?.nombre}</strong>. La contraseña
+              no se vuelve a mostrar: en el sistema solo queda guardada cifrada.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3">
+            <div className="space-y-1">
+              <Label>Email</Label>
+              <div className="rounded-md bg-gray-50 border px-3 py-2 font-mono text-sm break-all">
+                {credenciales?.email}
+              </div>
+            </div>
+            <div className="space-y-1">
+              <Label>Contraseña inicial</Label>
+              <div className="rounded-md bg-gray-50 border px-3 py-2 font-mono text-sm break-all">
+                {credenciales?.password}
+              </div>
+            </div>
+            <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
+              El sistema le va a exigir cambiar esta contraseña la primera vez que ingrese.
+            </p>
+          </div>
+
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                navigator.clipboard?.writeText(
+                  `Email: ${credenciales.email}\nContraseña: ${credenciales.password}`
+                );
+                toast.success("Credenciales copiadas");
+              }}
+            >
+              Copiar
+            </Button>
+            <Button type="button" onClick={() => setCredenciales(null)}>
+              Listo
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
