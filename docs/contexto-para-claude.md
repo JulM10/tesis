@@ -295,27 +295,17 @@ Las cuatro capas son independientes; comprometer una no rinde las demás.
 
 ## 9. Credenciales de Demo (Seed)
 
-```sql
--- ADMIN
-email: admin@hotel.com
-password: AdminPass123
+Fuente de verdad: [seed.sql](../backend/database/seed.sql) (los hashes bcrypt reales y estas
+passwords están documentados ahí). Todos con `debe_cambiar_password = false`.
 
--- RRHH
-email: rrhh@hotel.com
-password: RRHHPass123
-
--- Empleado
-email: empleado@hotel.com
-password: EmpleadoPass123
-
--- Sin rol (deny by default)
-email: sinrol@hotel.com
-password: SinrolPass123
-
--- Inactivo (no loguea)
-email: inactivo@hotel.com
-password: (irrelevante)
-```
+| Email | Password | Rol / caso |
+|---|---|---|
+| `admin@hotel.com` | `Admin123!` | ADMINISTRADOR |
+| `rrhh@hotel.com` | `Rrhh123!` | RRHH (sin gestión de cuentas) |
+| `empleado@hotel.com` | `Empleado123!` | EMPLEADO |
+| `empleado2@hotel.com` | `Empleado123!` | EMPLEADO (segundo, para pruebas) |
+| `inactivo@hotel.com` | `Inactivo123!` | No puede loguear (`activo = false`) |
+| `sinrol@hotel.com` | `Sinrol123!` | Loguea sin permisos (deny by default) |
 
 ---
 
