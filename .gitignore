@@ -4,6 +4,7 @@ npm-debug.log*
 
 # Env
 .env
+.env.example
 
 # Backups de la BD (contienen datos; nunca al repo)
 backups/

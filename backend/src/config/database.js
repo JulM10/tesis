@@ -7,13 +7,25 @@ const { Pool, types } = pkg;
 // cuando el cliente está en otra zona horaria (ej. UTC-3).
 types.setTypeParser(1082, (valor) => valor);
 
-export const pool = new Pool({
-  user: process.env.DB_USER,
-  host: process.env.DB_HOST,
-  database: process.env.DB_NAME,
-  password: process.env.DB_PASSWORD,
-  port: process.env.DB_PORT,
-});
+// Dos formas de configurar la conexión:
+// - DATABASE_URL: la que entregan los Postgres gestionados (Render, Neon, Railway).
+// - Variables sueltas: el entorno local (Docker Compose / npm run dev).
+export const pool = new Pool(
+  process.env.DATABASE_URL
+    ? {
+        connectionString: process.env.DATABASE_URL,
+        // El proveedor gestionado exige TLS. rejectUnauthorized: false acepta
+        // su certificado sin validar la cadena: cifra el canal, no verifica al par.
+        ssl: { rejectUnauthorized: false },
+      }
+    : {
+        user: process.env.DB_USER,
+        host: process.env.DB_HOST,
+        database: process.env.DB_NAME,
+        password: process.env.DB_PASSWORD,
+        port: process.env.DB_PORT,
+      }
+);
 
 export const connectDB = async () => {
   try {

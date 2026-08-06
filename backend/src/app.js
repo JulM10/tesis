@@ -14,7 +14,14 @@ import { autenticar } from "./middlewares/auth.middleware.js";
 
 const app = express();
 
-app.use(cors());
+// Solo los orígenes declarados pueden consumir la API. En local basta el
+// dev server de Vite; en producción se lista el dominio del frontend.
+const origenesPermitidos = (process.env.CORS_ORIGIN || "http://localhost:5173")
+  .split(",")
+  .map((origen) => origen.trim())
+  .filter(Boolean);
+
+app.use(cors({ origin: origenesPermitidos }));
 app.use(express.json());
 
 app.get("/", (req, res) => {
