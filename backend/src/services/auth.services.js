@@ -4,8 +4,40 @@ import { pool } from "../config/database.js";
 import * as Queries from "../queries/auth.queries.js";
 import { MENSAJES } from "../constantes/mensajes.js";
 
-// 8 horas: cubre un turno laboral completo sin re-login
-const JWT_EXPIRACION = "8h";
+/*
+  Vida del token. Es corta a propósito y se apoya en la renovación por
+  actividad (POST /api/auth/renovar): el frontend pide uno nuevo mientras
+  el usuario trabaja, así que una sesión activa nunca se corta, pero un
+  puesto de trabajo abandonado queda sin acceso en minutos.
+
+  Es además lo que acota la revocación: un JWT sin estado no se puede
+  invalidar, pero un usuario dado de baja deja de poder renovar, así que
+  pierde el acceso dentro de esta ventana en lugar de toda la jornada.
+
+  Deliberadamente algo mayor que el corte por inactividad del frontend
+  (10 min), para que sea ese corte —y no el vencimiento del token— el que
+  gobierne la experiencia.
+*/
+const JWT_EXPIRACION = "15m";
+
+const firmarToken = (usuario, roles, permisos) =>
+  jwt.sign(
+    { sub: usuario.id, email: usuario.email, roles, permisos },
+    process.env.JWT_SECRET,
+    { expiresIn: JWT_EXPIRACION }
+  );
+
+// Los roles y permisos se leen de la BD en cada firma (login y renovación):
+// así un cambio de permisos aplica en la próxima renovación, no recién
+// cuando el usuario vuelve a loguearse.
+const obtenerRolesYPermisos = async (idUsuario) => {
+  const result = await pool.query(Queries.GET_PERMISOS_USUARIO, [idUsuario]);
+
+  return {
+    roles: [...new Set(result.rows.map((r) => r.rol))],
+    permisos: [...new Set(result.rows.map((r) => r.permiso))]
+  };
+};
 
 export const login = async (email, password) => {
   const result = await pool.query(Queries.GET_USUARIO_BY_EMAIL, [email]);
@@ -23,24 +55,10 @@ export const login = async (email, password) => {
     throw { status: 401, message: MENSAJES.AUTH.CREDENCIALES_INVALIDAS };
   }
 
-  const permisosResult = await pool.query(
-    Queries.GET_PERMISOS_USUARIO,
-    [usuario.id]
-  );
-
-  const roles = [...new Set(permisosResult.rows.map((r) => r.rol))];
-  const permisos = [...new Set(permisosResult.rows.map((r) => r.permiso))];
-
-  // Los permisos viajan dentro del token: un cambio de permisos en la BD
-  // aplica recién en el próximo login
-  const token = jwt.sign(
-    { sub: usuario.id, email: usuario.email, roles, permisos },
-    process.env.JWT_SECRET,
-    { expiresIn: JWT_EXPIRACION }
-  );
+  const { roles, permisos } = await obtenerRolesYPermisos(usuario.id);
 
   return {
-    token,
+    token: firmarToken(usuario, roles, permisos),
     usuario: {
       id: usuario.id,
       email: usuario.email,
@@ -51,6 +69,38 @@ export const login = async (email, password) => {
         de los datos del empleado. El frontend debe redirigir al cambio
         de password antes de dejar operar.
       */
+      debe_cambiar_password: usuario.debe_cambiar_password
+    }
+  };
+};
+
+/*
+  Renovación de la sesión. El frontend la llama mientras hay actividad,
+  antes de que el token se venza, de modo que quien está trabajando no
+  vea nunca la pantalla de login.
+
+  Vuelve a consultar la BD en lugar de copiar los datos del token viejo,
+  y eso es lo que le da valor: si la cuenta se desactivó o le cambiaron
+  los permisos, la renovación lo refleja (o falla). Un token robado sirve
+  hasta que vence; una cuenta dada de baja no consigue uno nuevo.
+*/
+export const renovar = async (idUsuario) => {
+  const result = await pool.query(Queries.GET_USUARIO_BY_ID, [idUsuario]);
+  const usuario = result.rows[0];
+
+  if (!usuario || !usuario.activo) {
+    throw { status: 401, message: MENSAJES.AUTH.CREDENCIALES_INVALIDAS };
+  }
+
+  const { roles, permisos } = await obtenerRolesYPermisos(usuario.id);
+
+  return {
+    token: firmarToken(usuario, roles, permisos),
+    usuario: {
+      id: usuario.id,
+      email: usuario.email,
+      roles,
+      permisos,
       debe_cambiar_password: usuario.debe_cambiar_password
     }
   };

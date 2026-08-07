@@ -1,5 +1,8 @@
 import { createContext, useContext, useState } from "react";
-import { login as loginService } from "@/services/auth.services";
+import {
+  login as loginService,
+  renovarSesion as renovarSesionService,
+} from "@/services/auth.services";
 
 const AuthContext = createContext(null);
 
@@ -28,6 +31,19 @@ export function AuthProvider({ children }) {
     setUsuario(null);
   };
 
+  /*
+    Cambia el token por uno nuevo sin pasar por el login. El backend
+    relee roles y permisos, así que también sirve para que un cambio de
+    permisos se refleje sin cerrar sesión.
+  */
+  const renovarSesion = async () => {
+    const { token, usuario: usuarioRenovado } = await renovarSesionService();
+
+    localStorage.setItem("hy_token", token);
+    localStorage.setItem("hy_usuario", JSON.stringify(usuarioRenovado));
+    setUsuario(usuarioRenovado);
+  };
+
   const tienePermiso = (permiso) =>
     usuario?.permisos?.includes(permiso) ?? false;
 
@@ -42,7 +58,15 @@ export function AuthProvider({ children }) {
 
   return (
     <AuthContext.Provider
-      value={{ usuario, login, logout, tienePermiso, tieneRol, esAdministrador }}
+      value={{
+        usuario,
+        login,
+        logout,
+        renovarSesion,
+        tienePermiso,
+        tieneRol,
+        esAdministrador,
+      }}
     >
       {children}
     </AuthContext.Provider>

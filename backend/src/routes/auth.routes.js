@@ -7,10 +7,19 @@ const router = Router();
 /**
  * POST /api/auth/login
  * Autentica un usuario con email y password.
- * Devuelve un JWT con roles y permisos (expira en 8h) y el flag
+ * Devuelve un JWT con roles y permisos (expira en 15m) y el flag
  * debe_cambiar_password.
  */
 router.post("/login", authController.login);
+
+/**
+ * POST /api/auth/renovar
+ * Emite un token nuevo para el usuario autenticado. El frontend la llama
+ * mientras hay actividad, así una sesión en uso no se corta.
+ * Relee roles y permisos de la BD y rechaza cuentas desactivadas: es lo
+ * que acota la ventana de revocación de un JWT sin estado.
+ */
+router.post("/renovar", autenticar, authController.renovar);
 
 /**
  * POST /api/auth/cambiar-password

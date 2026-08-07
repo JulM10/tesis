@@ -5,7 +5,7 @@ WHERE email = $1;
 `;
 
 export const GET_USUARIO_BY_ID = `
-SELECT id, email, password_hash, activo
+SELECT id, email, password_hash, activo, debe_cambiar_password
 FROM usuarios
 WHERE id = $1;
 `;

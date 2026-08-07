@@ -21,6 +21,19 @@ export const login = async (req, res) => {
   }
 };
 
+export const renovar = async (req, res) => {
+  try {
+    // El id sale del token ya verificado por el middleware, nunca del body
+    const resultado = await authService.renovar(req.usuario.sub);
+
+    res.json(resultado);
+  } catch (error) {
+    res.status(error.status || 500).json({
+      error: error.status ? error.message : MENSAJES.GENERAL.ERROR_INTERNO
+    });
+  }
+};
+
 export const cambiarPassword = async (req, res) => {
   try {
     const { password_actual, password_nueva } = req.body;
