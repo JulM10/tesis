@@ -38,6 +38,47 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 
+/*
+  Fuera del componente a propósito: definido adentro, React lo tomaría como
+  un tipo nuevo en cada render y desmontaría/volvería a montar toda la tabla.
+  Solo depende de sus props, así que no necesita nada del estado del padre.
+*/
+const TablaTurnos = ({ titulo, filas, vacio }) => (
+  <Card>
+    <CardHeader className="pb-2">
+      <CardTitle className="text-base">{titulo}</CardTitle>
+    </CardHeader>
+    <CardContent>
+      {filas.length === 0 ? (
+        <p className="text-sm text-gray-400">{vacio}</p>
+      ) : (
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Fecha</TableHead>
+              <TableHead>Horario</TableHead>
+              <TableHead>Puesto</TableHead>
+              <TableHead>Lugar</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {filas.map((h) => (
+              <TableRow key={`${h.empleado_id}-${h.calendario_id}`}>
+                <TableCell>{formatearFecha(h.fecha)}</TableCell>
+                <TableCell>
+                  {horaCorta(h.hora_inicio)}–{horaCorta(h.hora_fin)}
+                </TableCell>
+                <TableCell>{h.puesto}</TableCell>
+                <TableCell>{h.lugar_trabajo}</TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      )}
+    </CardContent>
+  </Card>
+);
+
 export default function Perfil() {
   const [me, setMe] = useState(null);
   const [horarios, setHorarios] = useState([]);
@@ -64,7 +105,9 @@ export default function Perfil() {
   };
 
   useEffect(() => {
-    cargarDatos();
+    // El efecto no puede ser async: la IIFE deja las actualizaciones de
+    // estado fuera de su cuerpo síncrono (react-hooks/set-state-in-effect).
+    (async () => { await cargarDatos(); })();
   }, []);
 
   const empleado = me?.empleado;
@@ -123,42 +166,6 @@ export default function Perfil() {
       toast.error(error.response?.data?.error || "No se pudo descargar el CV");
     }
   };
-
-  const TablaTurnos = ({ titulo, filas, vacio }) => (
-    <Card>
-      <CardHeader className="pb-2">
-        <CardTitle className="text-base">{titulo}</CardTitle>
-      </CardHeader>
-      <CardContent>
-        {filas.length === 0 ? (
-          <p className="text-sm text-gray-400">{vacio}</p>
-        ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Fecha</TableHead>
-                <TableHead>Horario</TableHead>
-                <TableHead>Puesto</TableHead>
-                <TableHead>Lugar</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filas.map((h) => (
-                <TableRow key={`${h.empleado_id}-${h.calendario_id}`}>
-                  <TableCell>{formatearFecha(h.fecha)}</TableCell>
-                  <TableCell>
-                    {horaCorta(h.hora_inicio)}–{horaCorta(h.hora_fin)}
-                  </TableCell>
-                  <TableCell>{h.puesto}</TableCell>
-                  <TableCell>{h.lugar_trabajo}</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        )}
-      </CardContent>
-    </Card>
-  );
 
   return (
     <Layout>

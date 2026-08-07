@@ -53,6 +53,11 @@ export default function Layout({ children }) {
               <Link className={linkClass("/mi-perfil")} to="/mi-perfil">
                 Mi perfil
               </Link>
+              {tienePermiso("ESTABLECIMIENTO_EDITAR") && (
+                <Link className={linkClass("/configuracion")} to="/configuracion">
+                  Configuración
+                </Link>
+              )}
             </nav>
           </div>
 

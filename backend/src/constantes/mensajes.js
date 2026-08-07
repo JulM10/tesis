@@ -53,6 +53,17 @@ export const MENSAJES = {
     SIN_EMPLEADO: "Tu usuario no tiene un empleado vinculado"
   },
 
+  ESTABLECIMIENTO: {
+    TIPO_INVALIDO: "Solo se pueden administrar puestos y lugares de trabajo",
+    NOMBRE_REQUERIDO: "El nombre no puede estar vacío",
+    NOMBRE_MUY_LARGO: "El nombre supera el largo máximo permitido",
+    NOMBRE_DUPLICADO: "Ya existe un registro con ese nombre",
+    NO_ENCONTRADO: "El registro no existe",
+    CREADO_OK: "Creado correctamente",
+    ACTUALIZADO_OK: "Actualizado correctamente",
+    ELIMINADO_OK: "Eliminado correctamente"
+  },
+
   CV: {
     SUBIDO_OK: "CV subido correctamente",
     ELIMINADO_OK: "CV eliminado correctamente",

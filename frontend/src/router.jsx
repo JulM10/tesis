@@ -6,6 +6,7 @@ import Calendario from './pages/calendario/calendario.jsx';
 import Usuarios from './pages/usuarios/usuarios.jsx';
 import Perfil from './pages/perfil/perfil.jsx';
 import Reportes from './pages/reportes/reportes.jsx';
+import Configuracion from './pages/configuracion/configuracion.jsx';
 import ProtectedRoute from './components/ProtectedRoute.jsx';
 
 export default function Router() {
@@ -63,6 +64,15 @@ export default function Router() {
         element={
           <ProtectedRoute>
             <Reportes />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/configuracion"
+        element={
+          <ProtectedRoute>
+            <Configuracion />
           </ProtectedRoute>
         }
       />

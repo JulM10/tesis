@@ -48,7 +48,9 @@ export default function Dashboard() {
 
   useEffect(() => {
     if (!puedeVerGlobal) return;
-    const cargar = async () => {
+    // El efecto no puede ser async: la IIFE deja las actualizaciones de
+    // estado fuera de su cuerpo síncrono (react-hooks/set-state-in-effect).
+    (async () => {
       try {
         const [listaEmpleados, listaTurnos, listaAsignaciones, listaCatalogos] =
           await Promise.all([
@@ -66,8 +68,7 @@ export default function Dashboard() {
       } finally {
         setLoading(false);
       }
-    };
-    cargar();
+    })();
   }, [puedeVerGlobal]);
 
   const hoy = hoyISO();
@@ -133,24 +134,6 @@ export default function Dashboard() {
     return Object.entries(mapa).sort((a, b) => b[1] - a[1]);
   }, [empleados]);
 
-  const empleadoMasAntiguo = useMemo(() => {
-    if (empleados.length === 0) return null;
-    return empleados.reduce((antiguo, actual) => {
-      const antiguo_fecha = new Date(antiguo.fecha_creacion);
-      const actual_fecha = new Date(actual.fecha_creacion);
-      return actual_fecha < antiguo_fecha ? actual : antiguo;
-    });
-  }, [empleados]);
-
-  const cumpleañosHoy = useMemo(() => {
-    return empleados.filter((e) => {
-      if (!e.fecha_nacimiento) return false;
-      const hoyParts = hoy.split("-");
-      const fnacParts = e.fecha_nacimiento.split("-");
-      return hoyParts[1] === fnacParts[1] && hoyParts[2] === fnacParts[2];
-    });
-  }, [empleados, hoy]);
-
   const proximosVacaciones = useMemo(() => {
     return empleados.filter((e) => e.estado === "Vacaciones");
   }, [empleados]);
@@ -160,7 +143,6 @@ export default function Dashboard() {
     const empleadosConFecha = empleados
       .filter((e) => e.fecha_nacimiento)
       .map((e) => {
-        const fnac = new Date(e.fecha_nacimiento);
         const hoyParts = hoy.split("-");
         const fnacParts = e.fecha_nacimiento.split("-");
 
@@ -322,9 +304,23 @@ export default function Dashboard() {
                     ))}
                   </div>
                 </CardContent>
+                {/* Dotación por estado */}
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base">Empleados por estado</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2">
+                    {Object.entries(indicadores.porEstado).map(([estado, cantidad]) => (
+                      <div key={estado} className="flex items-center justify-between text-sm">
+                        <span className="text-gray-600">{estado}</span>
+                        <span className="font-semibold">{cantidad}</span>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
               </Card>
 
-{/* Próximos Cumpleaños */}
+              {/* Próximos Cumpleaños */}
             <Card>
               <CardHeader className="pb-3">
                 <CardTitle className="text-base flex items-center gap-2">
@@ -336,7 +332,7 @@ export default function Dashboard() {
                 {proximosCumpleaños.length === 0 ? (
                   <p className="text-sm text-gray-400">No hay cumpleaños próximos</p>
                 ) : (
-                  proximosCumpleaños.map((empleado, idx) => (
+                  proximosCumpleaños.map((empleado) => (
                     <div key={empleado.empleado_id} className="flex items-center gap-3 pb-3 border-b border-gray-100 last:border-0 last:pb-0">
                       <div className="flex-shrink-0 w-10 h-10 rounded-full bg-pink-100 text-pink-700 flex items-center justify-center font-semibold text-sm">
                         🎂
@@ -395,23 +391,6 @@ export default function Dashboard() {
                 )}
               </CardContent>
             </Card>
-
-              {/* Dotación por estado */}
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-base">Empleados por estado</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-2">
-                    {Object.entries(indicadores.porEstado).map(([estado, cantidad]) => (
-                      <div key={estado} className="flex items-center justify-between text-sm">
-                        <span className="text-gray-600">{estado}</span>
-                        <span className="font-semibold">{cantidad}</span>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
             </div>
           </>
         )}

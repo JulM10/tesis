@@ -24,7 +24,10 @@ INSERT INTO permisos (nombre) VALUES
 ('CALENDARIO_CREAR'),
 ('CALENDARIO_EDITAR'),
 ('CALENDARIO_ELIMINAR'),
-('REPORTES_VER');
+('REPORTES_VER'),
+('ESTABLECIMIENTO_CREAR'),
+('ESTABLECIMIENTO_EDITAR'),
+('ESTABLECIMIENTO_ELIMINAR');
 
 /* =====================================================
    ROLES → PERMISOS
@@ -40,11 +43,21 @@ WHERE r.nombre = 'ADMINISTRADOR';
   de CUENTAS (crear/editar/eliminar usuarios, resetear contraseñas, cambiar
   roles) es exclusiva del ADMINISTRADOR. RRHH conserva USUARIOS_VER para
   consultar el listado en modo lectura, pero no los permisos que mutan.
+
+  Lo mismo con ESTABLECIMIENTO_*: definir los puestos y lugares del hotel
+  es una decisión de estructura, no de gestión de personal. RRHH los lee
+  (GET /api/catalogos solo pide sesión) pero no los modifica.
+
+  Ojo al agregar permisos nuevos: esta consulta otorga TODO lo que no esté
+  en la lista de exclusión, así que un permiso nuevo llega a RRHH solo.
 */
 INSERT INTO roles_permisos
 SELECT r.id, p.id
 FROM roles r
-JOIN permisos p ON p.nombre NOT IN ('USUARIOS_CREAR', 'USUARIOS_EDITAR', 'USUARIOS_ELIMINAR')
+JOIN permisos p ON p.nombre NOT IN (
+  'USUARIOS_CREAR', 'USUARIOS_EDITAR', 'USUARIOS_ELIMINAR',
+  'ESTABLECIMIENTO_CREAR', 'ESTABLECIMIENTO_EDITAR', 'ESTABLECIMIENTO_ELIMINAR'
+)
 WHERE r.nombre = 'RRHH';
 
 /*

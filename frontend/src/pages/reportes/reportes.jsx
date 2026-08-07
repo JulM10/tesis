@@ -87,7 +87,9 @@ export default function Reportes() {
   }, []);
 
   useEffect(() => {
-    cargar();
+    // El efecto no puede ser async: la IIFE deja las actualizaciones de
+    // estado fuera de su cuerpo síncrono (react-hooks/set-state-in-effect).
+    (async () => { await cargar(); })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reporte]);
 

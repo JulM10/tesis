@@ -52,18 +52,31 @@ CREATE TABLE usuarios_roles (
    DOMINIO DEL NEGOCIO
    ===================================================== */
 
+/*
+  UNIQUE en los nombres: son catálogos que se eligen por nombre en la UI,
+  así que dos filas homónimas serían indistinguibles para el usuario.
+  Necesario además porque puestos y lugares se administran desde la
+  pantalla de Configuración (permisos ESTABLECIMIENTO_*).
+*/
 CREATE TABLE puestos (
   id SERIAL PRIMARY KEY,
-  nombre VARCHAR(100) NOT NULL
+  nombre VARCHAR(100) NOT NULL UNIQUE
 );
 
 CREATE TABLE lugares_trabajo (
   id SERIAL PRIMARY KEY,
-  nombre VARCHAR(50) NOT NULL
+  nombre VARCHAR(50) NOT NULL UNIQUE
 );
+
+/*
+  Los estados NO se administran desde la aplicación: sus nombres están
+  acoplados a la lógica (indicadores del dashboard, colores de badge),
+  así que renombrarlos en caliente rompería esas pantallas en silencio.
+  Cambiarlos es una modificación de esquema, no una operación de usuario.
+*/
 CREATE TABLE estados(
   id SERIAL PRIMARY KEY,
-  nombre VARCHAR(50) NOT NULL
+  nombre VARCHAR(50) NOT NULL UNIQUE
 );
 
 CREATE TABLE empleados (
