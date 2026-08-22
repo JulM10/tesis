@@ -36,7 +36,11 @@ export const getAllHorarios = async () => {
   return result.rows;
 };
 
-export const getCalendarioPorId = async (id_calendario, client = null) => {
+/*
+  Helpers internos de asignarTurnoConHistorial: no se exportan porque no
+  son parte de la interfaz del módulo, solo pasos de su transacción.
+*/
+const getCalendarioPorId = async (id_calendario, client = null) => {
   const result = await ejecutarQuery(
     client,
     Queries.GET_CALENDARIO_POR_ID,
@@ -59,7 +63,7 @@ export const getEmpleadosAsignadosATurno = async (id_calendario) => {
   return result.rows;
 };
 
-export const validarAsignacionHorario = async (
+const validarAsignacionHorario = async (
   id_empleado,
   id_calendario,
   client = null
@@ -73,7 +77,7 @@ export const validarAsignacionHorario = async (
   return result.rows.length > 0;
 };
 
-export const validarSolapamientoHorario = async (
+const validarSolapamientoHorario = async (
   id_empleado,
   fecha,
   hora_inicio,
@@ -119,7 +123,7 @@ export const eliminarAsignacionHorario = async (
   }
 };
 
-export const registrarHistorialHorario = async (
+const registrarHistorialHorario = async (
   id_empleado,
   id_calendario,
   client = null

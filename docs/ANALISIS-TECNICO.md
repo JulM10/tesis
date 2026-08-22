@@ -1,5 +1,31 @@
 # Análisis Técnico — Plataforma de Gestión de Empleados Hotel Yacanto
 
+> ## ⚠️ ESTE DOCUMENTO ES UNA FOTO DEL 1 DE JULIO DE 2026 — NO DESCRIBE EL ESTADO ACTUAL
+>
+> Es la **auditoría inicial**, escrita cuando el proyecto estaba en el commit
+> `05103d7`. Se conserva sin reescribir a propósito: es el punto de partida contra
+> el cual se mide todo lo que se hizo después.
+>
+> **Las secciones 1 a 12 describen problemas que en su mayoría ya están resueltos.**
+> Para el estado real del proyecto, ir directamente al **§13 "Registro de avances"**
+> al final, que sí se mantiene actualizado.
+>
+> Resumen de qué cambió desde entonces:
+>
+> | La auditoría decía (1/7) | Estado hoy |
+> |---|---|
+> | "Avance global ~35-40%" | Todos los módulos del prototipo implementados y desplegados |
+> | "no existe autenticación real" | JWT + RBAC por permisos + sesión deslizante con corte por inactividad |
+> | "el frontend tiene solo una pantalla" | Ocho pantallas (login, panel, empleados, calendario, usuarios, perfil, reportes, configuración) |
+> | Seguridad 2/10 | Cifrado AES-256-GCM de datos personales, rol de BD con mínimo privilegio, CORS restringido, hash bcrypt |
+> | "README raíz incorrecto (dice MongoDB)" | Corregido |
+> | "sin deploy" | En producción: frontend en Vercel, backend + PostgreSQL en Render |
+>
+> Lo que sigue pendiente de esa lista original: **tests automatizados y CI** (ítem
+> §9.4 y fase P4). Es el gap real que queda.
+
+---
+
 > **Tipo:** Auditoría técnica estilo senior code review
 > **Fecha:** 2026-07-01
 > **Alcance:** Todo el código fuente (backend + frontend), esquema de BD, Docker, documentación del repo y documento académico de tesis (.docx)
@@ -7,7 +33,7 @@
 
 ---
 
-## 1. Resumen Ejecutivo
+## 1. Resumen Ejecutivo (al 1/7/2026 — ver banner arriba)
 
 El proyecto es una plataforma web de gestión de RRHH (empleados, turnos, roles) para el Hotel Yacanto, tesis de la carrera Analista en Sistemas. Es un monorepo con backend Node/Express + PostgreSQL (SQL puro) y frontend React 19 + Vite + Tailwind + shadcn/ui.
 
@@ -21,7 +47,7 @@ Lo más débil está en lo visible: **no existe autenticación real** (middlewar
 
 ---
 
-## 2. Scorecard
+## 2. Scorecard (al 1/7/2026 — desactualizado, ver banner arriba)
 
 | Área | Score | Justificación breve |
 |---|:---:|---|

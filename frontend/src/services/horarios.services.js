@@ -9,14 +9,6 @@ export const getAllHorarios = async () => {
 };
 
 /**
- * Obtener horarios por empleado
- */
-export const getHorariosPorEmpleado = async (idEmpleado) => {
-  const response = await api.get(`/horarios/empleado/${idEmpleado}`);
-  return response.data;
-};
-
-/**
  * Asignar empleado a turno: { id_empleado, id_calendario }
  */
 export const asignarEmpleadoATurno = async (payload) => {

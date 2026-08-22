@@ -4,12 +4,6 @@ VALUES ($1, $2)
 RETURNING *;
 `;
 
-export const todosHorarios = `
-SELECT fecha, hora_inicio, hora_fin
-FROM calendario
-WHERE id = $1;
-`;
-
 export const VALIDAR_SOLAPAMIENTO_HORARIO = `
   SELECT 1
   FROM asignacion_horario ah

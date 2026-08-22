@@ -3,8 +3,10 @@ node_modules/
 npm-debug.log*
 
 # Env
+# Solo el .env real queda fuera del repo. Los .env.example SÍ se versionan:
+# son la plantilla que documenta qué variables hacen falta para levantar
+# el proyecto (por eso no se listan acá).
 .env
-.env.example
 
 # Backups de la BD (contienen datos; nunca al repo)
 backups/

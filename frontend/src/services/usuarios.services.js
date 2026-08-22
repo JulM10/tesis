@@ -11,14 +11,6 @@ export const getRoles = async () => {
 };
 
 /**
- * Crea un usuario: { email, password, id_rol, id_empleado? }
- */
-export const createUsuario = async (data) => {
-  const response = await api.post("/usuarios", data);
-  return response.data;
-};
-
-/**
  * Actualiza email, estado y/o rol: { email?, activo?, id_rol? }
  */
 export const updateUsuario = async (id, data) => {
