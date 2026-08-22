@@ -1,10 +1,8 @@
-import dotenv from "dotenv";
+import 'dotenv/config';
 import app from "./app.js";
 import { connectDB } from "./config/database.js";
 import { seedEmpleadosSiVacio } from "./database/seed-empleados.js";
 import { archivarTurnosCompletados } from "./database/archivado.js";
-
-dotenv.config();
 
 const iniciar = async () => {
   await connectDB();

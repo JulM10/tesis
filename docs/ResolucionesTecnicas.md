@@ -15,7 +15,7 @@ El desarrollo se dividió en fases para organizar la planificación, diseño e i
   Implementación de controladores y servicios, conexión a la base de datos, validaciones y operaciones CRUD reales.
 
 - **FASE 4 – Frontend y conexión con Backend**  
-  Desarrollo del frontend con React/TypeScript, integración con la API, manejo de estados y consumo de endpoints.
+  Desarrollo del frontend con React/JavaScript, integración con la API, manejo de estados y consumo de endpoints.
 
 - **FASE 5 – Seguridad, roles y autenticación**  
   Implementación de roles de usuario, permisos, autenticación y control de acceso para cada recurso.

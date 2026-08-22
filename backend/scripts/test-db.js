@@ -1,5 +1,5 @@
 import 'dotenv/config';
-import { pool } from "./config/database.js";
+import { pool } from "../src/config/database.js";
 
 const testConnection = async () => {
   try {

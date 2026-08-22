@@ -1,124 +1,194 @@
 # Backend – Sistema de Gestión de Empleados y Horarios
 
-Backend del sistema de gestión de empleados, puestos y horarios.
-Desarrollado con Node.js, Express y PostgreSQL, siguiendo una arquitectura
-en capas (routes → controllers → services → SQL).
+API REST desarrollada con Node.js 20, Express 4 y PostgreSQL 16, siguiendo una arquitectura
+en capas: **routes → middlewares → controllers → services → queries (SQL puro)**.
 
 ---
 
-## 🧱 Arquitectura
+## Arquitectura
 
 El backend está organizado en módulos por dominio:
 
-- **empleados**
-- **calendario**
-- **horarios** (asignación de horarios a empleados)
+```
+backend/src/
+├── routes/          # Endpoints y HTTP methods
+├── middlewares/     # Auth JWT, RBAC, validaciones, multer (CV)
+├── controllers/     # Request/response
+├── services/        # Lógica de negocio, cifrado/descifrado
+├── queries/         # SQL puro parametrizado (sin ORM, sin concatenación)
+├── utils/           # cifrado.js, httpError.js, passwordInicial.js
+├── database/        # seed-empleados.js (seed cifrado), archivado.js
+├── config/          # Conexión PostgreSQL (pool, rol hotel_app)
+├── constantes/      # Mensajes centralizados
+├── app.js           # Configuración Express (CORS, rutas, 404)
+└── server.js        # Entry point
+```
 
-Cada módulo sigue la misma estructura:
-
----
-
-module/
-├── routes/
-├── controllers/
-├── services/
-└── queries/ (opcional)
----
-
-Separación de responsabilidades:
-- **Routes**: definen endpoints y HTTP methods
-- **Controllers**: reciben la request y devuelven la response
-- **Services**: lógica de negocio + acceso a base de datos
-- **SQL**: consultas en SQL puro (sin ORM)
+Módulos: **auth**, **empleados**, **calendario**, **horarios**, **usuarios**, **me** (autogestión), **catalogos**, **reportes**, **establecimiento**.
 
 ---
 
-## 🗄️ Base de Datos
+## Base de Datos
 
-- PostgreSQL 16
-- Esquema normalizado
-- Uso de claves foráneas
-- Uso de vistas para consultas complejas
-- Historial inmutable de horarios asignados
+- **PostgreSQL 16** con rol de mínimo privilegio (`hotel_app`: solo DML, sin DDL)
+- Esquema normalizado con claves foráneas, CHECKs y UNIQUEs
+- **RBAC en tablas:** roles → permisos → usuarios_roles → vista `vw_usuarios_permisos`
+- **Vistas SQL:** `vw_empleados_detalle`, `vw_horarios_empleado`, `vw_reporte_historial_horarios`, `vw_reporte_empleados_puesto_lugar`
+- **Función:** `fn_horas_trabajadas(desde, hasta)` — turnos y horas agregadas por empleado/puesto
+- **Stored procedure:** `archivar_turnos_completados()` — archivado idempotente al historial inmutable
+- **Historial inmutable desnormalizado:** `asignacion_horario_historial` guarda nombres/textos (no FKs) — los reportes históricos sobreviven a cambios y bajas
+- **Datos personales cifrados:** teléfono, dirección, notas, fecha nacimiento, CV binario (AES-256-GCM en la aplicación)
 
-Principales tablas:
-- usuarios
-- empleados
-- puestos
-- lugares_trabajo
-- calendario
-- asignacion_horario
-- asignacion_horario_historial
+Principales tablas: `usuarios`, `roles`, `permisos`, `roles_permisos`, `usuarios_roles`, `empleados`, `empleados_cv`, `puestos`, `lugares_trabajo`, `estados`, `calendario`, `asignacion_horario`, `asignacion_horario_historial`.
 
 ---
 
-## 🐳 Docker
-
-El proyecto utiliza Docker para levantar:
-- Backend (Node.js)
-- Base de datos PostgreSQL
-
-### Comandos principales
+## Docker
 
 ```bash
 docker compose up --build
 ```
-Para reiniciar completamente la base de datos:
+
+Para reiniciar la base de datos desde cero:
 ```bash
 docker compose down -v
 docker compose up --build
 ```
 
-Endpoints disponibles
+El schema y seed se aplican automáticamente al crear el volumen (`docker-entrypoint-initdb.d`). Los empleados del seed se insertan desde `seed-empleados.js` al arrancar el backend (requiere cifrado).
 
-## Auth
+---
 
-- POST /api/auth/login → `{ token, usuario }`. `usuario.debe_cambiar_password` indica si la cuenta todavía usa su contraseña inicial.
-- POST /api/auth/cambiar-password → rota la contraseña del usuario autenticado y baja el flag `debe_cambiar_password`. Body: `{ password_actual, password_nueva }` (nueva de 8+ caracteres y distinta de la actual).
+## Endpoints
 
-## Empleados
+Todos los endpoints (excepto auth) requieren `Authorization: Bearer <token>`. Cada uno valida un permiso específico via RBAC.
 
-- GET /api/empleados
-- GET /api/empleados/:id
-- POST /api/empleados → crea el empleado **y su cuenta de acceso** en una sola transacción (ver más abajo).
-- PUT /api/empleados/:id
-- DELETE /api/empleados/:id
+### Auth (público)
 
-## Usuarios (solo ADMINISTRADOR para mutar)
+| Método | Ruta | Descripción |
+|---|---|---|
+| POST | `/api/auth/login` | Login → `{ token, usuario }`. `usuario.debe_cambiar_password` indica si debe rotar la clave. |
+| POST | `/api/auth/renovar` | Renueva el token JWT (requiere token válido). |
+| POST | `/api/auth/cambiar-password` | Cambia la contraseña del usuario autenticado. Body: `{ password_actual, password_nueva }` (8+ chars, distinta de la actual). Baja el flag `debe_cambiar_password`. |
 
-La gestión de cuentas es exclusiva del administrador. En el seed, RRHH conserva únicamente `USUARIOS_VER` (lectura); los permisos `USUARIOS_CREAR`, `USUARIOS_EDITAR` y `USUARIOS_ELIMINAR` los tiene solo `ADMINISTRADOR`. Se refuerza en dos capas: el frontend oculta las acciones si no sos admin, y la API responde 403 por falta de permiso.
+### Empleados
 
-- GET /api/usuarios → listado con rol y empleado vinculado.
-- GET /api/usuarios/roles → catálogo de roles.
-- PUT /api/usuarios/:id → edita `email`, `activo` y/o `id_rol` (solo los campos enviados). Email valida formato (400) y unicidad (409).
-- POST /api/usuarios/:id/reset-password → genera una contraseña **temporal aleatoria**, la guarda hasheada y fuerza el cambio en el próximo login (`debe_cambiar_password = true`). Devuelve la temporal **una única vez**. No permite resetearse a uno mismo (para eso está el cambio de contraseña).
-- DELETE /api/usuarios/:id → elimina la cuenta; el empleado vinculado queda con `id_usuario` en NULL.
+| Método | Ruta | Permiso | Descripción |
+|---|---|---|---|
+| GET | `/api/empleados` | EMPLEADOS_VER | Lista de empleados. |
+| GET | `/api/empleados/detalle` | EMPLEADOS_VER | Lista detallada con puesto, lugar, estado (vista `vw_empleados_detalle`). |
+| GET | `/api/empleados/:id` | EMPLEADOS_VER | Empleado por ID. |
+| POST | `/api/empleados` | EMPLEADOS_CREAR | Crea empleado **y su cuenta** en una transacción (ver abajo). |
+| PUT | `/api/empleados/:id` | EMPLEADOS_EDITAR | Actualización parcial con COALESCE (teléfono, dirección, estado, puesto, etc.). |
+| DELETE | `/api/empleados/:id` | EMPLEADOS_ELIMINAR | Elimina empleado. |
+| POST | `/api/empleados/:id/cv` | EMPLEADOS_EDITAR | Sube CV (PDF/DOCX, máx 5MB). El binario se cifra con AES-256-GCM. |
+| GET | `/api/empleados/:id/cv` | EMPLEADOS_VER | Descarga el CV (descifrado al vuelo, nunca URL pública). |
+| DELETE | `/api/empleados/:id/cv` | EMPLEADOS_EDITAR | Elimina el CV. |
 
-> Nota: las contraseñas NO se pueden mostrar. Se guardan con hash bcrypt (irreversible): ni un administrador con acceso a la base puede leerlas. El caso "el usuario olvidó su clave" se resuelve con el reset, no exponiéndola.
+#### Alta de empleado con provisión automática de cuenta
 
-### Alta de empleado con provisión automática de cuenta
+Al crear un empleado, el backend genera automáticamente su usuario en una transacción:
 
-Al crear un empleado, el backend genera automáticamente su usuario:
+- **Email** y **DNI** son obligatorios. El email es la identidad de login (UNIQUE en `usuarios`); el DNI se guarda cifrado (solo visualización).
+- **Contraseña inicial** derivada: `Nombre + Apellido + últimos 4 dígitos del DNI` (ej. `JuanPerez3456`), normalizada a ASCII.
+- La respuesta incluye `password_inicial` **una única vez**. En la BD solo queda el hash bcrypt.
+- La cuenta nace con `debe_cambiar_password = true`: obligatorio rotarla en el primer login.
 
-- `email` y `dni` son **obligatorios** en el alta. El email es la identidad de login; el DNI aporta los 4 dígitos de la contraseña inicial.
-- La contraseña inicial se deriva de los datos del empleado: `Nombre + Apellido + últimos 4 dígitos del DNI` (ej. `JuanPerez3456`), normalizada a ASCII (sin tildes ni ñ).
-- La respuesta del alta incluye `password_inicial` **una única vez**: es el único momento en que la contraseña existe en claro. En la BD solo se guarda su hash bcrypt.
-- La cuenta nace con `debe_cambiar_password = true`: el usuario está obligado a cambiarla en el primer login.
-- El email vive solo en la tabla `usuarios` (fuente de verdad única). No se edita desde el PUT de empleados: se administra en el módulo de usuarios.
-- El DNI se almacena cifrado (AES-256-GCM), igual que los demás datos personales. Es solo de visualización: no se puede buscar ni exigir único sobre el valor cifrado.
+### Usuarios (solo ADMINISTRADOR para mutar)
 
-## Calendario
+RRHH tiene solo `USUARIOS_VER` (lectura). La API devuelve 403 si RRHH intenta mutar.
 
-- GET /api/calendario
-- GET /api/calendario/:id
-- POST /api/calendario
-- PUT /api/calendario/:id
-- DELETE /api/calendario/:id
+| Método | Ruta | Permiso | Descripción |
+|---|---|---|---|
+| GET | `/api/usuarios` | USUARIOS_VER | Listado con rol y empleado vinculado. |
+| GET | `/api/usuarios/roles` | USUARIOS_VER | Catálogo de roles. |
+| POST | `/api/usuarios` | USUARIOS_CREAR | Crea usuario manual (uso limitado; el flujo normal es vía alta de empleado). |
+| PUT | `/api/usuarios/:id` | USUARIOS_EDITAR | Edita email, activo y/o id_rol. Email valida formato (400) y unicidad (409). |
+| POST | `/api/usuarios/:id/reset-password` | USUARIOS_EDITAR | Genera contraseña temporal aleatoria (se muestra una vez), fuerza cambio. No permite auto-reset. |
+| DELETE | `/api/usuarios/:id` | USUARIOS_ELIMINAR | Elimina la cuenta; el empleado vinculado queda con `id_usuario` NULL. |
 
-## Horarios
+> Las contraseñas se guardan con hash bcrypt (irreversible): ni un admin con acceso a la BD puede leerlas.
 
-- GET /api/horarios
-- GET /api/horarios/empleado/:id
-- GET /api/horarios/dia/:fecha
-- POST /api/horarios
-- DELETE /api/horarios/:id
+### Me (autogestión del empleado logueado)
+
+La identidad se resuelve desde el token JWT, nunca desde parámetros.
+
+| Método | Ruta | Descripción |
+|---|---|---|
+| GET | `/api/me` | Mis datos (perfil + puesto + lugar + estado). |
+| GET | `/api/me/horarios` | Mis turnos asignados. |
+| PUT | `/api/me` | Editar mis datos de contacto (teléfono, dirección, notas). Nunca puesto/estado. |
+| POST | `/api/me/cv` | Subir mi CV (PDF/DOCX, máx 5MB). |
+| GET | `/api/me/cv` | Descargar mi CV. |
+
+### Calendario
+
+| Método | Ruta | Permiso | Descripción |
+|---|---|---|---|
+| GET | `/api/calendario` | CALENDARIO_VER | Lista de turnos. |
+| GET | `/api/calendario/:id` | CALENDARIO_VER | Turno por ID. |
+| GET | `/api/calendario/fecha/:fecha` | CALENDARIO_VER | Turnos de una fecha. |
+| GET | `/api/calendario/fecha/:fecha/puesto/:id_puesto` | CALENDARIO_VER | Turnos de una fecha filtrados por puesto. |
+| POST | `/api/calendario` | CALENDARIO_CREAR | Crea turno (valida `hora_fin > hora_inicio`). |
+| PUT | `/api/calendario/:id` | CALENDARIO_EDITAR | Modifica turno. |
+| DELETE | `/api/calendario/:id` | CALENDARIO_ELIMINAR | Elimina turno. |
+
+### Horarios (asignación de empleados a turnos)
+
+| Método | Ruta | Permiso | Descripción |
+|---|---|---|---|
+| GET | `/api/horarios` | CALENDARIO_VER | Todas las asignaciones. |
+| GET | `/api/horarios/empleado/:id` | CALENDARIO_VER | Horarios de un empleado. |
+| GET | `/api/horarios/dia/:fecha` | CALENDARIO_VER | Horarios de un día. |
+| GET | `/api/horarios/turno/:id` | CALENDARIO_VER | Empleados asignados a un turno. |
+| POST | `/api/horarios/asignar` | CALENDARIO_CREAR | Asigna empleado a turno. Valida duplicado y solapamiento con `SELECT FOR UPDATE` (previene race condition). Conflicto → 409. |
+| DELETE | `/api/horarios/asignar/:id_empleado/:id_calendario` | CALENDARIO_ELIMINAR | Quita asignación. |
+
+### Catálogos
+
+| Método | Ruta | Descripción |
+|---|---|---|
+| GET | `/api/catalogos` | Puestos, lugares de trabajo y estados en un solo request. |
+
+### Reportes
+
+| Método | Ruta | Permiso | Descripción |
+|---|---|---|---|
+| GET | `/api/reportes/historial?desde&hasta&empleado&puesto` | REPORTES_VER | Historial de turnos con filtros. |
+| GET | `/api/reportes/horas?desde&hasta` | REPORTES_VER | Horas trabajadas por empleado/puesto. |
+| GET | `/api/reportes/dotacion` | REPORTES_VER | Dotación actual por puesto y lugar. |
+
+### Establecimiento
+
+| Método | Ruta | Permiso | Descripción |
+|---|---|---|---|
+| POST | `/api/establecimiento/:tipo` | ESTABLECIMIENTO_CREAR | Crea un puesto, lugar de trabajo o estado. `:tipo` = `puestos`, `lugares` o `estados`. |
+| PUT | `/api/establecimiento/:tipo/:id` | ESTABLECIMIENTO_EDITAR | Edita nombre del catálogo. |
+| DELETE | `/api/establecimiento/:tipo/:id` | ESTABLECIMIENTO_ELIMINAR | Elimina entrada del catálogo. |
+
+---
+
+## Variables de entorno
+
+Ver `backend/.env.example` para la lista completa. Las principales:
+
+| Variable | Descripción |
+|---|---|
+| `PORT` | Puerto del backend (default: 3000) |
+| `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD` | Conexión PostgreSQL |
+| `DATABASE_URL` | Alternativa para deploy (Railway) |
+| `JWT_SECRET` | Secreto para firmar tokens |
+| `DATA_ENCRYPTION_KEY` | Clave AES-256 (32 bytes hex) para cifrado de datos personales |
+| `CORS_ORIGIN` | Orígenes permitidos, separados por coma |
+
+---
+
+## Seguridad
+
+- **SQL 100% parametrizado** (`$1, $2…`): cero riesgo de SQL injection.
+- **bcrypt** para credenciales (hash irreversible, salt + cost 10).
+- **AES-256-GCM** para datos personales (IV aleatorio por registro, detección de adulteración).
+- **Rol de BD `hotel_app`** sin DDL: `DROP TABLE` y `CREATE TABLE` fallan con permission denied.
+- **Puerto 5432** solo en `127.0.0.1`: Postgres invisible desde la red.
+- **CORS restringido** a orígenes declarados en `CORS_ORIGIN`.
+- **Multer** con restricción de MIME (PDF/DOCX) y tamaño (5MB) para CVs.
