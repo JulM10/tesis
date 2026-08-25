@@ -1,7 +1,15 @@
 import { useEffect, useState } from "react";
 import { Navigate } from "react-router-dom";
 import { toast } from "sonner";
-import { Download } from "lucide-react";
+import {
+  Clock,
+  Download,
+  Plane,
+  Thermometer,
+  UserCheck,
+  Users,
+  UserX,
+} from "lucide-react";
 import Layout from "@/components/Layout";
 import { useAuth } from "@/context/AuthContext";
 import {
@@ -10,7 +18,7 @@ import {
   getReporteDotacion,
   descargarCSV,
 } from "@/services/reportes.services";
-import { getCatalogos } from "@/services/empleados.services";
+import { getCatalogos, getEmpleadosDetalle } from "@/services/empleados.services";
 import { hoyISO, formatearFecha, horaCorta } from "@/lib/fechas";
 
 import { Button } from "@/components/ui/button";
@@ -42,6 +50,53 @@ const REPORTES = [
 const hace30 = () =>
   new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
+/*
+  Totales por estado y antigüedad promedio del resumen de dotación.
+  Se invoca al recibir el listado (no durante el render: usa Date.now(),
+  que la regla react-hooks/purity prohíbe dentro de un useMemo).
+*/
+const calcularResumen = (empleados) => {
+  const porEstado = {};
+  empleados.forEach((e) => {
+    const estado = e.estado ?? "Sin estado";
+    porEstado[estado] = (porEstado[estado] ?? 0) + 1;
+  });
+
+  const MILIS_POR_ANIO = 1000 * 60 * 60 * 24 * 365.25;
+  const conFecha = empleados.filter((e) => e.fecha_creacion);
+  const antiguedad = conFecha.length
+    ? conFecha.reduce(
+        (suma, e) => suma + (Date.now() - new Date(e.fecha_creacion).getTime()),
+        0
+      ) / conFecha.length / MILIS_POR_ANIO
+    : 0;
+
+  return {
+    total: empleados.length,
+    activos: porEstado["Activo"] ?? 0,
+    vacaciones: porEstado["Vacaciones"] ?? 0,
+    enfermos: porEstado["Enfermo"] ?? 0,
+    inactivos: porEstado["Inactivo"] ?? 0,
+    antiguedad,
+  };
+};
+
+/*
+  Fuera del componente a propósito: definida adentro, React la tomaría como
+  un tipo nuevo en cada render (regla react-hooks/static-components).
+*/
+function TarjetaResumen({ titulo, valor, icono, color }) {
+  return (
+    <Card>
+      <CardContent className="p-4">
+        <div className={`inline-flex rounded-lg p-2 ${color}`}>{icono}</div>
+        <p className="mt-2 text-2xl font-bold leading-none">{valor}</p>
+        <p className="mt-1 text-sm text-gray-500">{titulo}</p>
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function Reportes() {
   const { tienePermiso } = useAuth();
 
@@ -49,6 +104,8 @@ export default function Reportes() {
   const [filas, setFilas] = useState([]);
   const [cargando, setCargando] = useState(false);
   const [puestos, setPuestos] = useState([]);
+  // null hasta que cargue el listado: si falla, las tarjetas no se muestran
+  const [resumen, setResumen] = useState(null);
 
   // Filtros (historial y horas comparten el rango de fechas)
   const [desde, setDesde] = useState(hace30());
@@ -83,6 +140,13 @@ export default function Reportes() {
   useEffect(() => {
     getCatalogos()
       .then((c) => setPuestos(c.puestos))
+      .catch(() => {});
+
+    // Estados y antigüedad del resumen de dotación: se calculan sobre el
+    // listado, con el mismo criterio que los indicadores del dashboard.
+    // Quien tiene REPORTES_VER (admin y RRHH) también tiene EMPLEADOS_VER.
+    getEmpleadosDetalle()
+      .then((lista) => setResumen(calcularResumen(lista)))
       .catch(() => {});
   }, []);
 
@@ -228,6 +292,48 @@ export default function Reportes() {
               </Button>
             </CardContent>
           </Card>
+        )}
+
+        {/* Resumen de dotación: totales por estado y antigüedad promedio */}
+        {reporte === "dotacion" && resumen && (
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+            <TarjetaResumen
+              titulo="Total de empleados"
+              valor={resumen.total}
+              icono={<Users className="h-5 w-5" />}
+              color="bg-emerald-100 text-emerald-700"
+            />
+            <TarjetaResumen
+              titulo="Activos"
+              valor={resumen.activos}
+              icono={<UserCheck className="h-5 w-5" />}
+              color="bg-green-100 text-green-700"
+            />
+            <TarjetaResumen
+              titulo="En vacaciones"
+              valor={resumen.vacaciones}
+              icono={<Plane className="h-5 w-5" />}
+              color="bg-blue-100 text-blue-700"
+            />
+            <TarjetaResumen
+              titulo="Enfermos"
+              valor={resumen.enfermos}
+              icono={<Thermometer className="h-5 w-5" />}
+              color="bg-yellow-100 text-yellow-700"
+            />
+            <TarjetaResumen
+              titulo="Inactivos"
+              valor={resumen.inactivos}
+              icono={<UserX className="h-5 w-5" />}
+              color="bg-red-100 text-red-700"
+            />
+            <TarjetaResumen
+              titulo="Antigüedad promedio"
+              valor={`${resumen.antiguedad.toFixed(1)} años`}
+              icono={<Clock className="h-5 w-5" />}
+              color="bg-purple-100 text-purple-700"
+            />
+          </div>
         )}
 
         {/* Resultados */}

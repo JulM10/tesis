@@ -16,3 +16,8 @@ dist/
 
 # OS
 .DS_Store
+
+.claude/
+# Documento de tesis (.docx): archivo de trabajo de Word, binario y pesado.
+# Se edita en Downloads/Drive; no pertenece al historial de git.
+*.docx
