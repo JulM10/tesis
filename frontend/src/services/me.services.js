@@ -34,3 +34,9 @@ export const descargarMiCV = async () => {
   const response = await api.get("/me/cv", { responseType: "blob" });
   return response.data;
 };
+
+/** Licencias propias + saldo de vacaciones del año (solo lectura) */
+export const getMisLicencias = async () => {
+  const response = await api.get("/me/licencias");
+  return response.data;
+};

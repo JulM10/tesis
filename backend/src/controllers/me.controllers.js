@@ -60,6 +60,15 @@ export const descargarMiCV = async (req, res) => {
   }
 };
 
+export const getMisLicencias = async (req, res) => {
+  try {
+    const licencias = await meService.getMisLicencias(req.usuario.sub);
+    res.json(licencias);
+  } catch (error) {
+    responderError(res, error);
+  }
+};
+
 export const updateMisDatos = async (req, res) => {
   try {
     const empleado = await meService.updateMisDatos(req.usuario.sub, req.body);

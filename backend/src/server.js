@@ -3,6 +3,16 @@ import app from "./app.js";
 import { connectDB } from "./config/database.js";
 import { seedEmpleadosSiVacio } from "./database/seed-empleados.js";
 import { archivarTurnosCompletados } from "./database/archivado.js";
+import { sincronizarEstadoLicencias } from "./database/licencias.js";
+
+const UNA_HORA = 60 * 60 * 1000;
+
+// Turnos cerrados → historial inmutable, y estados según licencias de hoy.
+// Ambas son idempotentes: correrlas de más no cambia nada.
+const tareasPeriodicas = async () => {
+  await archivarTurnosCompletados();
+  await sincronizarEstadoLicencias();
+};
 
 const iniciar = async () => {
   await connectDB();
@@ -11,8 +21,13 @@ const iniciar = async () => {
   // porque sus datos personales van cifrados por la aplicación.
   await seedEmpleadosSiVacio();
 
-  // Turnos con fecha pasada → historial inmutable (idempotente)
-  await archivarTurnosCompletados();
+  await tareasPeriodicas();
+
+  setInterval(() => {
+    tareasPeriodicas().catch((error) =>
+      console.error("Tareas periódicas fallaron:", error.message)
+    );
+  }, UNA_HORA);
 
   const PORT = process.env.PORT || 3000;
 

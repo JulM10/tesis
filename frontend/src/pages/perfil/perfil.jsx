@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import Layout from "@/components/Layout";
+import LicenciasEmpleado from "@/components/LicenciasEmpleado";
 import {
   getMe,
   getMisHorarios,
@@ -177,24 +178,34 @@ export default function Perfil() {
         ) : (
           <>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              {/* Datos de la cuenta */}
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-base">Mi cuenta</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-2 text-sm">
-                  <p>
-                    <span className="text-gray-500">Email:</span>{" "}
-                    <span className="font-medium">{me?.usuario.email}</span>
-                  </p>
-                  <div className="flex items-center gap-2">
-                    <span className="text-gray-500">Rol:</span>
-                    {me?.usuario.roles.map((r) => (
-                      <Badge key={r} variant="outline">{r}</Badge>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
+              <div className="space-y-4">
+                {/* Datos de la cuenta */}
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-base">Mi cuenta</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2 text-sm">
+                    <p>
+                      <span className="text-gray-500">Email:</span>{" "}
+                      <span className="font-medium">{me?.usuario.email}</span>
+                    </p>
+                    <div className="flex items-center gap-2">
+                      <span className="text-gray-500">Rol:</span>
+                      {me?.usuario.roles.map((r) => (
+                        <Badge key={r} variant="outline">{r}</Badge>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {empleado && (
+                  <Card>
+                    <CardContent className="pt-6">
+                      <LicenciasEmpleado />
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
 
               {/* Datos del empleado */}
               <Card>

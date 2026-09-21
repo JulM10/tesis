@@ -57,6 +57,25 @@ export const eliminarCV = async (id) => {
   return response.data;
 };
 
+/* ===== Licencias (vacaciones, enfermedad, especiales) ===== */
+
+/** { anio, dias_anuales, usados, disponibles, licencias } */
+export const getLicencias = async (id) => {
+  const response = await api.get(`/empleados/${id}/licencias`);
+  return response.data;
+};
+
+/** { tipo, fecha_desde, fecha_hasta, comentario? } */
+export const crearLicencia = async (id, data) => {
+  const response = await api.post(`/empleados/${id}/licencias`, data);
+  return response.data;
+};
+
+export const eliminarLicencia = async (id, idLicencia) => {
+  const response = await api.delete(`/empleados/${id}/licencias/${idLicencia}`);
+  return response.data;
+};
+
 /** Dispara la descarga de un blob en el navegador */
 export const descargarBlob = (blob, nombre) => {
   const url = URL.createObjectURL(blob);

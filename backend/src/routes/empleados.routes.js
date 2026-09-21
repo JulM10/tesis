@@ -1,6 +1,8 @@
 import { Router } from 'express';
 import * as empleadosController from "../controllers/empleados.controllers.js";
+import * as licenciasController from "../controllers/licencias.controllers.js";
 import { validarEmpleado } from '../middlewares/validarEmpleado.middleware.js';
+import { validarLicencia } from '../middlewares/validarLicencia.middleware.js';
 import { requierePermiso } from '../middlewares/role.middleware.js';
 import { subirCV } from '../middlewares/subirCV.middleware.js';
 
@@ -65,6 +67,33 @@ router.get('/:id/cv', requierePermiso("EMPLEADOS_VER"), empleadosController.desc
  * Elimina el CV del empleado
  */
 router.delete('/:id/cv', requierePermiso("EMPLEADOS_EDITAR"), empleadosController.eliminarCV);
+
+/**
+ * GET /api/empleados/:id/licencias?anio=AAAA
+ * Licencias del empleado + saldo de vacaciones del año (por defecto, el actual)
+ */
+router.get('/:id/licencias', requierePermiso("EMPLEADOS_VER"), licenciasController.getLicencias);
+
+/**
+ * POST /api/empleados/:id/licencias
+ * Registra una licencia: { tipo, fecha_desde, fecha_hasta, comentario? }
+ */
+router.post(
+  '/:id/licencias',
+  requierePermiso("EMPLEADOS_EDITAR"),
+  validarLicencia,
+  licenciasController.crearLicencia
+);
+
+/**
+ * DELETE /api/empleados/:id/licencias/:idLicencia
+ * Elimina una licencia del empleado
+ */
+router.delete(
+  '/:id/licencias/:idLicencia',
+  requierePermiso("EMPLEADOS_EDITAR"),
+  licenciasController.eliminarLicencia
+);
 
 
 export default router;

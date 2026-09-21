@@ -37,7 +37,7 @@ export const getAllHorarios = async () => {
 };
 
 /*
-  Helpers internos de asignarTurnoConHistorial: no se exportan porque no
+  Helpers internos de asignarTurno: no se exportan porque no
   son parte de la interfaz del módulo, solo pasos de su transacción.
 */
 const getCalendarioPorId = async (id_calendario, client = null) => {
@@ -123,19 +123,13 @@ export const eliminarAsignacionHorario = async (
   }
 };
 
-const registrarHistorialHorario = async (
-  id_empleado,
-  id_calendario,
-  client = null
-) => {
-  await ejecutarQuery(
-    client,
-    Queries.POSTHistorialHorarios,
-    [id_calendario, id_empleado]
-  );
-};
-
-export const asignarTurnoConHistorial = async (
+/*
+  El historial NO se escribe acá: lo genera archivar_turnos_completados
+  cuando el turno ya pasó, que es cuando se conoce la asistencia.
+  Escribirlo al asignar duplicaba el registro y dejaba turnos futuros
+  (o después borrados) en el historial.
+*/
+export const asignarTurno = async (
   id_empleado,
   id_calendario
 ) => {
@@ -184,13 +178,18 @@ export const asignarTurnoConHistorial = async (
       throw httpError(409, MENSAJES.HORARIOS.CONFLICTO_HORARIO);
     }
 
-    const asignacion = await asignarEmpleadoATurno(
-      id_empleado,
-      id_calendario,
-      client
+    // Vacaciones, enfermedad o licencia especial ese día: no se asigna.
+    const enLicencia = await ejecutarQuery(
+      client,
+      Queries.LICENCIA_EN_FECHA,
+      [id_empleado, calendario.fecha]
     );
 
-    await registrarHistorialHorario(
+    if (enLicencia.rowCount > 0) {
+      throw httpError(409, MENSAJES.HORARIOS.EN_LICENCIA);
+    }
+
+    const asignacion = await asignarEmpleadoATurno(
       id_empleado,
       id_calendario,
       client

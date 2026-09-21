@@ -112,6 +112,9 @@ CREATE TABLE empleados (
   id_lugar INT REFERENCES lugares_trabajo(id),
   id_estado INT REFERENCES Estados(id),
   fecha_creacion TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  -- Días corridos de vacaciones por año. RRHH lo ajusta por empleado.
+  dias_vacaciones_anuales INT NOT NULL DEFAULT 15
+    CONSTRAINT chk_dias_vacaciones_no_negativos CHECK (dias_vacaciones_anuales >= 0),
   FOREIGN KEY (id_usuario) REFERENCES usuarios(id) ON DELETE SET NULL
 );
 
@@ -132,7 +135,18 @@ CREATE TABLE asignacion_horario (
   -- Marca de archivado: true cuando el turno ya fue copiado al historial
   -- por archivar_turnos_completados(). Evita duplicados (idempotencia).
   archivado BOOLEAN NOT NULL DEFAULT false,
-  UNIQUE (id_empleado, id_calendario)
+  /*
+    Control de asistencia: hora real (Argentina) de cada marca. TIME y no
+    TIMESTAMP porque la fecha es la del turno y los turnos no cruzan la
+    medianoche. NULL = todavía no marcó.
+  */
+  hora_ingreso TIME,
+  hora_egreso TIME,
+  UNIQUE (id_empleado, id_calendario),
+  CONSTRAINT chk_asistencia_egreso_con_ingreso
+    CHECK (hora_egreso IS NULL OR hora_ingreso IS NOT NULL),
+  CONSTRAINT chk_asistencia_egreso_posterior
+    CHECK (hora_egreso IS NULL OR hora_egreso > hora_ingreso)
 );
 
 /*
@@ -152,6 +166,29 @@ CREATE TABLE empleados_cv (
   actualizado TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+/*
+  Licencias del empleado (LCT): vacaciones (art. 150), enfermedad
+  (art. 208) y especiales (art. 158: trámites, fallecimiento familiar...).
+  Una sola tabla porque las tres cumplen el mismo rol: justificar que el
+  empleado no esté disponible en un rango de fechas. Cambian las reglas,
+  que viven en el servicio: solo VACACIONES descuenta del saldo anual.
+
+  El comentario va CIFRADO (AES-256-GCM, como las notas): en una licencia
+  por enfermedad puede incluir un diagnóstico, y los datos de salud son
+  datos sensibles (Ley 25.326, art. 7).
+*/
+CREATE TABLE licencias (
+  id SERIAL PRIMARY KEY,
+  id_empleado INT NOT NULL REFERENCES empleados(id) ON DELETE CASCADE,
+  tipo VARCHAR(12) NOT NULL
+    CHECK (tipo IN ('VACACIONES', 'ENFERMEDAD', 'ESPECIAL')),
+  fecha_desde DATE NOT NULL,
+  fecha_hasta DATE NOT NULL,
+  comentario TEXT,
+  fecha_registro TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT chk_licencia_rango CHECK (fecha_hasta >= fecha_desde)
+);
+
 /* =====================================================
    HISTORIAL DE HORARIOS (REPORTES)
    Guarda información histórica inmutable
@@ -166,7 +203,16 @@ CREATE TABLE asignacion_horario_historial (
   fecha DATE NOT NULL,
   hora_inicio TIME NOT NULL,
   hora_fin TIME NOT NULL,
-  fecha_registro TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+  fecha_registro TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  /*
+    Resultado de asistencia, congelado al archivar: PRESENTE, INCOMPLETO
+    (ingresó pero no marcó egreso), AUSENTE, ENFERMEDAD o LICENCIA.
+    NULL en registros anteriores al control de asistencia.
+  */
+  estado_asistencia VARCHAR(12),
+  hora_ingreso TIME,
+  hora_egreso TIME,
+  horas_trabajadas NUMERIC(5,2)
 );
 
 /* =====================================================
@@ -184,6 +230,7 @@ CREATE INDEX idx_historial_fecha ON asignacion_horario_historial(fecha);
 CREATE INDEX idx_historial_puesto ON asignacion_horario_historial(puesto);
 -- Índice parcial: el archivador solo busca turnos NO archivados
 CREATE INDEX idx_asignacion_no_archivada ON asignacion_horario(id) WHERE NOT archivado;
+CREATE INDEX idx_licencias_empleado ON licencias(id_empleado);
 
 /* =====================================================
    VISTAS
@@ -205,7 +252,16 @@ SELECT
   l.nombre   AS lugar_trabajo,
   c.fecha,
   c.hora_inicio,
-  c.hora_fin
+  c.hora_fin,
+  ah.hora_ingreso,
+  ah.hora_egreso,
+  ah.archivado,
+  -- Tipo de la licencia que cubre la fecha del turno (NULL si no hay).
+  (SELECT li.tipo
+     FROM licencias li
+    WHERE li.id_empleado = e.id
+      AND c.fecha BETWEEN li.fecha_desde AND li.fecha_hasta
+    LIMIT 1) AS licencia
 FROM empleados e
 JOIN asignacion_horario ah ON ah.id_empleado = e.id
 JOIN calendario c ON c.id = ah.id_calendario
@@ -248,7 +304,8 @@ SELECT
   u.email,
   u.activo,
   u.debe_cambiar_password,
-  r.nombre   AS rol
+  r.nombre   AS rol,
+  e.dias_vacaciones_anuales
 FROM empleados e
 LEFT JOIN empleados_cv cv ON cv.id_empleado = e.id
 LEFT JOIN usuarios u ON u.id = e.id_usuario
@@ -308,7 +365,11 @@ SELECT
   fecha,
   hora_inicio,
   hora_fin,
-  fecha_registro
+  fecha_registro,
+  estado_asistencia,
+  hora_ingreso,
+  hora_egreso,
+  horas_trabajadas
 FROM asignacion_horario_historial
 ORDER BY fecha_registro DESC;
 
@@ -325,12 +386,25 @@ ORDER BY fecha_registro DESC;
 
 /*
   Procedimiento: archivar_turnos_completados
-  Copia al historial los turnos con fecha pasada que aún no
-  fueron archivados y los marca (idempotente: correr dos veces
-  no duplica). El backend lo invoca al arrancar.
+  Copia al historial los turnos ya cerrados que aún no fueron
+  archivados y los marca (idempotente: correr dos veces no duplica).
+  El backend lo invoca al arrancar y cada hora.
   Devuelve en el parámetro INOUT la cantidad archivada.
   El puesto registrado es el del turno (qué rol se cubrió);
   el lugar, el del empleado.
+
+  Un día de gracia (fecha < ayer): RRHH puede corregir marcas o
+  cargar una licencia al día siguiente, antes de que el resultado
+  quede congelado.
+
+  Estado de asistencia, en orden de prioridad:
+    ENFERMEDAD / LICENCIA  una licencia cubre la fecha (0 h, no es ausencia)
+    AUSENTE                sin ingreso (0 h)
+    INCOMPLETO             ingreso sin egreso (horas hasta el fin programado)
+    PRESENTE               ingreso y egreso
+  Horas trabajadas = lo cubierto DEL TURNO: desde max(ingreso, inicio)
+  hasta min(egreso, fin). La tardanza y la salida anticipada descuentan;
+  las horas extra no cuentan.
 */
 CREATE PROCEDURE archivar_turnos_completados(INOUT archivados INT)
 LANGUAGE plpgsql AS $$
@@ -339,21 +413,48 @@ BEGIN
     SELECT ah.id, e.nombre, e.apellido,
            COALESCE(pt.nombre, pe.nombre, 'Sin puesto') AS puesto,
            COALESCE(l.nombre, 'Sin lugar') AS lugar,
-           c.fecha, c.hora_inicio, c.hora_fin
+           c.fecha, c.hora_inicio, c.hora_fin,
+           ah.hora_ingreso, ah.hora_egreso,
+           (SELECT li.tipo
+              FROM licencias li
+             WHERE li.id_empleado = ah.id_empleado
+               AND c.fecha BETWEEN li.fecha_desde AND li.fecha_hasta
+             LIMIT 1) AS licencia
     FROM asignacion_horario ah
     JOIN calendario c ON c.id = ah.id_calendario
     JOIN empleados e ON e.id = ah.id_empleado
     LEFT JOIN puestos pt ON pt.id = c.id_puesto
     LEFT JOIN puestos pe ON pe.id = e.id_puesto
     LEFT JOIN lugares_trabajo l ON l.id = e.id_lugar
-    WHERE c.fecha < CURRENT_DATE
+    WHERE c.fecha < CURRENT_DATE - 1
       AND NOT ah.archivado
+  ),
+  clasificados AS (
+    SELECT p.*,
+           CASE
+             WHEN p.licencia = 'ENFERMEDAD' THEN 'ENFERMEDAD'
+             WHEN p.licencia IS NOT NULL    THEN 'LICENCIA'
+             WHEN p.hora_ingreso IS NULL    THEN 'AUSENTE'
+             WHEN p.hora_egreso IS NULL     THEN 'INCOMPLETO'
+             ELSE 'PRESENTE'
+           END AS estado
+    FROM pendientes p
   ),
   insertados AS (
     INSERT INTO asignacion_horario_historial
-      (empleado_nombre, empleado_apellido, puesto, lugar_trabajo, fecha, hora_inicio, hora_fin)
-    SELECT nombre, apellido, puesto, lugar, fecha, hora_inicio, hora_fin
-    FROM pendientes
+      (empleado_nombre, empleado_apellido, puesto, lugar_trabajo, fecha, hora_inicio, hora_fin,
+       estado_asistencia, hora_ingreso, hora_egreso, horas_trabajadas)
+    SELECT nombre, apellido, puesto, lugar, fecha, hora_inicio, hora_fin,
+           estado, hora_ingreso, hora_egreso,
+           CASE
+             WHEN estado IN ('PRESENTE', 'INCOMPLETO') THEN
+               ROUND(GREATEST(0, EXTRACT(EPOCH FROM (
+                 LEAST(COALESCE(hora_egreso, hora_fin), hora_fin)
+                 - GREATEST(hora_ingreso, hora_inicio)
+               )) / 3600)::numeric, 2)
+             ELSE 0
+           END
+    FROM clasificados
     RETURNING 1
   )
   UPDATE asignacion_horario
@@ -366,9 +467,12 @@ $$;
 
 /*
   Función: fn_horas_trabajadas
-  Agregación parametrizada sobre el historial: turnos y horas
-  trabajadas por empleado y puesto en un rango de fechas.
+  Agregación parametrizada sobre el historial: turnos, asistencia y
+  horas por empleado y puesto en un rango de fechas.
   Base del reporte con filtros y del export CSV.
+  Los registros anteriores al control de asistencia (estado NULL) se
+  cuentan como presentes con sus horas programadas: antes no había forma
+  de saber otra cosa.
 */
 CREATE FUNCTION fn_horas_trabajadas(p_desde DATE, p_hasta DATE)
 RETURNS TABLE (
@@ -376,19 +480,76 @@ RETURNS TABLE (
   empleado_apellido VARCHAR,
   puesto VARCHAR,
   turnos BIGINT,
-  horas NUMERIC
+  presentes BIGINT,
+  ausencias BIGINT,
+  licencias BIGINT,
+  horas_programadas NUMERIC,
+  horas_trabajadas NUMERIC
 )
 LANGUAGE sql STABLE AS $$
   SELECT
-    empleado_nombre,
-    empleado_apellido,
-    puesto,
-    COUNT(*) AS turnos,
-    ROUND(SUM(EXTRACT(EPOCH FROM (hora_fin - hora_inicio)) / 3600)::numeric, 2) AS horas
-  FROM asignacion_horario_historial
-  WHERE fecha BETWEEN p_desde AND p_hasta
-  GROUP BY empleado_nombre, empleado_apellido, puesto
-  ORDER BY horas DESC;
+    h.empleado_nombre,
+    h.empleado_apellido,
+    h.puesto,
+    COUNT(*),
+    COUNT(*) FILTER (
+      WHERE h.estado_asistencia IN ('PRESENTE', 'INCOMPLETO')
+         OR h.estado_asistencia IS NULL
+    ),
+    COUNT(*) FILTER (WHERE h.estado_asistencia = 'AUSENTE'),
+    COUNT(*) FILTER (WHERE h.estado_asistencia IN ('ENFERMEDAD', 'LICENCIA')),
+    ROUND(SUM(EXTRACT(EPOCH FROM (h.hora_fin - h.hora_inicio)) / 3600)::numeric, 2),
+    ROUND(SUM(COALESCE(
+      h.horas_trabajadas,
+      EXTRACT(EPOCH FROM (h.hora_fin - h.hora_inicio)) / 3600
+    ))::numeric, 2) AS horas_reales
+  FROM asignacion_horario_historial h
+  WHERE h.fecha BETWEEN p_desde AND p_hasta
+  GROUP BY h.empleado_nombre, h.empleado_apellido, h.puesto
+  ORDER BY horas_reales DESC;
+$$;
+
+/*
+  Procedimiento: sincronizar_estado_licencias
+  Mantiene el estado del empleado alineado con sus licencias vigentes
+  HOY (fecha argentina): Vacaciones o Enfermo mientras dura la licencia,
+  Activo cuando termina. Solo actúa entre Activo, Vacaciones y Enfermo:
+  Inactivo, Suspendido y Despedido son decisiones de RRHH que ninguna
+  licencia debe pisar. Las licencias ESPECIALES no cambian el estado.
+  El backend lo invoca al arrancar, cada hora y al crear o borrar una
+  licencia. Devuelve en el INOUT cuántos empleados cambiaron.
+*/
+CREATE PROCEDURE sincronizar_estado_licencias(INOUT actualizados INT)
+LANGUAGE plpgsql AS $$
+DECLARE
+  hoy DATE := (now() AT TIME ZONE 'America/Argentina/Cordoba')::date;
+BEGIN
+  WITH objetivo AS (
+    SELECT e.id,
+           COALESCE(
+             (SELECT s.id
+                FROM licencias li
+                JOIN estados s ON s.nombre =
+                  CASE li.tipo WHEN 'VACACIONES' THEN 'Vacaciones' ELSE 'Enfermo' END
+               WHERE li.id_empleado = e.id
+                 AND li.tipo IN ('VACACIONES', 'ENFERMEDAD')
+                 AND hoy BETWEEN li.fecha_desde AND li.fecha_hasta
+               ORDER BY li.fecha_desde DESC
+               LIMIT 1),
+             (SELECT id FROM estados WHERE nombre = 'Activo')
+           ) AS id_estado_nuevo
+    FROM empleados e
+    JOIN estados actual ON actual.id = e.id_estado
+    WHERE actual.nombre IN ('Activo', 'Vacaciones', 'Enfermo')
+  )
+  UPDATE empleados e
+  SET id_estado = o.id_estado_nuevo
+  FROM objetivo o
+  WHERE e.id = o.id
+    AND e.id_estado IS DISTINCT FROM o.id_estado_nuevo;
+
+  GET DIAGNOSTICS actualizados = ROW_COUNT;
+END;
 $$;
 
 /* =====================================================

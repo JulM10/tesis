@@ -46,6 +46,19 @@ export const descifrarEmpleado = (fila) => {
   };
 };
 
+/** null si no se envió; si se envió, entero entre 0 y 60 (la LCT llega a 35). */
+const validarDiasVacaciones = (valor) => {
+  if (valor === null || valor === undefined || valor === "") return null;
+
+  const dias = Number(valor);
+
+  if (!Number.isInteger(dias) || dias < 0 || dias > 60) {
+    throw httpError(400, MENSAJES.EMPLEADOS.DIAS_VACACIONES_INVALIDOS);
+  }
+
+  return dias;
+};
+
 export const getAllEmpleados = async () => {
   const result = await pool.query(Queries.GET_ALL_EMPLEADOS);
 
@@ -94,9 +107,11 @@ export const createEmpleado = async (empleado) => {
     id_puesto = null,
     id_lugar = null,
     id_estado = null,
+    dias_vacaciones_anuales = null,
     rol = "EMPLEADO"
   } = empleado;
 
+  const diasVacaciones = validarDiasVacaciones(dias_vacaciones_anuales);
   const dniNormalizado = normalizarDni(dni);
   const passwordInicial = generarPasswordInicial(nombre, apellido, dniNormalizado);
   const passwordHash = await bcrypt.hash(passwordInicial, 10);
@@ -142,7 +157,8 @@ export const createEmpleado = async (empleado) => {
         cifrar(notas),
         id_puesto,
         id_lugar,
-        id_estado
+        id_estado,
+        diasVacaciones
       ]);
       empleadoCreado = result.rows[0];
     } catch (error) {
@@ -182,8 +198,11 @@ export const updateEmpleado = async (id, empleado) => {
     notas = null,
     id_puesto = null,
     id_lugar = null,
-    id_estado = null
+    id_estado = null,
+    dias_vacaciones_anuales = null
   } = empleado;
+
+  const diasVacaciones = validarDiasVacaciones(dias_vacaciones_anuales);
 
   try {
     // Actualización parcial: los campos no enviados conservan su valor
@@ -201,6 +220,7 @@ export const updateEmpleado = async (id, empleado) => {
         id_puesto,
         id_lugar,
         id_estado,
+        diasVacaciones,
         id
       ]
     );

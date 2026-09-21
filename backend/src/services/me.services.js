@@ -4,6 +4,7 @@ import { MENSAJES } from "../constantes/mensajes.js";
 import { httpError } from "../utils/httpError.js";
 import { cifrar } from "../utils/cifrado.js";
 import * as empleadosService from "./empleados.services.js";
+import * as licenciasService from "./licencias.services.js";
 
 export const getMiEmpleado = async (idUsuario) => {
   const result = await pool.query(Queries.GET_MI_EMPLEADO, [idUsuario]);
@@ -45,6 +46,11 @@ export const subirMiCV = async (idUsuario, archivo) => {
 export const descargarMiCV = async (idUsuario) => {
   const idEmpleado = await resolverMiEmpleadoId(idUsuario);
   return empleadosService.descargarCV(idEmpleado);
+};
+
+export const getMisLicencias = async (idUsuario) => {
+  const idEmpleado = await resolverMiEmpleadoId(idUsuario);
+  return licenciasService.getLicencias(idEmpleado, null);
 };
 
 export const updateMisDatos = async (idUsuario, datos) => {

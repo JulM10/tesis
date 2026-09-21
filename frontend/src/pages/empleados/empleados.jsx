@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Navigate } from "react-router-dom";
 import { toast } from "sonner";
 import Layout from "@/components/Layout";
+import LicenciasEmpleado from "@/components/LicenciasEmpleado";
 import { useAuth } from "@/context/AuthContext";
 import {
   getEmpleadosDetalle,
@@ -55,6 +56,7 @@ const FORM_VACIO = {
   id_puesto: "",
   id_lugar: "",
   id_estado: "",
+  dias_vacaciones_anuales: "15",
 };
 
 // La edad no se carga: se deriva de la fecha de nacimiento
@@ -115,6 +117,7 @@ export default function Empleados() {
       ]);
       setEmpleados(listaEmpleados);
       setCatalogos(listaCatalogos);
+      return listaEmpleados;
     } catch (error) {
       toast.error(error.response?.data?.error || "No se pudieron cargar los empleados");
     } finally {
@@ -157,6 +160,7 @@ export default function Empleados() {
       id_puesto: empleado.id_puesto ? String(empleado.id_puesto) : "",
       id_lugar: empleado.id_lugar ? String(empleado.id_lugar) : "",
       id_estado: empleado.id_estado ? String(empleado.id_estado) : "",
+      dias_vacaciones_anuales: String(empleado.dias_vacaciones_anuales ?? 15),
     });
     setCvActual(empleado.cv_nombre ?? null);
     setArchivoCV(null);
@@ -201,6 +205,22 @@ export default function Empleados() {
     }
   };
 
+  /*
+    Una licencia que cubre hoy cambia el estado del empleado en el backend
+    (Vacaciones / Enfermo / Activo). El formulario abierto tiene que tomar
+    ese estado: si no, al guardar se pisaría con el valor viejo.
+  */
+  const alCambiarLicencias = async () => {
+    const lista = await cargarDatos();
+    const actualizado = lista?.find((e) => e.empleado_id === editandoId);
+    if (actualizado) {
+      setForm((f) => ({
+        ...f,
+        id_estado: actualizado.id_estado ? String(actualizado.id_estado) : "",
+      }));
+    }
+  };
+
   const setCampo = (campo) => (e) => setForm({ ...form, [campo]: e.target.value });
 
   // Convierte el form (strings) al payload que espera la API (números o null)
@@ -218,6 +238,8 @@ export default function Empleados() {
     id_puesto: form.id_puesto ? Number(form.id_puesto) : null,
     id_lugar: form.id_lugar ? Number(form.id_lugar) : null,
     id_estado: form.id_estado ? Number(form.id_estado) : null,
+    dias_vacaciones_anuales:
+      form.dias_vacaciones_anuales === "" ? null : Number(form.dias_vacaciones_anuales),
   });
 
   const guardar = async (e) => {
@@ -340,7 +362,7 @@ export default function Empleados() {
 
       {/* Dialog de alta / edición */}
       <Dialog open={dialogAbierto} onOpenChange={setDialogAbierto}>
-        <DialogContent className="max-w-3xl">
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               {editandoId ? "Editar empleado" : "Nuevo empleado"}
@@ -460,6 +482,19 @@ export default function Empleados() {
                     </SelectContent>
                   </Select>
                 </div>
+                <div className="space-y-2">
+                  <Label htmlFor="dias_vacaciones_anuales">Vacaciones (días/año)</Label>
+                  <Input
+                    id="dias_vacaciones_anuales"
+                    type="number"
+                    min={0}
+                    max={60}
+                    step={1}
+                    value={form.dias_vacaciones_anuales}
+                    onChange={setCampo("dias_vacaciones_anuales")}
+                    title="Días corridos. Se descuentan al cargar licencias de vacaciones."
+                  />
+                </div>
               </div>
 
               {/* Columna derecha: descripción y CV */}
@@ -468,7 +503,7 @@ export default function Empleados() {
                   <Label htmlFor="notas">Notas / Descripción</Label>
                   <textarea
                     id="notas"
-                    rows={10}
+                    rows={5}
                     className="w-full resize-none rounded-md border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
                     placeholder="Experiencia, referencias, temporadas trabajadas, observaciones..."
                     value={form.notas}
@@ -515,6 +550,19 @@ export default function Empleados() {
                     </div>
                   </>
                 )}
+                </div>
+
+                <div className="border-t pt-4">
+                  {!editandoId ? (
+                    <div className="space-y-2">
+                      <Label>Licencias</Label>
+                      <p className="text-xs text-gray-400">
+                        Guardá el empleado primero para poder cargar sus licencias.
+                      </p>
+                    </div>
+                  ) : (
+                    <LicenciasEmpleado idEmpleado={editandoId} onCambio={alCambiarLicencias} />
+                  )}
                 </div>
               </div>
             </div>

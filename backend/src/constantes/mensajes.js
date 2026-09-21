@@ -15,7 +15,24 @@ export const MENSAJES = {
     CREADO_OK: "Empleado creado correctamente",
     ACTUALIZADO_OK: "Empleado actualizado correctamente",
     ELIMINADO_OK: "Empleado eliminado correctamente",
-    USUARIO_YA_ASOCIADO: "El usuario ya tiene un empleado asociado"
+    USUARIO_YA_ASOCIADO: "El usuario ya tiene un empleado asociado",
+    DIAS_VACACIONES_INVALIDOS: "Los días de vacaciones por año deben ser un número entero entre 0 y 60"
+  },
+
+  LICENCIAS: {
+    TIPO_INVALIDO: "El tipo de licencia debe ser VACACIONES, ENFERMEDAD o ESPECIAL",
+    FECHAS_INVALIDAS: "Las fechas son obligatorias y deben tener formato AAAA-MM-DD",
+    RANGO_INVALIDO: "La fecha de fin no puede ser anterior a la de inicio",
+    COMENTARIO_MUY_LARGO: "El comentario no puede superar los 500 caracteres",
+    SUPERPUESTA: "Ya hay una licencia cargada que se superpone con esas fechas",
+    NO_ENCONTRADA: "La licencia no existe",
+    CREADA_OK: "Licencia registrada correctamente",
+    ELIMINADA_OK: "Licencia eliminada correctamente",
+    SALDO_INSUFICIENTE: (disponibles, anio, dias) =>
+      `Le quedan ${disponibles} días de vacaciones en ${anio} y el período pide ${dias}`,
+    TURNOS_ASIGNADOS: (cantidad, fechas) =>
+      `El empleado tiene ${cantidad} turno${cantidad === 1 ? "" : "s"} asignado${cantidad === 1 ? "" : "s"} ` +
+      `en esas fechas (${fechas}). Reasignalos antes de cargar las vacaciones.`
   },
 
   CALENDARIO: {
@@ -32,7 +49,8 @@ export const MENSAJES = {
     ASIGNADO_OK: "Horario asignado correctamente",
     ELIMINADO_OK: "Asignación de horario eliminada correctamente",
     NO_EXISTE_ASIGNACION: "La asignación de horario no existe",
-    SIN_HORARIOS: "No hay horarios para la fecha indicada"
+    SIN_HORARIOS: "No hay horarios para la fecha indicada",
+    EN_LICENCIA: "El empleado tiene una licencia cargada para ese día"
   },
 
   USUARIOS: {

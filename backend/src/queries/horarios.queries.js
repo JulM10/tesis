@@ -62,29 +62,12 @@ WHERE fecha = $1
 ORDER BY hora_inicio;
 `;
 
-export const POSTHistorialHorarios = `
-INSERT INTO asignacion_horario_historial (
-  empleado_nombre,
-  empleado_apellido,
-  puesto,
-  lugar_trabajo,
-  fecha,
-  hora_inicio,
-  hora_fin
-)
-SELECT
-  e.nombre,
-  e.apellido,
-  p.nombre,
-  l.nombre,
-  c.fecha,
-  c.hora_inicio,
-  c.hora_fin
-FROM empleados e
-JOIN puestos p ON p.id = e.id_puesto
-JOIN lugares_trabajo l ON l.id = e.id_lugar
-JOIN calendario c ON c.id = $1
-WHERE e.id = $2;
+export const LICENCIA_EN_FECHA = `
+SELECT 1
+FROM licencias
+WHERE id_empleado = $1
+  AND $2::date BETWEEN fecha_desde AND fecha_hasta
+LIMIT 1;
 `;
 
 export const GET_CALENDARIO_POR_ID = `

@@ -152,69 +152,34 @@ INSERT INTO estados (nombre) VALUES
    ===================================================== */
 
 /* =====================================================
-   CALENDARIO (Semana del 01-07 de agosto de 2026)
+   CALENDARIO
+   Fechas RELATIVAS al día en que se crea la base: tres
+   semanas completas, del lunes de la semana pasada al
+   domingo de la próxima. Así la demo siempre tiene turnos
+   ya cumplidos (el backend los archiva al historial al
+   arrancar), turnos de la semana en curso y turnos futuros.
+   Las fechas se fijan al crear la base: para moverlas a la
+   semana actual hay que recrearla.
    ===================================================== */
 
--- VIERNES 01/08 (Mozo - Puesto 1)
-INSERT INTO calendario (fecha, hora_inicio, hora_fin, id_puesto) VALUES
-('2026-08-01', '08:00', '16:00', 1),
-('2026-08-01', '16:00', '23:00', 1);
-
--- VIERNES 01/08 (Cocinero - Puesto 2)
-INSERT INTO calendario (fecha, hora_inicio, hora_fin, id_puesto) VALUES
-('2026-08-01', '09:00', '17:00', 2),
-('2026-08-01', '17:00', '22:00', 2);
-
--- VIERNES 01/08 (Mantenimiento - Puesto 3)
-INSERT INTO calendario (fecha, hora_inicio, hora_fin, id_puesto) VALUES
-('2026-08-01', '07:00', '15:00', 3);
-
--- VIERNES 01/08 (Mucama - Puesto 4)
-INSERT INTO calendario (fecha, hora_inicio, hora_fin, id_puesto) VALUES
-('2026-08-01', '10:00', '18:00', 4),
-('2026-08-01', '18:00', '23:00', 4);
-
--- SÁBADO 02/08
-INSERT INTO calendario (fecha, hora_inicio, hora_fin, id_puesto) VALUES
-('2026-08-02', '08:00', '16:00', 1),
-('2026-08-02', '09:00', '17:00', 2),
-('2026-08-02', '07:00', '15:00', 3),
-('2026-08-02', '10:00', '18:00', 4);
-
--- DOMINGO 03/08
-INSERT INTO calendario (fecha, hora_inicio, hora_fin, id_puesto) VALUES
-('2026-08-03', '16:00', '23:00', 1),
-('2026-08-03', '17:00', '22:00', 2),
-('2026-08-03', '08:00', '16:00', 3),
-('2026-08-03', '18:00', '23:00', 4);
-
--- LUNES 04/08
-INSERT INTO calendario (fecha, hora_inicio, hora_fin, id_puesto) VALUES
-('2026-08-04', '08:00', '16:00', 1),
-('2026-08-04', '09:00', '17:00', 2),
-('2026-08-04', '16:00', '23:00', 3),
-('2026-08-04', '10:00', '18:00', 4);
-
--- MARTES 05/08
-INSERT INTO calendario (fecha, hora_inicio, hora_fin, id_puesto) VALUES
-('2026-08-05', '08:00', '16:00', 1),
-('2026-08-05', '09:00', '17:00', 2),
-('2026-08-05', '07:00', '15:00', 3),
-('2026-08-05', '18:00', '23:00', 4);
-
--- MIÉRCOLES 06/08
-INSERT INTO calendario (fecha, hora_inicio, hora_fin, id_puesto) VALUES
-('2026-08-06', '16:00', '23:00', 1),
-('2026-08-06', '17:00', '22:00', 2),
-('2026-08-06', '08:00', '16:00', 3),
-('2026-08-06', '10:00', '18:00', 4);
-
--- JUEVES 07/08
-INSERT INTO calendario (fecha, hora_inicio, hora_fin, id_puesto) VALUES
-('2026-08-07', '08:00', '16:00', 1),
-('2026-08-07', '09:00', '17:00', 2),
-('2026-08-07', '16:00', '23:00', 3),
-('2026-08-07', '10:00', '18:00', 4);
+INSERT INTO calendario (fecha, hora_inicio, hora_fin, id_puesto)
+SELECT dia::date, t.hora_inicio, t.hora_fin, p.id
+FROM generate_series(
+       date_trunc('week', CURRENT_DATE) - INTERVAL '7 days',
+       date_trunc('week', CURRENT_DATE) + INTERVAL '13 days',
+       INTERVAL '1 day'
+     ) AS dia
+CROSS JOIN (VALUES
+  ('Mozo',           TIME '08:00', TIME '16:00'),
+  ('Mozo',           TIME '16:00', TIME '23:00'),
+  ('Cocinero',       TIME '09:00', TIME '17:00'),
+  ('Cocinero',       TIME '17:00', TIME '22:00'),
+  ('Mantenimiento',  TIME '07:00', TIME '15:00'),
+  ('Mucama',         TIME '10:00', TIME '18:00'),
+  ('Administración', TIME '08:00', TIME '16:00')
+) AS t(puesto, hora_inicio, hora_fin)
+JOIN puestos p ON p.nombre = t.puesto
+ORDER BY dia, t.hora_inicio, p.id;
 
 /* =====================================================
    ASIGNACIÓN HORARIA: se carga junto con los empleados
@@ -223,11 +188,18 @@ INSERT INTO calendario (fecha, hora_inicio, hora_fin, id_puesto) VALUES
    ===================================================== */
 
 /* =====================================================
-   HISTORIAL (ejemplo histórico manual)
+   HISTORIAL (turnos de hace dos semanas)
+   Previos al calendario, así el reporte de historial
+   muestra algo más que lo archivado automáticamente.
+   Carlos Ruiz hoy está Inactivo: su registro muestra que
+   el historial conserva a quien ya no trabaja en el hotel.
    ===================================================== */
 
 INSERT INTO asignacion_horario_historial
-(empleado_nombre, empleado_apellido, puesto, lugar_trabajo, fecha, hora_inicio, hora_fin)
+(empleado_nombre, empleado_apellido, puesto, lugar_trabajo, fecha, hora_inicio, hora_fin,
+ estado_asistencia, hora_ingreso, hora_egreso, horas_trabajadas)
 VALUES
-('Juan','Pérez','Mozo','Bar','2025-10-10','08:00','16:00'),
-('Carlos','Ruiz','Mantenimiento','Cocina','2025-10-11','07:00','15:00');
+('Juan',   'Pérez', 'Cocinero',      'Cocina', (date_trunc('week', CURRENT_DATE) - INTERVAL '14 days')::date, '09:00', '17:00',
+ 'PRESENTE', '08:54', '17:03', 8.00),
+('Carlos', 'Ruiz',  'Mantenimiento', 'Cocina', (date_trunc('week', CURRENT_DATE) - INTERVAL '13 days')::date, '07:00', '15:00',
+ 'PRESENTE', '07:12', '15:01', 7.80);

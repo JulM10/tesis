@@ -22,9 +22,11 @@ export const CREATE_EMPLEADO = `
     notas,
     id_puesto,
     id_lugar,
-    id_estado
+    id_estado,
+    dias_vacaciones_anuales
   )
-  VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+  -- 15: mismo valor que el DEFAULT de la columna, para cuando no se envía.
+  VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, COALESCE($12::int, 15))
   RETURNING *;
 `;
 
@@ -48,8 +50,9 @@ export const UPDATE_EMPLEADO = `
       notas            = COALESCE($7, notas),
       id_puesto        = COALESCE($8, id_puesto),
       id_lugar         = COALESCE($9, id_lugar),
-      id_estado        = COALESCE($10, id_estado)
-  WHERE id = $11
+      id_estado        = COALESCE($10, id_estado),
+      dias_vacaciones_anuales = COALESCE($11, dias_vacaciones_anuales)
+  WHERE id = $12
   RETURNING *
 `;
 

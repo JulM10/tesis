@@ -40,4 +40,10 @@ router.post("/cv", subirCV, meController.subirMiCV);
  */
 router.get("/cv", meController.descargarMiCV);
 
+/**
+ * GET /api/me/licencias
+ * Licencias propias + saldo de vacaciones del año (solo lectura)
+ */
+router.get("/licencias", meController.getMisLicencias);
+
 export default router;

@@ -17,7 +17,8 @@ import { generarPasswordInicial } from "../utils/passwordInicial.js";
   esa cuenta; si no, se crea una con la password derivada de sus datos
   (Nombre + Apellido + últimos 4 del DNI) y debe_cambiar_password = true.
 
-  Las asignaciones de horario también van acá (FK a empleados).
+  Las asignaciones de horario y las licencias también van acá (FK a
+  empleados, y el comentario de la licencia va cifrado).
 */
 
 // [nombre, apellido, dni, fecha_nacimiento, telefono, direccion, id_puesto, id_lugar, id_estado, fecha_creacion, email]
@@ -44,24 +45,139 @@ const EMPLEADOS = [
   ["Sofía", "Herrera", "26437081", "1998-09-02", "3556789012", "Calle 80 #367", 3, 4, 1, "2022-02-18T15:50:00Z", "sofia.herrera@hotel.com"],
 ];
 
-// [id_empleado (posición 1..20 en EMPLEADOS), id_calendario]
-const ASIGNACIONES = [
-  // Viernes 01/08 (calendario 1-7)
-  [1, 1], [2, 1], [3, 2], [4, 2], [5, 3], [6, 3], [7, 4], [8, 4],
-  [9, 5], [10, 6], [11, 6], [12, 7], [13, 7],
-  // Sábado 02/08 (calendario 8-11)
-  [14, 8], [5, 8], [15, 9], [6, 9], [1, 10], [16, 11], [2, 11],
-  // Domingo 03/08 (calendario 12-15)
-  [3, 12], [4, 12], [7, 13], [8, 13], [17, 14], [9, 14], [10, 15], [11, 15],
-  // Lunes 04/08 (calendario 16-19)
-  [12, 16], [13, 16], [15, 17], [6, 17], [18, 18], [1, 18], [14, 19], [2, 19],
-  // Martes 05/08 (calendario 20-23)
-  [5, 20], [16, 20], [7, 21], [8, 21], [19, 22], [3, 23], [20, 23],
-  // Miércoles 06/08 (calendario 24-27)
-  [9, 24], [4, 24], [15, 25], [6, 25], [10, 26], [11, 26], [12, 27], [13, 27],
-  // Jueves 07/08 (calendario 28-31)
-  [1, 28], [14, 28], [5, 29], [6, 29], [17, 30], [18, 30], [2, 31], [16, 31],
+const ESTADO_ACTIVO = 1;
+
+/*
+  Personas por turno según el puesto del turno (id_puesto → cantidad).
+  Invariante: turnos diarios del puesto × personas ≤ activos del puesto.
+  Con eso la rotación nunca repite a alguien en el mismo día, y no hay
+  solapamientos. Si se agregan turnos en seed.sql, revisar esta cuenta.
+*/
+const PERSONAS_POR_TURNO = { 1: 1, 2: 2, 3: 2, 4: 3, 5: 1 };
+
+/*
+  Licencias de demo. Días relativos al lunes de ESTA semana, igual que
+  el calendario de seed.sql:
+  - Laura, de vacaciones toda esta semana: la sincronización de estados
+    la pasa a "Vacaciones" al arrancar.
+  - Diego, enfermo martes y miércoles de la semana pasada, SOBRE turnos
+    que ya tenía asignados: en el historial figuran como Enfermedad, no
+    como ausencia.
+  - Elena, vacaciones dentro de tres semanas: muestra el saldo descontado.
+*/
+// [posición en EMPLEADOS (1..20), tipo, día desde, día hasta, comentario]
+const LICENCIAS = [
+  [18, "VACACIONES", 0, 6, "Vacaciones acordadas con el encargado de mucamas"],
+  [5, "ENFERMEDAD", -6, -5, "Presentó certificado médico: gastroenteritis, reposo 48 h"],
+  [10, "VACACIONES", 21, 30, null],
 ];
+
+const insertarLicencias = async (client, idsInsertados) => {
+  const insertadas = [];
+
+  for (const [posicion, tipo, desde, hasta, comentario] of LICENCIAS) {
+    const result = await client.query(
+      `INSERT INTO licencias (id_empleado, tipo, fecha_desde, fecha_hasta, comentario)
+       VALUES ($1, $2,
+               (date_trunc('week', CURRENT_DATE) + $3 * INTERVAL '1 day')::date,
+               (date_trunc('week', CURRENT_DATE) + $4 * INTERVAL '1 day')::date,
+               $5)
+       RETURNING id_empleado, tipo, fecha_desde, fecha_hasta`,
+      [idsInsertados[posicion - 1], tipo, desde, hasta, cifrar(comentario)]
+    );
+    insertadas.push(result.rows[0]);
+  }
+
+  return insertadas;
+};
+
+const sumarMinutos = (hora, minutos) => {
+  const [h, m] = hora.split(":").map(Number);
+  const total = h * 60 + m + minutos;
+  return `${String(Math.floor(total / 60)).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
+};
+
+/*
+  Marcas de asistencia simuladas para turnos ya pasados, con un patrón
+  determinístico: la mayoría llega unos minutos antes, algunos llegan
+  tarde, alguno falta y alguno se olvida de marcar el egreso.
+*/
+const marcasSimuladas = (turno, n) => {
+  if (n % 17 === 0) return [null, null];
+  if (n % 23 === 5) return [sumarMinutos(turno.hora_inicio, -4), null];
+  if (n % 7 === 3) return [sumarMinutos(turno.hora_inicio, 18), sumarMinutos(turno.hora_fin, 2)];
+  return [sumarMinutos(turno.hora_inicio, -(n % 9)), sumarMinutos(turno.hora_fin, n % 6)];
+};
+
+const cubiertoPor = (licencias, idEmpleado, fecha, tipos) =>
+  licencias.some(
+    (l) =>
+      l.id_empleado === idEmpleado &&
+      tipos.includes(l.tipo) &&
+      fecha >= l.fecha_desde &&
+      fecha <= l.fecha_hasta
+  );
+
+/*
+  Reparte los turnos de calendario (creados por seed.sql con fechas
+  relativas) entre los empleados activos de cada puesto, por rotación.
+  No usa ids de calendario fijos: los turnos cambian según la fecha en
+  que se creó la base. Nadie recibe turnos durante sus vacaciones; la
+  enfermedad no se saltea porque llega después de armado el calendario.
+*/
+const asignarTurnos = async (client, idsInsertados, licencias) => {
+  const plantel = {};
+  EMPLEADOS.forEach(([, , , , , , puesto, , estado], i) => {
+    if (estado !== ESTADO_ACTIVO) return;
+    (plantel[puesto] ??= []).push(idsInsertados[i]);
+  });
+
+  const { rows: turnos } = await client.query(
+    `SELECT id, id_puesto, fecha, hora_inicio, hora_fin
+     FROM calendario
+     ORDER BY fecha, hora_inicio, id_puesto`
+  );
+
+  // Fecha argentina: el servidor corre en UTC.
+  const hoy = new Date().toLocaleDateString("en-CA", { timeZone: "America/Argentina/Cordoba" });
+
+  const proximo = {};
+  let total = 0;
+  let pasados = 0;
+
+  for (const turno of turnos) {
+    const grupo = plantel[turno.id_puesto] ?? [];
+    const cupo = Math.min(PERSONAS_POR_TURNO[turno.id_puesto] ?? 1, grupo.length);
+
+    for (let k = 0; k < cupo; k++) {
+      // Avanza la rotación salteando a quien esté de vacaciones ese día.
+      let idEmpleado = null;
+      for (let intento = 0; intento < grupo.length && idEmpleado === null; intento++) {
+        const posicion = proximo[turno.id_puesto] ?? 0;
+        proximo[turno.id_puesto] = posicion + 1;
+        const candidato = grupo[posicion % grupo.length];
+        if (!cubiertoPor(licencias, candidato, turno.fecha, ["VACACIONES"])) {
+          idEmpleado = candidato;
+        }
+      }
+      if (idEmpleado === null) continue;
+
+      let marcas = [null, null];
+      if (turno.fecha < hoy && !cubiertoPor(licencias, idEmpleado, turno.fecha, ["ENFERMEDAD", "ESPECIAL"])) {
+        marcas = marcasSimuladas(turno, pasados++);
+      }
+
+      await client.query(
+        `INSERT INTO asignacion_horario (id_empleado, id_calendario, hora_ingreso, hora_egreso)
+         VALUES ($1, $2, $3, $4)`,
+        [idEmpleado, turno.id, ...marcas]
+      );
+      total++;
+    }
+  }
+
+  return total;
+};
 
 /*
   Devuelve el id del usuario para ese email: reutiliza el existente
@@ -121,17 +237,14 @@ export const seedEmpleadosSiVacio = async () => {
       idsInsertados.push(result.rows[0].id);
     }
 
-    for (const [posicionEmpleado, idCalendario] of ASIGNACIONES) {
-      await client.query(
-        "INSERT INTO asignacion_horario (id_empleado, id_calendario) VALUES ($1, $2)",
-        [idsInsertados[posicionEmpleado - 1], idCalendario]
-      );
-    }
+    const licencias = await insertarLicencias(client, idsInsertados);
+    const asignaciones = await asignarTurnos(client, idsInsertados, licencias);
 
     await client.query("COMMIT");
     console.log(
       `Seed: ${idsInsertados.length} empleados insertados con datos personales cifrados ` +
-      `(${cuentasCreadas} cuentas de acceso nuevas con password inicial)`
+      `(${cuentasCreadas} cuentas de acceso nuevas con password inicial), ` +
+      `${licencias.length} licencias y ${asignaciones} asignaciones de turno`
     );
   } catch (error) {
     await client.query("ROLLBACK");

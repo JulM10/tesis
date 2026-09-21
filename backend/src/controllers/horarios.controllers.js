@@ -39,7 +39,7 @@ export const asignarEmpleadoATurno = async (req, res) => {
       });
     }
 
-    const asignacion = await horariosService.asignarTurnoConHistorial(
+    const asignacion = await horariosService.asignarTurno(
       id_empleado,
       id_calendario
     );
