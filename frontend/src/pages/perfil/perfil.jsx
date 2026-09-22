@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import Layout from "@/components/Layout";
 import LicenciasEmpleado from "@/components/LicenciasEmpleado";
+import CodigoAsistencia from "@/components/CodigoAsistencia";
+import EstadoAsistencia from "@/components/EstadoAsistencia";
 import {
   getMe,
   getMisHorarios,
@@ -10,7 +12,8 @@ import {
   descargarMiCV,
 } from "@/services/me.services";
 import { descargarBlob } from "@/services/empleados.services";
-import { hoyISO, soloFecha, formatearFecha, horaCorta } from "@/lib/fechas";
+import { soloFecha, formatearFecha, horaCorta } from "@/lib/fechas";
+import { ahoraArgentina, estadoAsistencia } from "@/lib/asistencia";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -44,7 +47,7 @@ import {
   un tipo nuevo en cada render y desmontaría/volvería a montar toda la tabla.
   Solo depende de sus props, así que no necesita nada del estado del padre.
 */
-const TablaTurnos = ({ titulo, filas, vacio }) => (
+const TablaTurnos = ({ titulo, filas, vacio, ahora = null }) => (
   <Card>
     <CardHeader className="pb-2">
       <CardTitle className="text-base">{titulo}</CardTitle>
@@ -58,8 +61,18 @@ const TablaTurnos = ({ titulo, filas, vacio }) => (
             <TableRow>
               <TableHead>Fecha</TableHead>
               <TableHead>Horario</TableHead>
-              <TableHead>Puesto</TableHead>
-              <TableHead>Lugar</TableHead>
+              {ahora ? (
+                <>
+                  <TableHead>Ingreso</TableHead>
+                  <TableHead>Salida</TableHead>
+                  <TableHead>Asistencia</TableHead>
+                </>
+              ) : (
+                <>
+                  <TableHead>Puesto</TableHead>
+                  <TableHead>Lugar</TableHead>
+                </>
+              )}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -69,8 +82,20 @@ const TablaTurnos = ({ titulo, filas, vacio }) => (
                 <TableCell>
                   {horaCorta(h.hora_inicio)}–{horaCorta(h.hora_fin)}
                 </TableCell>
-                <TableCell>{h.puesto}</TableCell>
-                <TableCell>{h.lugar_trabajo}</TableCell>
+                {ahora ? (
+                  <>
+                    <TableCell>{horaCorta(h.hora_ingreso) || "—"}</TableCell>
+                    <TableCell>{horaCorta(h.hora_egreso) || "—"}</TableCell>
+                    <TableCell>
+                      <EstadoAsistencia estado={estadoAsistencia(h, ahora)} />
+                    </TableCell>
+                  </>
+                ) : (
+                  <>
+                    <TableCell>{h.puesto}</TableCell>
+                    <TableCell>{h.lugar_trabajo}</TableCell>
+                  </>
+                )}
               </TableRow>
             ))}
           </TableBody>
@@ -80,10 +105,58 @@ const TablaTurnos = ({ titulo, filas, vacio }) => (
   </Card>
 );
 
+/*
+  Turnos de hoy con su estado y el campo para tipear el código del kiosco
+  (la alternativa al QR). Después de marcar, el padre recarga los turnos.
+*/
+const AsistenciaHoy = ({ turnos, ahora, onMarcado }) => (
+  <Card className="border-emerald-200">
+    <CardHeader className="pb-2">
+      <CardTitle className="text-base">Asistencia de hoy</CardTitle>
+    </CardHeader>
+    <CardContent className="space-y-4 text-sm">
+      {turnos.length === 0 ? (
+        <p className="text-gray-400">No tenés turnos asignados para hoy.</p>
+      ) : (
+        <>
+          <ul className="space-y-2">
+            {turnos.map((t) => (
+              <li
+                key={t.calendario_id}
+                className="flex flex-wrap items-center justify-between gap-2 rounded-md bg-gray-50 px-3 py-2"
+              >
+                <span>
+                  <span className="font-medium">
+                    {horaCorta(t.hora_inicio)}–{horaCorta(t.hora_fin)}
+                  </span>
+                  <span className="text-gray-500">
+                    {" "}· Ingreso {horaCorta(t.hora_ingreso) || "—"} · Salida{" "}
+                    {horaCorta(t.hora_egreso) || "—"}
+                  </span>
+                </span>
+                <EstadoAsistencia estado={estadoAsistencia(t, ahora)} />
+              </li>
+            ))}
+          </ul>
+          <div className="space-y-1">
+            <CodigoAsistencia onMarcado={onMarcado} />
+            <p className="text-xs text-gray-500">
+              Escaneá el QR de recepción o tipeá acá el número que muestra la pantalla.
+              El sistema registra el ingreso o la salida según tu turno.
+            </p>
+          </div>
+        </>
+      )}
+    </CardContent>
+  </Card>
+);
+
 export default function Perfil() {
   const [me, setMe] = useState(null);
   const [horarios, setHorarios] = useState([]);
   const [loading, setLoading] = useState(true);
+  // Hora argentina para el estado de asistencia; se actualiza cada minuto.
+  const [ahora, setAhora] = useState(ahoraArgentina);
 
   const [dialogAbierto, setDialogAbierto] = useState(false);
   const [form, setForm] = useState({ telefono: "", direccion: "", notas: "" });
@@ -109,12 +182,28 @@ export default function Perfil() {
     // El efecto no puede ser async: la IIFE deja las actualizaciones de
     // estado fuera de su cuerpo síncrono (react-hooks/set-state-in-effect).
     (async () => { await cargarDatos(); })();
+
+    const reloj = setInterval(() => setAhora(ahoraArgentina()), 60 * 1000);
+    return () => clearInterval(reloj);
   }, []);
 
   const empleado = me?.empleado;
-  const hoy = hoyISO();
-  const proximos = horarios.filter((h) => soloFecha(h.fecha) >= hoy);
+  const hoy = ahora.fecha;
+  const turnosHoy = horarios.filter((h) => soloFecha(h.fecha) === hoy);
+  const proximos = horarios.filter((h) => soloFecha(h.fecha) > hoy);
   const pasados = horarios.filter((h) => soloFecha(h.fecha) < hoy);
+
+  const alMarcar = async (marca) => {
+    toast.success(
+      `${marca.tipo === "INGRESO" ? "Ingreso registrado" : "Salida registrada"} a las ${marca.hora}`
+    );
+    setAhora(ahoraArgentina());
+    try {
+      setHorarios(await getMisHorarios());
+    } catch {
+      // La marca ya quedó registrada; el estado se ve al recargar.
+    }
+  };
 
   const abrirEdicion = () => {
     setForm({
@@ -179,6 +268,10 @@ export default function Perfil() {
           <>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               <div className="space-y-4">
+                {empleado && (
+                  <AsistenciaHoy turnos={turnosHoy} ahora={ahora} onMarcado={alMarcar} />
+                )}
+
                 {/* Datos de la cuenta */}
                 <Card>
                   <CardHeader className="pb-2">
@@ -299,6 +392,7 @@ export default function Perfil() {
                   titulo="Turnos anteriores"
                   filas={pasados.slice(-8).reverse()}
                   vacio="Sin historial de turnos."
+                  ahora={ahora}
                 />
               </div>
             )}

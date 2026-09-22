@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Navigate, useNavigate } from "react-router-dom";
+import { Navigate, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import "./login.css";
 
 import { Button } from "@/components/ui/button";
@@ -15,9 +15,27 @@ import {
 
 import { useAuth } from "@/context/AuthContext";
 
+/*
+  A dónde ir después del login: la ruta que se quiso abrir sin sesión
+  (ProtectedRoute la pasa en el state; el interceptor de axios, como
+  ?volver= porque recarga la página). Solo rutas internas: un "volver"
+  armado a mano no puede mandar al usuario a otro sitio.
+*/
+const destinoSeguro = (ruta) =>
+  typeof ruta === "string" &&
+  ruta.startsWith("/") &&
+  !ruta.startsWith("//") &&
+  !ruta.startsWith("/\\") &&
+  !ruta.startsWith("/login")
+    ? ruta
+    : "/";
+
 export default function Login() {
   const { usuario, login } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const [params] = useSearchParams();
+  const destino = destinoSeguro(location.state?.desde ?? params.get("volver"));
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -26,7 +44,7 @@ export default function Login() {
 
   // Si ya hay sesión activa, no mostrar el login
   if (usuario) {
-    return <Navigate to="/" replace />;
+    return <Navigate to={destino} replace />;
   }
 
   const handleSubmit = async (e) => {
@@ -36,7 +54,7 @@ export default function Login() {
 
     try {
       await login(email, password);
-      navigate("/", { replace: true });
+      navigate(destino, { replace: true });
     } catch (err) {
       setError(
         err.response?.data?.error || "No se pudo conectar con el servidor"

@@ -120,12 +120,12 @@ AND r.nombre = 'EMPLEADO';
    DATOS DEL NEGOCIO
    ===================================================== */
 
-INSERT INTO puestos (nombre) VALUES
-('Mozo'),
-('Cocinero'),
-('Mantenimiento'),
-('Mucama'),
-('Administración');
+INSERT INTO puestos (nombre, color) VALUES
+('Mozo',           '#2563eb'),
+('Cocinero',       '#ea580c'),
+('Mantenimiento',  '#64748b'),
+('Mucama',         '#db2777'),
+('Administración', '#7c3aed');
 
 INSERT INTO lugares_trabajo (nombre) VALUES
 ('Cocina'),

@@ -31,6 +31,21 @@ export const sumarDias = (iso, dias) => {
   return aISO(d);
 };
 
+/** Primer día del mes de la fecha: "2025-11-20" → "2025-11-01" */
+export const inicioDeMes = (iso) => `${soloFecha(iso).slice(0, 7)}-01`;
+
+/** Último día del mes de la fecha: "2025-02-10" → "2025-02-28" */
+export const finDeMes = (iso) => {
+  const d = aDate(iso);
+  return aISO(new Date(d.getFullYear(), d.getMonth() + 1, 0)); // día 0 = último del mes anterior
+};
+
+/** Mismo día N meses después (o antes); se usa sobre el día 1 para no desbordar */
+export const sumarMeses = (iso, meses) => {
+  const d = aDate(iso);
+  return aISO(new Date(d.getFullYear(), d.getMonth() + meses, d.getDate()));
+};
+
 /** "2025-11-20" → "20/11/2025" */
 export const formatearFecha = (iso) => {
   const [anio, mes, dia] = soloFecha(iso).split("-");

@@ -23,4 +23,11 @@ router.get("/horas", requierePermiso("REPORTES_VER"), reportesController.getHora
  */
 router.get("/dotacion", requierePermiso("REPORTES_VER"), reportesController.getDotacion);
 
+/**
+ * GET /api/reportes/dotacion-periodo?desde&hasta
+ * Por puesto: empleados distintos, turnos y asignaciones del período
+ * (turnos planificados, incluye días futuros). Gráfico del dashboard.
+ */
+router.get("/dotacion-periodo", requierePermiso("REPORTES_VER"), reportesController.getDotacionPeriodo);
+
 export default router;

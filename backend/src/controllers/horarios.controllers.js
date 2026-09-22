@@ -2,10 +2,23 @@ import * as horariosService from "../services/horarios.services.js";
 import { MENSAJES } from "../constantes/mensajes.js";
 import { responderError } from "../utils/httpError.js";
 
+/*
+  La grilla (quién trabaja cuándo) la ve cualquiera con CALENDARIO_VER,
+  pero la asistencia y las licencias de los demás solo RRHH y el
+  administrador (EMPLEADOS_VER): una licencia por enfermedad es un dato
+  de salud (Ley 25.326, art. 7). Cada empleado ve lo suyo en /api/me.
+*/
+const sinDatosDeAsistencia = ({ hora_ingreso, hora_egreso, licencia, ...resto }) => resto;
+
+const filtrarSegunPermiso = (req, horarios) =>
+  req.usuario.permisos?.includes("EMPLEADOS_VER")
+    ? horarios
+    : horarios.map(sinDatosDeAsistencia);
+
 export const getHorariosPorEmpleado = async (req, res) => {
   try {
     const horarios = await horariosService.getHorariosPorEmpleado(req.params.id);
-    res.json(horarios);
+    res.json(filtrarSegunPermiso(req, horarios));
   } catch (error) {
     responderError(res, error);
   }
@@ -14,7 +27,7 @@ export const getHorariosPorEmpleado = async (req, res) => {
 export const getAllHorarios = async (req, res) => {
   try {
     const horarios = await horariosService.getAllHorarios();
-    res.json(horarios);
+    res.json(filtrarSegunPermiso(req, horarios));
   } catch (error) {
     responderError(res, error);
   }
@@ -73,7 +86,7 @@ export const eliminarAsignacionHorario = async (req, res) => {
 export const horariosPorFecha = async (req, res) => {
   try {
     const horarios = await horariosService.horariosPorFecha(req.params.fecha);
-    res.json(horarios);
+    res.json(filtrarSegunPermiso(req, horarios));
   } catch (error) {
     responderError(res, error);
   }

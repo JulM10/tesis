@@ -35,6 +35,15 @@ export const descargarMiCV = async () => {
   return response.data;
 };
 
+/**
+ * Marca ingreso o salida con el código del kiosco.
+ * Devuelve { message, data: { tipo: "INGRESO" | "EGRESO", hora, turno } }
+ */
+export const marcarAsistencia = async (codigo) => {
+  const response = await api.post("/me/asistencia", { codigo });
+  return response.data;
+};
+
 /** Licencias propias + saldo de vacaciones del año (solo lectura) */
 export const getMisLicencias = async () => {
   const response = await api.get("/me/licencias");

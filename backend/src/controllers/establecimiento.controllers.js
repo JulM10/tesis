@@ -4,7 +4,11 @@ import { MENSAJES } from "../constantes/mensajes.js";
 
 export const crear = async (req, res) => {
   try {
-    const creado = await establecimientoService.crear(req.params.tipo, req.body.nombre);
+    const creado = await establecimientoService.crear(
+      req.params.tipo,
+      req.body.nombre,
+      req.body.color
+    );
     res.status(201).json({ mensaje: MENSAJES.ESTABLECIMIENTO.CREADO_OK, ...creado });
   } catch (error) {
     responderError(res, error);
@@ -16,7 +20,8 @@ export const editar = async (req, res) => {
     const actualizado = await establecimientoService.editar(
       req.params.tipo,
       req.params.id,
-      req.body.nombre
+      req.body.nombre,
+      req.body.color
     );
     res.json({ mensaje: MENSAJES.ESTABLECIMIENTO.ACTUALIZADO_OK, ...actualizado });
   } catch (error) {

@@ -29,8 +29,12 @@ api.interceptors.response.use(
       localStorage.removeItem("hy_token");
       localStorage.removeItem("hy_usuario");
 
-      if (window.location.pathname !== "/login") {
-        window.location.href = "/login";
+      const { pathname, search } = window.location;
+
+      if (pathname !== "/login") {
+        // Después del login se vuelve a donde estaba (ver login.jsx)
+        const volver = pathname === "/" ? "" : `?volver=${encodeURIComponent(pathname + search)}`;
+        window.location.href = `/login${volver}`;
       }
     }
 

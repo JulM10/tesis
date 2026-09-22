@@ -1,13 +1,22 @@
-import { Navigate } from "react-router-dom";
+import { Navigate, useLocation } from "react-router-dom";
 import { Toaster } from "sonner";
 import { useAuth } from "@/context/AuthContext";
 import ControlDeSesion from "@/components/ControlDeSesion";
 
 export default function ProtectedRoute({ children }) {
   const { usuario } = useAuth();
+  const location = useLocation();
 
   if (!usuario) {
-    return <Navigate to="/login" replace />;
+    // El login vuelve a la ruta pedida: así el QR del kiosco (/marcar?c=…)
+    // funciona aunque la sesión no estuviera abierta.
+    return (
+      <Navigate
+        to="/login"
+        replace
+        state={{ desde: location.pathname + location.search }}
+      />
+    );
   }
 
   return (

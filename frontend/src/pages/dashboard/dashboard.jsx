@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { Link, Navigate } from "react-router-dom";
 import { toast } from "sonner";
 import { Users, UserCheck, Plane, CalendarDays, Cake, AlertCircle } from "lucide-react";
@@ -20,6 +20,12 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+
+/*
+  El gráfico (recharts, ~370 kB) se descarga aparte y solo al abrir el
+  panel: el empleado que escanea el QR desde el celular no lo necesita.
+*/
+const GraficoDotacion = lazy(() => import("@/components/GraficoDotacion"));
 
 /** Tarjeta de indicador simple */
 function StatCard({ titulo, valor, icono, color }) {
@@ -242,6 +248,21 @@ export default function Dashboard() {
                 color="bg-purple-100 text-purple-700"
               />
             </div>
+
+            {/* Quien ve el panel (admin y RRHH) también tiene REPORTES_VER */}
+            {tienePermiso("REPORTES_VER") && (
+              <Suspense
+                fallback={
+                  <Card>
+                    <CardContent className="p-6 text-sm text-gray-500">
+                      Cargando gráfico de dotación...
+                    </CardContent>
+                  </Card>
+                }
+              >
+                <GraficoDotacion />
+              </Suspense>
+            )}
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               {/* Turnos de hoy */}

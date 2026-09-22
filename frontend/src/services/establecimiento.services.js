@@ -8,13 +8,14 @@ import api from '../apis/axios';
   que todas las pantallas ya usan para armar sus selects y filtros.
 */
 
-export const crearItem = async (tipo, nombre) => {
-  const response = await api.post(`/establecimiento/${tipo}`, { nombre });
+// color: solo aplica a puestos; para lugares el backend lo ignora.
+export const crearItem = async (tipo, nombre, color) => {
+  const response = await api.post(`/establecimiento/${tipo}`, { nombre, color });
   return response.data;
 };
 
-export const editarItem = async (tipo, id, nombre) => {
-  const response = await api.put(`/establecimiento/${tipo}/${id}`, { nombre });
+export const editarItem = async (tipo, id, nombre, color) => {
+  const response = await api.put(`/establecimiento/${tipo}/${id}`, { nombre, color });
   return response.data;
 };
 

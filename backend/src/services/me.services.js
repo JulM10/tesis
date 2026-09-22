@@ -5,6 +5,7 @@ import { httpError } from "../utils/httpError.js";
 import { cifrar } from "../utils/cifrado.js";
 import * as empleadosService from "./empleados.services.js";
 import * as licenciasService from "./licencias.services.js";
+import * as asistenciaService from "./asistencia.services.js";
 
 export const getMiEmpleado = async (idUsuario) => {
   const result = await pool.query(Queries.GET_MI_EMPLEADO, [idUsuario]);
@@ -51,6 +52,15 @@ export const descargarMiCV = async (idUsuario) => {
 export const getMisLicencias = async (idUsuario) => {
   const idEmpleado = await resolverMiEmpleadoId(idUsuario);
   return licenciasService.getLicencias(idEmpleado, null);
+};
+
+/*
+  La identidad sale del token (quién marca) y el código del kiosco prueba
+  que está en el hotel (dónde marca). Ninguno de los dos alcanza solo.
+*/
+export const marcarAsistencia = async (idUsuario, codigo) => {
+  const idEmpleado = await resolverMiEmpleadoId(idUsuario);
+  return asistenciaService.marcar(idEmpleado, idUsuario, codigo);
 };
 
 export const updateMisDatos = async (idUsuario, datos) => {

@@ -19,6 +19,15 @@ export const getReporteHoras = async (filtros = {}) => {
   return response.data;
 };
 
+/**
+ * Por puesto: empleados distintos, turnos y asignaciones en el período
+ * { desde, hasta } (turnos planificados, incluye días futuros)
+ */
+export const getDotacionPeriodo = async ({ desde, hasta }) => {
+  const response = await api.get('/reportes/dotacion-periodo', { params: { desde, hasta } });
+  return response.data;
+};
+
 /** Cantidad de empleados por puesto y lugar de trabajo */
 export const getReporteDotacion = async () => {
   const response = await api.get('/reportes/dotacion');

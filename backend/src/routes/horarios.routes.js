@@ -1,5 +1,6 @@
 import { Router } from "express";
 import * as horariosController from "../controllers/horarios.controllers.js";
+import * as asistenciaController from "../controllers/asistencia.controllers.js";
 import { requierePermiso } from "../middlewares/role.middleware.js";
 
 const router = Router();
@@ -33,6 +34,13 @@ router.post("/asignar/", requierePermiso("CALENDARIO_CREAR"), horariosController
  * Elimina la asignación de un empleado a un turno
  */
 router.delete("/asignar/:id_empleado/:id_calendario", requierePermiso("CALENDARIO_ELIMINAR"), horariosController.eliminarAsignacionHorario);
+
+/**
+ * PUT /api/horarios/asignar/:id_empleado/:id_calendario/asistencia
+ * Carga o corrige las marcas de un turno: { hora_ingreso, hora_egreso }
+ * (null o "" borra la marca). Solo turnos de hoy o anteriores sin archivar.
+ */
+router.put("/asignar/:id_empleado/:id_calendario/asistencia", requierePermiso("CALENDARIO_EDITAR"), asistenciaController.corregirAsistencia);
 
 /**
  * GET /api/horarios/turno/:id

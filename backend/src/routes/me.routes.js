@@ -46,4 +46,11 @@ router.get("/cv", meController.descargarMiCV);
  */
 router.get("/licencias", meController.getMisLicencias);
 
+/**
+ * POST /api/me/asistencia
+ * Marca ingreso o salida con el código del kiosco: { codigo }
+ * El servidor decide cuál de las dos es según los turnos de hoy.
+ */
+router.post("/asistencia", meController.marcarAsistencia);
+
 export default router;

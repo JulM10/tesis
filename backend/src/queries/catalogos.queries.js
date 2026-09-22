@@ -1,5 +1,5 @@
 export const GET_PUESTOS = `
-SELECT id, nombre
+SELECT id, nombre, color
 FROM puestos
 ORDER BY nombre;
 `;

@@ -69,6 +69,21 @@ export const getMisLicencias = async (req, res) => {
   }
 };
 
+export const marcarAsistencia = async (req, res) => {
+  try {
+    const marca = await meService.marcarAsistencia(req.usuario.sub, req.body?.codigo);
+
+    res.status(201).json({
+      message: marca.tipo === "INGRESO"
+        ? MENSAJES.ASISTENCIA.INGRESO_OK
+        : MENSAJES.ASISTENCIA.EGRESO_OK,
+      data: marca
+    });
+  } catch (error) {
+    responderError(res, error);
+  }
+};
+
 export const updateMisDatos = async (req, res) => {
   try {
     const empleado = await meService.updateMisDatos(req.usuario.sub, req.body);

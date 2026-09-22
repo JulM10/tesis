@@ -18,6 +18,8 @@ const ENTIDADES = {
   puestos: {
     etiqueta: "puesto",
     largoMaximo: 100,
+    // El calendario pinta cada turno con el color de su puesto.
+    conColor: true,
     crear: Queries.CREAR_PUESTO,
     editar: Queries.EDITAR_PUESTO,
     eliminar: Queries.ELIMINAR_PUESTO,
@@ -60,6 +62,21 @@ const normalizarNombre = (nombre, entidad) => {
   return limpio;
 };
 
+const REGEX_COLOR = /^#[0-9a-f]{6}$/;
+
+// null si no se envió (el alta usa el default y la edición conserva el actual).
+const normalizarColor = (color) => {
+  if (color === undefined || color === null || color === "") return null;
+
+  const limpio = String(color).trim().toLowerCase();
+
+  if (!REGEX_COLOR.test(limpio)) {
+    throw httpError(400, MENSAJES.ESTABLECIMIENTO.COLOR_INVALIDO);
+  }
+
+  return limpio;
+};
+
 const validarId = (id) => {
   const numero = Number(id);
 
@@ -84,27 +101,33 @@ const traducirDuplicado = (error) => {
   return error;
 };
 
-export const crear = async (tipo, nombre) => {
+// Las entidades sin color ignoran el que venga en el pedido.
+const parametros = (entidad, nombre, color) =>
+  entidad.conColor ? [nombre, normalizarColor(color)] : [nombre];
+
+export const crear = async (tipo, nombre, color) => {
   const entidad = obtenerEntidad(tipo);
   const limpio = normalizarNombre(nombre, entidad);
+  const valores = parametros(entidad, limpio, color);
 
   try {
-    const result = await pool.query(entidad.crear, [limpio]);
+    const result = await pool.query(entidad.crear, valores);
     return result.rows[0];
   } catch (error) {
     throw traducirDuplicado(error);
   }
 };
 
-export const editar = async (tipo, id, nombre) => {
+export const editar = async (tipo, id, nombre, color) => {
   const entidad = obtenerEntidad(tipo);
   const idValido = validarId(id);
   const limpio = normalizarNombre(nombre, entidad);
+  const valores = [...parametros(entidad, limpio, color), idValido];
 
   let result;
 
   try {
-    result = await pool.query(entidad.editar, [limpio, idValido]);
+    result = await pool.query(entidad.editar, valores);
   } catch (error) {
     throw traducirDuplicado(error);
   }

@@ -1,5 +1,7 @@
 import { pool } from "../config/database.js";
 import * as Queries from "../queries/reportes.queries.js";
+import { MENSAJES } from "../constantes/mensajes.js";
+import { httpError } from "../utils/httpError.js";
 
 /*
   Reportes sobre el historial inmutable (asignacion_horario_historial).
@@ -16,6 +18,29 @@ export const getHistorial = async ({ desde = null, hasta = null, empleado = null
 export const getHorasTrabajadas = async ({ desde, hasta }) => {
   const result = await pool.query(Queries.GET_HORAS_TRABAJADAS, [desde, hasta]);
   return result.rows;
+};
+
+const DIAS_MAXIMOS_PERIODO = 366;
+
+export const getDotacionPeriodo = async ({ desde, hasta }) => {
+  if (!desde || !hasta) {
+    throw httpError(400, MENSAJES.REPORTES.PERIODO_REQUERIDO);
+  }
+
+  const dias = (Date.parse(hasta) - Date.parse(desde)) / 86_400_000;
+
+  if (Number.isNaN(dias) || dias < 0 || dias > DIAS_MAXIMOS_PERIODO) {
+    throw httpError(400, MENSAJES.REPORTES.PERIODO_INVALIDO);
+  }
+
+  const result = await pool.query(Queries.GET_DOTACION_PERIODO, [desde, hasta]);
+  return result.rows.map((fila) => ({
+    ...fila,
+    // COUNT devuelve bigint, que pg entrega como string
+    empleados: Number(fila.empleados),
+    turnos: Number(fila.turnos),
+    asignaciones: Number(fila.asignaciones)
+  }));
 };
 
 export const getDotacion = async () => {

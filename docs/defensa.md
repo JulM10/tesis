@@ -72,7 +72,7 @@
 - **Nombre = dato personal, NO dato sensible** (art. 2). Sensibles son: origen racial/étnico, opiniones políticas, convicciones religiosas, afiliación sindical, salud y vida sexual. El nombre es un identificador de bajo riesgo, necesario para operar el sistema (art. 4: datos "pertinentes y no excesivos").
 - **Mapeo art. 9 ↔ AES-GCM (punto fuerte):** el artículo exige evitar la "adulteración" y "detectar desviaciones, intencionales o no" → GCM es cifrado autenticado: si alguien altera los bytes en la BD, el authTag no valida y el sistema lo detecta. La elección técnica responde al texto exacto de la ley.
 - **Resolución AAIP 47/2018** (reemplazó a la Disposición DNPDP 11/2006): lista el cifrado como medida **recomendada** para datos en medios informatizados. Citarla muestra conocimiento del marco completo.
-- **⚠️ Alerta preparada — estado "Enfermo":** roza el dato de salud (sensible, art. 2). Respuesta: es dato operativo mínimo para gestionar turnos en el marco de la relación laboral (art. 5 habilita el tratamiento necesario para el contrato); no se guarda diagnóstico ni historia clínica. Alternativa de blindaje total: renombrarlo a "Licencia".
+- **⚠️ Alerta preparada — estado "Enfermo":** roza el dato de salud (sensible, art. 2). Respuesta: es dato operativo mínimo para gestionar turnos en el marco de la relación laboral (art. 5 habilita el tratamiento necesario para el contrato); no se guarda historia clínica. El comentario de una licencia por enfermedad (donde RRHH puede anotar "certificado, reposo 48 h") va **cifrado** como las notas, y los compañeros no ven ni la licencia ni la asistencia de los demás (ver sección 7b).
 
 ---
 
@@ -159,6 +159,54 @@
 
 ---
 
+## 7b. Asistencia y licencias (devolución final del profesor) — ✅ IMPLEMENTADO
+
+### El problema que resuelve
+
+Antes el sistema sabía a qué turno estaba **asignado** cada empleado, pero no si **asistió**. Ahora cada turno tiene marca de ingreso y salida, el historial guarda el resultado (Presente, Incompleto, Ausente, Enfermedad, Licencia) y las horas trabajadas salen de las marcas, no del horario teórico.
+
+### Cómo marca el empleado (explicarlo así, en 20 segundos)
+
+1. En recepción hay una PC con la pantalla `/kiosco`: un QR y un número de 6 dígitos que cambian cada 30 segundos.
+2. El empleado apunta la cámara del celular al QR, se abre la app y, si no tenía sesión, entra con **su** usuario.
+3. Queda registrado el ingreso. Al irse, lo mismo: queda la salida. Un solo botón; el servidor decide si es ingreso o salida según su turno.
+
+**Frase clave:** *el QR prueba **dónde** está (solo existe en la pantalla de recepción) y el usuario prueba **quién** es*. Desde la casa tiene su usuario, pero no el código del momento.
+
+### Por qué no se puede marcar desde la casa (la pregunta obligada)
+
+- **El código es un TOTP**, el mismo mecanismo que las apps de doble factor (RFC 6238): un HMAC-SHA256 de la ventana de 30 s firmado con un secreto que solo tiene el servidor. No se guarda en ningún lado; el servidor lo recalcula para validar. Sin el secreto no se puede predecir el próximo, y uno viejo deja de servir solo (se acepta el actual y el anterior: dura 30–60 s).
+- **Solo el kiosco puede pedir el código**, y se autentica como **equipo** con `KIOSCO_CLAVE` (header `X-Kiosco-Clave`, comparado con `timingSafeEqual`). No usa una sesión de usuario porque las sesiones se cierran a los 10 min sin actividad y la pantalla de recepción queda prendida todo el día. La clave del kiosco **solo** sirve para ver el código: no da acceso a ningún dato.
+- **Fuerza bruta bloqueada:** 5 códigos incorrectos por usuario cada 15 minutos → 429. La chance de adivinar es 5 en un millón por cuarto de hora.
+- **Ventana horaria:** el ingreso se acepta desde 30 min antes del turno hasta su fin; la salida hasta 60 min después. Una marca a las 3 AM no tiene turno al que pegarse.
+- **Riesgo residual (decirlo antes de que lo pregunten):** un compañero que está en el hotel puede mandarle el código por WhatsApp a otro. Ningún sistema sin hardware biométrico lo impide del todo; lo que sí queda es la **hora exacta de cada marca**, que RRHH ve en el calendario y en el historial. Mejora a futuro: validar la red Wi-Fi del hotel o la geolocalización del celular.
+
+### Decisiones que conviene mostrar
+
+- **Bug encontrado y corregido:** el historial se escribía al *asignar* el turno (aunque fuera futuro) y otra vez al archivarlo → horas contadas doble y turnos borrados que seguían en el historial. Ahora el historial se escribe solo al archivar, cuando ya se conoce la asistencia. La migración limpia los duplicados.
+- **Un día de gracia antes de archivar:** RRHH puede corregir marcas (el empleado se olvidó de marcar, se quedó sin batería) o cargar una licencia al día siguiente, antes de que el resultado quede congelado en el historial inmutable.
+- **Horas trabajadas = lo cubierto del turno:** desde `max(ingreso, inicio)` hasta `min(salida, fin)`. La tardanza y la salida anticipada descuentan; las horas extra no cuentan (serían otro concepto, con su propia aprobación).
+- **Zona horaria explícita:** el servidor corre en UTC y el hotel en Argentina. Toda comparación con "ahora" usa `now() AT TIME ZONE 'America/Argentina/Cordoba'`. Se detectó en pruebas que `CURRENT_DATE` (UTC) adelantaba el archivado desde las 21 h y se corrigió.
+- **Privacidad:** la grilla del calendario (quién trabaja cuándo) la ve cualquier empleado, pero **la asistencia y las licencias de los demás, no**: el backend ni siquiera las envía al rol EMPLEADO. Una licencia por enfermedad es un dato de salud (Ley 25.326, art. 7). Cada uno ve lo suyo en Mi perfil.
+- **Presentismo:** presentes / (turnos − licencias). Las licencias no cuentan en contra: son ausencias justificadas.
+
+### Licencias (vacaciones, enfermedad, especiales)
+
+- **Una sola tabla `licencias`** con tipo VACACIONES (LCT art. 150), ENFERMEDAD (art. 208) o ESPECIAL (art. 158). Las tres cumplen el mismo rol: justificar que el empleado no esté disponible en un rango de fechas. Cambian las reglas, que viven en el servicio.
+- **Saldo de vacaciones:** 15 días por año, editable por empleado (la LCT escala por antigüedad: 14/21/28/35 días corridos). Solo VACACIONES descuenta.
+- **Reglas:** no se superponen licencias; las vacaciones no pueden pisar turnos ya asignados (se informa cuáles, nada se borra en silencio); la enfermedad sí, porque no se planifica, y esos turnos quedan "Enfermedad" en vez de "Ausente". No se puede asignar un turno a alguien con licencia ese día.
+- **Estado automático:** mientras dura la licencia el empleado pasa a Vacaciones o Enfermo, y vuelve a Activo al terminar (procedimiento `sincronizar_estado_licencias`, al arrancar, cada hora y al cargar/borrar). Nunca pisa Inactivo, Suspendido o Despedido.
+- **Comentario cifrado** con AES-256-GCM, como las notas: puede tener un diagnóstico.
+
+### Gráfico de dotación por puesto (dashboard)
+
+- Muestra cuántos empleados **distintos** tienen turnos de cada puesto en la semana o el mes (con navegación entre períodos); el tooltip agrega turnos y asignaciones. Cada barra usa el color del puesto, el mismo del calendario.
+- **Por qué sale de los turnos planificados y no del historial:** "esta semana" y "este mes" incluyen días que todavía no pasaron, y el historial solo tiene turnos cerrados. El puesto que cuenta es el **del turno** (qué rol se cubrió), no el del empleado.
+- `LEFT JOIN` desde `puestos`: un puesto sin turnos aparece con 0, que también es información (falta de cobertura).
+- **Carga diferida:** la librería de gráficos (~370 kB) se descarga solo al abrir el panel. El empleado que escanea el QR desde el celular no la baja.
+
+---
+
 ## 8. Preguntas probables del tribunal (con respuesta corta)
 
 **"¿Por qué no encriptaron toda la base?"**
@@ -182,6 +230,15 @@
 **"¿Usaron procedimientos almacenados?"**
 → Sí, donde corresponde: un procedimiento para el archivado del historial (muta datos, transaccional, idempotente). Para lecturas usamos vistas, y una función SQL parametrizada para agregaciones por rango de fechas. Cada herramienta para su trabajo.
 
+**"¿Qué impide que un empleado marque el presente desde su casa?"**
+→ Necesita el código de 6 dígitos que solo muestra la pantalla de recepción, y cambia cada 30 segundos (TOTP firmado por el servidor). Con 5 intentos cada 15 minutos no se puede adivinar. Lo único que no se evita es que un compañero presente le pase el código en vivo; para eso queda la hora exacta de cada marca a la vista de RRHH.
+
+**"¿Y si el empleado se olvida de marcar o no tiene batería?"**
+→ RRHH carga o corrige las marcas desde el calendario, hasta el día siguiente al turno. Después el resultado queda fijo en el historial, que es inmutable.
+
+**"¿Por qué no usaron geolocalización?"**
+→ El GPS del celular se falsifica con una app y pide permisos que el empleado puede negar; además es un dato de ubicación personal. El código rotativo prueba presencia sin rastrear a nadie. Quedó como mejora combinable, no como reemplazo.
+
 **"¿Qué pasa si comprometen el servidor backend?"**
 → El rol de BD `hotel_app` no tiene DDL: no pueden alterar ni tirar el esquema. Las contraseñas siguen siendo hashes irreversibles. Lo que sí obtendrían es la clave de cifrado (vive en el backend) — por eso la mejora a futuro documentada es un gestor de secretos (KMS/Vault).
 
@@ -200,3 +257,6 @@
 - Mínimo privilegio: `DROP TABLE` y `CREATE TABLE` como `hotel_app` fallan con permission denied; la API opera normal con ese rol.
 - Puerto: `docker port` confirma 5432 → solo `127.0.0.1`.
 - Backup/restore: dump de 50KB, borrado intencional de 17 empleados, restore, y los 20 empleados + historial de vuelta con la API descifrando normal.
+- Asistencia (21/09/2026, 38 pruebas de API, todas OK): clave de kiosco ausente o incorrecta → 401; código con formato inválido → 400; código de hace 60 s rechazado y el de la ventana anterior aceptado; ingreso y luego salida; doble escaneo inmediato rechazado; turno que todavía no abre; empleado con licencia no puede marcar; 5 códigos incorrectos → el 6.º intento da 429 aun con el código correcto, y el bloqueo es por usuario; corrección de RRHH con horas inválidas, salida sin ingreso, turno futuro y turno archivado rechazados; el rol EMPLEADO recibe 403 al corregir.
+- Asistencia en el navegador: sin sesión, el QR lleva al login y el login vuelve a `/marcar` con el código y registra el ingreso; Mi perfil muestra el turno "En curso" y después "Presente"; el calendario de RRHH muestra el estado y permite corregir; al rol EMPLEADO la API no le envía marcas ni licencias de los demás.
+- Licencias (25 pruebas de API): saldo descontado, superposición, saldo insuficiente y vacaciones sobre turnos asignados rechazados; enfermedad sobre turnos aceptada; comentario guardado como `enc:...` en la base.

@@ -8,17 +8,20 @@
 
 /* ---------- PUESTOS ---------- */
 
+// '#10b981': mismo valor que el DEFAULT de la columna, para cuando no se envía.
 export const CREAR_PUESTO = `
-INSERT INTO puestos (nombre)
-VALUES ($1)
-RETURNING id, nombre;
+INSERT INTO puestos (nombre, color)
+VALUES ($1, COALESCE($2, '#10b981'))
+RETURNING id, nombre, color;
 `;
 
+// Sin color en el pedido, conserva el que tenía.
 export const EDITAR_PUESTO = `
 UPDATE puestos
-SET nombre = $1
-WHERE id = $2
-RETURNING id, nombre;
+SET nombre = $1,
+    color  = COALESCE($2, color)
+WHERE id = $3
+RETURNING id, nombre, color;
 `;
 
 export const ELIMINAR_PUESTO = `

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Navigate } from "react-router-dom";
 import { toast } from "sonner";
-import { Pencil, Plus, Trash2 } from "lucide-react";
+import { MonitorSmartphone, Pencil, Plus, Trash2 } from "lucide-react";
 import Layout from "@/components/Layout";
 import { useAuth } from "@/context/AuthContext";
 import { getCatalogos } from "@/services/empleados.services";
@@ -10,6 +10,7 @@ import {
   editarItem,
   eliminarItem,
 } from "@/services/establecimiento.services";
+import { PALETA_PUESTOS, tinte } from "@/lib/colores";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -44,6 +45,8 @@ const SECCIONES = [
     titulo: "Puestos",
     singular: "puesto",
     descripcion: "Las funciones que cumple el personal (Recepción, Cocina, Mucama…).",
+    // Cada puesto tiene un color con el que se pintan sus turnos en el calendario.
+    conColor: true,
   },
   {
     tipo: "lugares",
@@ -63,6 +66,7 @@ export default function Configuracion() {
   // Dialog de alta / edición. `item` en null significa alta.
   const [formulario, setFormulario] = useState(null);
   const [nombre, setNombre] = useState("");
+  const [color, setColor] = useState(PALETA_PUESTOS[0]);
   const [guardando, setGuardando] = useState(false);
 
   // Dialog de confirmación de borrado
@@ -92,25 +96,30 @@ export default function Configuracion() {
   const abrirAlta = (seccion) => {
     setFormulario({ seccion, item: null });
     setNombre("");
+    // Sugiere un color distinto para cada puesto nuevo.
+    const cantidad = catalogos[seccion.clave]?.length ?? 0;
+    setColor(PALETA_PUESTOS[cantidad % PALETA_PUESTOS.length]);
   };
 
   const abrirEdicion = (seccion, item) => {
     setFormulario({ seccion, item });
     setNombre(item.nombre);
+    setColor(item.color ?? PALETA_PUESTOS[0]);
   };
 
   const guardar = async (evento) => {
     evento.preventDefault();
 
     const { seccion, item } = formulario;
+    const colorElegido = seccion.conColor ? color : undefined;
     setGuardando(true);
 
     try {
       if (item) {
-        await editarItem(seccion.tipo, item.id, nombre);
+        await editarItem(seccion.tipo, item.id, nombre, colorElegido);
         toast.success(`${seccion.singular} actualizado`);
       } else {
-        await crearItem(seccion.tipo, nombre);
+        await crearItem(seccion.tipo, nombre, colorElegido);
         toast.success(`${seccion.singular} creado`);
       }
 
@@ -190,7 +199,16 @@ export default function Configuracion() {
                             key={item.id}
                             className="flex items-center justify-between py-2"
                           >
-                            <span className="text-sm">{item.nombre}</span>
+                            <span className="flex items-center gap-2 text-sm">
+                              {seccion.conColor && (
+                                <span
+                                  className="h-3 w-3 shrink-0 rounded-full"
+                                  style={{ backgroundColor: item.color }}
+                                  aria-hidden="true"
+                                />
+                              )}
+                              {item.nombre}
+                            </span>
                             <div className="flex gap-1">
                               <Button
                                 variant="ghost"
@@ -240,6 +258,25 @@ export default function Configuracion() {
                 ))}
               </CardContent>
             </Card>
+
+            <Card className="lg:col-span-2">
+              <CardHeader className="pb-3 flex flex-row items-start justify-between gap-4">
+                <div>
+                  <CardTitle className="text-base">Kiosco de asistencia</CardTitle>
+                  <p className="text-sm text-gray-500 mt-1">
+                    Abrí esta pantalla en la PC de recepción: muestra el QR y el código que
+                    los empleados usan para marcar ingreso y salida. La primera vez pide la
+                    clave del kiosco (variable KIOSCO_CLAVE del servidor).
+                  </p>
+                </div>
+                <Button asChild size="sm" variant="outline">
+                  <a href="/kiosco" target="_blank" rel="noopener noreferrer">
+                    <MonitorSmartphone className="h-4 w-4" />
+                    Abrir kiosco
+                  </a>
+                </Button>
+              </CardHeader>
+            </Card>
           </div>
         )}
       </div>
@@ -257,15 +294,60 @@ export default function Configuracion() {
               </DialogDescription>
             </DialogHeader>
 
-            <div className="space-y-2 py-4">
-              <Label htmlFor="nombre">Nombre</Label>
-              <Input
-                id="nombre"
-                value={nombre}
-                onChange={(e) => setNombre(e.target.value)}
-                autoFocus
-                required
-              />
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="nombre">Nombre</Label>
+                <Input
+                  id="nombre"
+                  value={nombre}
+                  onChange={(e) => setNombre(e.target.value)}
+                  autoFocus
+                  required
+                />
+              </div>
+
+              {formulario?.seccion.conColor && (
+                <div className="space-y-2">
+                  <Label htmlFor="color">Color en el calendario</Label>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <input
+                      id="color"
+                      type="color"
+                      value={color}
+                      onChange={(e) => setColor(e.target.value)}
+                      className="h-9 w-12 cursor-pointer rounded border border-gray-200 bg-white p-0.5"
+                      title="Elegir cualquier color"
+                    />
+                    {PALETA_PUESTOS.map((opcion) => (
+                      <button
+                        key={opcion}
+                        type="button"
+                        onClick={() => setColor(opcion)}
+                        className={`h-6 w-6 rounded-full border-2 ${
+                          color === opcion ? "border-gray-900" : "border-transparent"
+                        }`}
+                        style={{ backgroundColor: opcion }}
+                        aria-label={`Usar el color ${opcion}`}
+                      />
+                    ))}
+                  </div>
+                  {/* Vista previa: así se ve un turno de este puesto en el calendario */}
+                  <div
+                    className="rounded-md border border-l-4 p-2 text-xs"
+                    style={{
+                      borderColor: tinte(color, "55"),
+                      borderLeftColor: color,
+                      backgroundColor: tinte(color, "14"),
+                    }}
+                  >
+                    <p className="font-semibold text-gray-800">08:00–16:00</p>
+                    <p className="flex items-center gap-1.5 text-gray-700">
+                      <span className="h-2 w-2 rounded-full" style={{ backgroundColor: color }} />
+                      {nombre.trim() || "Nombre del puesto"}
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
 
             <DialogFooter>

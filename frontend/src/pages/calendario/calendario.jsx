@@ -11,7 +11,10 @@ import {
   getAllHorarios,
   asignarEmpleadoATurno,
   eliminarAsignacion,
+  corregirAsistencia,
 } from "@/services/horarios.services";
+import EstadoAsistencia from "@/components/EstadoAsistencia";
+import { ahoraArgentina, estadoAsistencia, esCorregible } from "@/lib/asistencia";
 import { getCatalogos, getEmpleadosDetalle } from "@/services/empleados.services";
 import {
   hoyISO,
@@ -22,6 +25,7 @@ import {
   horaCorta,
   NOMBRES_DIAS,
 } from "@/lib/fechas";
+import { COLOR_NEUTRO, tinte } from "@/lib/colores";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -44,6 +48,26 @@ import {
 
 const FORM_TURNO_VACIO = { fecha: "", hora_inicio: "", hora_fin: "", id_puesto: "" };
 
+/*
+  Con todos los puestos a la vez la grilla se satura: el calendario abre
+  filtrado por un puesto. Si "Mozo" ya no existe (se renombró o borró
+  desde Configuración), abre con el primero de la lista.
+*/
+const PUESTO_POR_DEFECTO = "Mozo";
+
+const puestoInicial = (puestos) => {
+  const puesto = puestos.find((p) => p.nombre === PUESTO_POR_DEFECTO) ?? puestos[0];
+  return puesto ? String(puesto.id) : "todos";
+};
+
+const PuntoColor = ({ color }) => (
+  <span
+    className="inline-block h-2.5 w-2.5 shrink-0 rounded-full"
+    style={{ backgroundColor: color ?? COLOR_NEUTRO }}
+    aria-hidden="true"
+  />
+);
+
 export default function Calendario() {
   const { tienePermiso } = useAuth();
 
@@ -54,8 +78,8 @@ export default function Calendario() {
   const [empleados, setEmpleados] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // Filtros
-  const [filtroPuesto, setFiltroPuesto] = useState("todos");
+  // Filtros. El de puesto arranca en null y se define al llegar los catálogos.
+  const [filtroPuesto, setFiltroPuesto] = useState(null);
   const [filtroEmpleado, setFiltroEmpleado] = useState("todos");
 
   // Dialogs
@@ -65,6 +89,13 @@ export default function Calendario() {
   const [empleadoAAsignar, setEmpleadoAAsignar] = useState("");
   const [turnoABorrar, setTurnoABorrar] = useState(null);
   const [guardando, setGuardando] = useState(false);
+
+  // Corrección de asistencia: { asignado, turno } y las marcas del formulario
+  const [asistenciaAEditar, setAsistenciaAEditar] = useState(null);
+  const [marcas, setMarcas] = useState({ hora_ingreso: "", hora_egreso: "" });
+
+  // Hora argentina para derivar el estado de asistencia; se actualiza cada minuto.
+  const [ahora, setAhora] = useState(ahoraArgentina);
 
   const cargarDatos = async () => {
     try {
@@ -81,6 +112,8 @@ export default function Calendario() {
       setAsignaciones(listaAsignaciones);
       setCatalogos(listaCatalogos);
       setEmpleados(listaEmpleados);
+      // Solo en la primera carga: después se respeta lo que eligió el usuario.
+      setFiltroPuesto((actual) => actual ?? puestoInicial(listaCatalogos.puestos));
     } catch (error) {
       toast.error(error.response?.data?.error || "No se pudo cargar el calendario");
     } finally {
@@ -95,6 +128,11 @@ export default function Calendario() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  useEffect(() => {
+    const reloj = setInterval(() => setAhora(ahoraArgentina()), 60 * 1000);
+    return () => clearInterval(reloj);
+  }, []);
+
   const dias = useMemo(
     () => Array.from({ length: 7 }, (_, i) => sumarDias(lunes, i)),
     [lunes]
@@ -103,6 +141,12 @@ export default function Calendario() {
   const nombrePuesto = useMemo(() => {
     const mapa = {};
     catalogos.puestos.forEach((p) => (mapa[p.id] = p.nombre));
+    return mapa;
+  }, [catalogos]);
+
+  const colorPuesto = useMemo(() => {
+    const mapa = {};
+    catalogos.puestos.forEach((p) => (mapa[p.id] = p.color));
     return mapa;
   }, [catalogos]);
 
@@ -120,7 +164,7 @@ export default function Calendario() {
     const mapa = {};
     turnos
       .filter((t) => {
-        if (filtroPuesto !== "todos" && t.id_puesto !== Number(filtroPuesto)) {
+        if (filtroPuesto && filtroPuesto !== "todos" && t.id_puesto !== Number(filtroPuesto)) {
           return false;
         }
         if (filtroEmpleado !== "todos") {
@@ -209,8 +253,40 @@ export default function Calendario() {
     }
   };
 
+  const abrirAsistencia = (asignado, turno) => {
+    setMarcas({
+      hora_ingreso: horaCorta(asignado.hora_ingreso),
+      hora_egreso: horaCorta(asignado.hora_egreso),
+    });
+    setAsistenciaAEditar({ asignado, turno });
+  };
+
+  const guardarAsistencia = async (e) => {
+    e.preventDefault();
+    const { asignado, turno } = asistenciaAEditar;
+    setGuardando(true);
+    try {
+      await corregirAsistencia(asignado.empleado_id, turno.id, {
+        hora_ingreso: marcas.hora_ingreso || null,
+        hora_egreso: marcas.hora_egreso || null,
+      });
+      toast.success("Asistencia actualizada");
+      setAsistenciaAEditar(null);
+      await cargarDatos();
+    } catch (error) {
+      toast.error(error.response?.data?.error || "No se pudo guardar la asistencia");
+    } finally {
+      setGuardando(false);
+    }
+  };
+
   const puedeGestionar = tienePermiso("CALENDARIO_CREAR");
   const puedeEliminar = tienePermiso("CALENDARIO_ELIMINAR");
+  // La asistencia de los demás solo la ven RRHH y el administrador: el
+  // backend ni siquiera la envía al rol EMPLEADO (una licencia por
+  // enfermedad es un dato de salud).
+  const verAsistencia = tienePermiso("EMPLEADOS_VER");
+  const puedeCorregir = tienePermiso("CALENDARIO_EDITAR");
 
   return (
     <Layout>
@@ -242,15 +318,20 @@ export default function Calendario() {
             Semana del {formatearFecha(lunes)} al {formatearFecha(sumarDias(lunes, 6))}
           </span>
           <div className="flex items-center gap-2 ml-auto">
-            <Select value={filtroPuesto} onValueChange={setFiltroPuesto}>
-              <SelectTrigger className="w-44">
+            <Select value={filtroPuesto ?? ""} onValueChange={setFiltroPuesto}>
+              <SelectTrigger className="w-44" aria-label="Filtrar por puesto">
                 <SelectValue placeholder="Puesto" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="todos">Todos los puestos</SelectItem>
                 {catalogos.puestos.map((p) => (
-                  <SelectItem key={p.id} value={String(p.id)}>{p.nombre}</SelectItem>
+                  <SelectItem key={p.id} value={String(p.id)}>
+                    <span className="flex items-center gap-2">
+                      <PuntoColor color={p.color} />
+                      {p.nombre}
+                    </span>
+                  </SelectItem>
                 ))}
+                <SelectItem value="todos">Todos los puestos</SelectItem>
               </SelectContent>
             </Select>
             {empleados.length > 0 && (
@@ -270,6 +351,18 @@ export default function Calendario() {
             )}
           </div>
         </div>
+
+        {/* Con todos los puestos a la vista, la leyenda dice qué color es cada uno */}
+        {filtroPuesto === "todos" && catalogos.puestos.length > 0 && (
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-600">
+            {catalogos.puestos.map((p) => (
+              <span key={p.id} className="flex items-center gap-1.5">
+                <PuntoColor color={p.color} />
+                {p.nombre}
+              </span>
+            ))}
+          </div>
+        )}
 
         {/* Grilla semanal */}
         {loading ? (
@@ -295,13 +388,19 @@ export default function Calendario() {
 
                   {turnosDelDia.map((turno) => {
                     const asignados = asignadosPorTurno[turno.id] ?? [];
+                    const color = colorPuesto[turno.id_puesto] ?? COLOR_NEUTRO;
                     return (
                       <div
                         key={turno.id}
-                        className="rounded-md border border-emerald-200 bg-emerald-50 p-2 text-xs space-y-1"
+                        className="rounded-md border border-l-4 p-2 text-xs space-y-1"
+                        style={{
+                          borderColor: tinte(color, "55"),
+                          borderLeftColor: color,
+                          backgroundColor: tinte(color, "14"),
+                        }}
                       >
                         <div className="flex items-center justify-between gap-1">
-                          <span className="font-semibold text-emerald-800">
+                          <span className="font-semibold text-gray-800">
                             {horaCorta(turno.hora_inicio)}–{horaCorta(turno.hora_fin)}
                           </span>
                           {puedeEliminar && (
@@ -316,28 +415,66 @@ export default function Calendario() {
                           )}
                         </div>
                         {turno.id_puesto && (
-                          <p className="text-emerald-700">{nombrePuesto[turno.id_puesto]}</p>
+                          <p className="flex items-center gap-1.5 text-gray-700">
+                            <PuntoColor color={color} />
+                            {nombrePuesto[turno.id_puesto]}
+                          </p>
                         )}
 
                         <div className="space-y-1">
-                          {asignados.map((a) => (
-                            <div
-                              key={a.empleado_id}
-                              className="flex items-center justify-between bg-white rounded px-1.5 py-0.5 border border-emerald-100"
-                            >
-                              <span>{a.empleado_nombre} {a.empleado_apellido}</span>
-                              {puedeEliminar && (
-                                <button
-                                  type="button"
-                                  title="Quitar asignación"
-                                  className="text-gray-400 hover:text-red-600 ml-1"
-                                  onClick={() => quitarAsignacion(a, turno.id)}
-                                >
-                                  ✕
-                                </button>
-                              )}
-                            </div>
-                          ))}
+                          {asignados.map((a) => {
+                            // Los turnos futuros siempre estarían "Pendiente": no suman información.
+                            const estado =
+                              verAsistencia && soloFecha(a.fecha) <= ahora.fecha
+                                ? estadoAsistencia(a, ahora)
+                                : null;
+                            const corregible = puedeCorregir && esCorregible(a, ahora);
+                            const marcasTexto = a.hora_ingreso
+                              ? `Ingreso ${horaCorta(a.hora_ingreso)} · Salida ${horaCorta(a.hora_egreso) || "—"}`
+                              : undefined;
+                            const contenido = (
+                              <>
+                                <span>{a.empleado_nombre} {a.empleado_apellido}</span>
+                                {estado && <EstadoAsistencia estado={estado} />}
+                              </>
+                            );
+
+                            return (
+                              <div
+                                key={a.empleado_id}
+                                className="flex items-center justify-between gap-1 bg-white rounded px-1.5 py-0.5 border"
+                                style={{ borderColor: tinte(color, "33") }}
+                              >
+                                {corregible ? (
+                                  <button
+                                    type="button"
+                                    className="flex min-w-0 flex-1 flex-wrap items-center gap-1 text-left hover:underline"
+                                    title={`Cargar o corregir asistencia${marcasTexto ? ` (${marcasTexto})` : ""}`}
+                                    onClick={() => abrirAsistencia(a, turno)}
+                                  >
+                                    {contenido}
+                                  </button>
+                                ) : (
+                                  <span
+                                    className="flex min-w-0 flex-1 flex-wrap items-center gap-1"
+                                    title={verAsistencia ? marcasTexto : undefined}
+                                  >
+                                    {contenido}
+                                  </span>
+                                )}
+                                {puedeEliminar && (
+                                  <button
+                                    type="button"
+                                    title="Quitar asignación"
+                                    className="text-gray-400 hover:text-red-600 ml-1"
+                                    onClick={() => quitarAsignacion(a, turno.id)}
+                                  >
+                                    ✕
+                                  </button>
+                                )}
+                              </div>
+                            );
+                          })}
                           {asignados.length === 0 && (
                             <p className="text-gray-400 italic">Sin asignar</p>
                           )}
@@ -346,7 +483,8 @@ export default function Calendario() {
                         {puedeGestionar && (
                           <button
                             type="button"
-                            className="w-full text-emerald-700 hover:bg-emerald-100 rounded border border-dashed border-emerald-300 py-0.5"
+                            className="w-full rounded border border-dashed py-0.5 text-gray-600 hover:bg-white/70"
+                            style={{ borderColor: tinte(color, "88") }}
                             onClick={() => { setEmpleadoAAsignar(""); setTurnoAAsignar(turno); }}
                           >
                             + Asignar
@@ -425,7 +563,12 @@ export default function Calendario() {
                 </SelectTrigger>
                 <SelectContent>
                   {catalogos.puestos.map((p) => (
-                    <SelectItem key={p.id} value={String(p.id)}>{p.nombre}</SelectItem>
+                    <SelectItem key={p.id} value={String(p.id)}>
+                      <span className="flex items-center gap-2">
+                        <PuntoColor color={p.color} />
+                        {p.nombre}
+                      </span>
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -480,6 +623,64 @@ export default function Calendario() {
               {guardando ? "Asignando..." : "Asignar"}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog: cargar o corregir asistencia */}
+      <Dialog
+        open={!!asistenciaAEditar}
+        onOpenChange={(abierto) => !abierto && setAsistenciaAEditar(null)}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Asistencia</DialogTitle>
+            <DialogDescription>
+              {asistenciaAEditar && (
+                <>
+                  {asistenciaAEditar.asignado.empleado_nombre}{" "}
+                  {asistenciaAEditar.asignado.empleado_apellido} — turno del{" "}
+                  {formatearFecha(asistenciaAEditar.turno.fecha)} de{" "}
+                  {horaCorta(asistenciaAEditar.turno.hora_inicio)} a{" "}
+                  {horaCorta(asistenciaAEditar.turno.hora_fin)}
+                </>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={guardarAsistencia} className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="asistencia-ingreso">Ingreso</Label>
+                <Input
+                  id="asistencia-ingreso"
+                  type="time"
+                  value={marcas.hora_ingreso}
+                  onChange={(e) => setMarcas({ ...marcas, hora_ingreso: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="asistencia-egreso">Salida</Label>
+                <Input
+                  id="asistencia-egreso"
+                  type="time"
+                  value={marcas.hora_egreso}
+                  onChange={(e) => setMarcas({ ...marcas, hora_egreso: e.target.value })}
+                />
+              </div>
+            </div>
+            <p className="text-xs text-gray-500">
+              Dejá un campo vacío para borrar esa marca. Se puede corregir hasta el día
+              siguiente al turno; después queda fijo en el historial. Una falta justificada
+              se carga como licencia desde la ficha del empleado.
+            </p>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setAsistenciaAEditar(null)}>
+                Cancelar
+              </Button>
+              <Button type="submit" disabled={guardando}>
+                {guardando ? "Guardando..." : "Guardar"}
+              </Button>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
 

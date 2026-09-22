@@ -1,5 +1,5 @@
 /* =====================================================
-   Migración: control de asistencia y licencias
+   Migración: control de asistencia, licencias y color de puestos
    Fecha: 2026-09-22
 
    schema.sql solo se ejecuta al crear la base desde cero, así que las
@@ -33,6 +33,22 @@ ALTER TABLE asignacion_horario_historial
 ALTER TABLE empleados
   ADD COLUMN IF NOT EXISTS dias_vacaciones_anuales INT NOT NULL DEFAULT 15;
 
+ALTER TABLE puestos
+  ADD COLUMN IF NOT EXISTS color VARCHAR(7) NOT NULL DEFAULT '#10b981';
+
+-- Colores de partida para los puestos del seed, solo si nadie los cambió.
+UPDATE puestos p
+SET color = c.color
+FROM (VALUES
+  ('Mozo',           '#2563eb'),
+  ('Cocinero',       '#ea580c'),
+  ('Mantenimiento',  '#64748b'),
+  ('Mucama',         '#db2777'),
+  ('Administración', '#7c3aed')
+) AS c(nombre, color)
+WHERE p.nombre = c.nombre
+  AND p.color = '#10b981';
+
 DO $$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'chk_asistencia_egreso_con_ingreso') THEN
@@ -48,6 +64,11 @@ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'chk_dias_vacaciones_no_negativos') THEN
     ALTER TABLE empleados ADD CONSTRAINT chk_dias_vacaciones_no_negativos
       CHECK (dias_vacaciones_anuales >= 0);
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'chk_puesto_color') THEN
+    ALTER TABLE puestos ADD CONSTRAINT chk_puesto_color
+      CHECK (color ~ '^#[0-9a-f]{6}$');
   END IF;
 END $$;
 
@@ -199,7 +220,9 @@ BEGIN
     LEFT JOIN puestos pt ON pt.id = c.id_puesto
     LEFT JOIN puestos pe ON pe.id = e.id_puesto
     LEFT JOIN lugares_trabajo l ON l.id = e.id_lugar
-    WHERE c.fecha < CURRENT_DATE - 1
+    -- Fecha argentina: CURRENT_DATE es la del servidor (UTC), que desde
+    -- las 21 h de Argentina ya es el día siguiente.
+    WHERE c.fecha < (now() AT TIME ZONE 'America/Argentina/Cordoba')::date - 1
       AND NOT ah.archivado
   ),
   clasificados AS (

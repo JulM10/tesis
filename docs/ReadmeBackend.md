@@ -84,6 +84,9 @@ Todos los endpoints (excepto auth) requieren `Authorization: Bearer <token>`. Ca
 | POST | `/api/empleados/:id/cv` | EMPLEADOS_EDITAR | Sube CV (PDF/DOCX, máx 5MB). El binario se cifra con AES-256-GCM. |
 | GET | `/api/empleados/:id/cv` | EMPLEADOS_VER | Descarga el CV (descifrado al vuelo, nunca URL pública). |
 | DELETE | `/api/empleados/:id/cv` | EMPLEADOS_EDITAR | Elimina el CV. |
+| GET | `/api/empleados/:id/licencias?anio` | EMPLEADOS_VER | Licencias del empleado y saldo de vacaciones del año (`dias_anuales`, `usados`, `disponibles`). |
+| POST | `/api/empleados/:id/licencias` | EMPLEADOS_EDITAR | Registra una licencia `{ tipo, fecha_desde, fecha_hasta, comentario }`. Tipo `VACACIONES`, `ENFERMEDAD` o `ESPECIAL`. Rechaza superposición con otra licencia (409); las vacaciones además validan el saldo del año y que no haya turnos asignados en el rango. El comentario se guarda cifrado (dato de salud). |
+| DELETE | `/api/empleados/:id/licencias/:idLicencia` | EMPLEADOS_EDITAR | Elimina una licencia. |
 
 #### Alta de empleado con provisión automática de cuenta
 
@@ -120,6 +123,18 @@ La identidad se resuelve desde el token JWT, nunca desde parámetros.
 | PUT | `/api/me` | Editar mis datos de contacto (teléfono, dirección, notas). Nunca puesto/estado. |
 | POST | `/api/me/cv` | Subir mi CV (PDF/DOCX, máx 5MB). |
 | GET | `/api/me/cv` | Descargar mi CV. |
+| GET | `/api/me/licencias` | Mis licencias y saldo de vacaciones (solo lectura). |
+| POST | `/api/me/asistencia` | Marca ingreso o salida con el código del kiosco `{ codigo }`. El servidor decide cuál según los turnos de hoy. Código inválido → 400; 5 fallos en 15 min → 429. |
+
+### Asistencia (kiosco)
+
+No usa JWT: el kiosco es un equipo, no un usuario. Se autentica con el header `X-Kiosco-Clave`, que se compara contra la variable `KIOSCO_CLAVE`.
+
+| Método | Ruta | Descripción |
+|---|---|---|
+| GET | `/api/asistencia/codigo` | Código de 6 dígitos vigente (`codigo`, `venceEn`, `periodo`). Rota cada 30 s; es un HMAC de la ventana de tiempo, no se guarda. |
+
+Reglas del marcado: el ingreso se acepta desde 30 min antes del inicio hasta el fin del turno; la salida, hasta 60 min después del fin y no antes de 5 min del ingreso. Con una licencia cargada para hoy, se rechaza.
 
 ### Calendario
 
@@ -143,6 +158,7 @@ La identidad se resuelve desde el token JWT, nunca desde parámetros.
 | GET | `/api/horarios/turno/:id` | CALENDARIO_VER | Empleados asignados a un turno. |
 | POST | `/api/horarios/asignar` | CALENDARIO_CREAR | Asigna empleado a turno. Valida duplicado y solapamiento con `SELECT FOR UPDATE` (previene race condition). Conflicto → 409. |
 | DELETE | `/api/horarios/asignar/:id_empleado/:id_calendario` | CALENDARIO_ELIMINAR | Quita asignación. |
+| PUT | `/api/horarios/asignar/:id_empleado/:id_calendario/asistencia` | CALENDARIO_EDITAR | Carga o corrige las marcas `{ hora_ingreso, hora_egreso }` (`null` borra). Solo turnos de hoy o anteriores que todavía no se archivaron, y sin licencia ese día. |
 
 ### Catálogos
 
@@ -154,9 +170,10 @@ La identidad se resuelve desde el token JWT, nunca desde parámetros.
 
 | Método | Ruta | Permiso | Descripción |
 |---|---|---|---|
-| GET | `/api/reportes/historial?desde&hasta&empleado&puesto` | REPORTES_VER | Historial de turnos con filtros. |
-| GET | `/api/reportes/horas?desde&hasta` | REPORTES_VER | Horas trabajadas por empleado/puesto. |
+| GET | `/api/reportes/historial?desde&hasta&empleado&puesto` | REPORTES_VER | Historial de turnos con filtros, con ingreso, salida, estado de asistencia y horas trabajadas. |
+| GET | `/api/reportes/horas?desde&hasta` | REPORTES_VER | Por empleado/puesto: turnos, presentes, ausencias, licencias, horas programadas y horas trabajadas. |
 | GET | `/api/reportes/dotacion` | REPORTES_VER | Dotación actual por puesto y lugar. |
+| GET | `/api/reportes/dotacion-periodo?desde&hasta` | REPORTES_VER | Por puesto del turno: empleados distintos, turnos y asignaciones en el período (incluye días futuros). Alimenta el gráfico del dashboard. Rango obligatorio, máximo un año. |
 
 ### Establecimiento
 
@@ -180,6 +197,7 @@ Ver `backend/.env.example` para la lista completa. Las principales:
 | `JWT_SECRET` | Secreto para firmar tokens |
 | `DATA_ENCRYPTION_KEY` | Clave AES-256 (32 bytes hex) para cifrado de datos personales |
 | `CORS_ORIGIN` | Orígenes permitidos, separados por coma |
+| `KIOSCO_CLAVE` | Clave del equipo de recepción que muestra el código de asistencia (`/kiosco`) |
 
 ---
 

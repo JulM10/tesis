@@ -20,6 +20,8 @@ import {
 } from "@/services/reportes.services";
 import { getCatalogos, getEmpleadosDetalle } from "@/services/empleados.services";
 import { hoyISO, formatearFecha, horaCorta } from "@/lib/fechas";
+import { ESTADOS_ASISTENCIA } from "@/lib/asistencia";
+import EstadoAsistencia from "@/components/EstadoAsistencia";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -79,6 +81,16 @@ const calcularResumen = (empleados) => {
     inactivos: porEstado["Inactivo"] ?? 0,
     antiguedad,
   };
+};
+
+/*
+  Presentismo: turnos con presencia sobre los turnos que había que cumplir.
+  Las licencias (vacaciones, enfermedad) no cuentan en contra: son
+  ausencias justificadas.
+*/
+const presentismo = (f) => {
+  const exigibles = Number(f.turnos) - Number(f.licencias);
+  return exigibles > 0 ? `${Math.round((Number(f.presentes) / exigibles) * 100)}%` : "—";
 };
 
 /*
@@ -165,7 +177,13 @@ export default function Reportes() {
     const fechaHoy = hoyISO();
     if (reporte === "historial") {
       descargarCSV(
-        filas.map((f) => ({ ...f, fecha: formatearFecha(f.fecha) })),
+        filas.map((f) => ({
+          ...f,
+          fecha: formatearFecha(f.fecha),
+          hora_ingreso: horaCorta(f.hora_ingreso),
+          hora_egreso: horaCorta(f.hora_egreso),
+          estado_asistencia: ESTADOS_ASISTENCIA[f.estado_asistencia]?.etiqueta ?? "",
+        })),
         [
           { clave: "empleado_nombre", titulo: "Nombre" },
           { clave: "empleado_apellido", titulo: "Apellido" },
@@ -174,18 +192,27 @@ export default function Reportes() {
           { clave: "fecha", titulo: "Fecha" },
           { clave: "hora_inicio", titulo: "Hora inicio" },
           { clave: "hora_fin", titulo: "Hora fin" },
+          { clave: "hora_ingreso", titulo: "Ingreso" },
+          { clave: "hora_egreso", titulo: "Salida" },
+          { clave: "estado_asistencia", titulo: "Asistencia" },
+          { clave: "horas_trabajadas", titulo: "Horas trabajadas" },
         ],
         `historial_turnos_${fechaHoy}.csv`
       );
     } else if (reporte === "horas") {
       descargarCSV(
-        filas,
+        filas.map((f) => ({ ...f, presentismo: presentismo(f) })),
         [
           { clave: "empleado_nombre", titulo: "Nombre" },
           { clave: "empleado_apellido", titulo: "Apellido" },
           { clave: "puesto", titulo: "Puesto" },
           { clave: "turnos", titulo: "Turnos" },
-          { clave: "horas", titulo: "Horas" },
+          { clave: "presentes", titulo: "Presentes" },
+          { clave: "ausencias", titulo: "Ausencias" },
+          { clave: "licencias", titulo: "Licencias" },
+          { clave: "horas_programadas", titulo: "Horas programadas" },
+          { clave: "horas_trabajadas", titulo: "Horas trabajadas" },
+          { clave: "presentismo", titulo: "Presentismo" },
         ],
         `horas_trabajadas_${desde}_a_${hasta}.csv`
       );
@@ -353,6 +380,10 @@ export default function Reportes() {
                   <TableHead>Lugar</TableHead>
                   <TableHead>Fecha</TableHead>
                   <TableHead>Horario</TableHead>
+                  <TableHead>Ingreso</TableHead>
+                  <TableHead>Salida</TableHead>
+                  <TableHead>Asistencia</TableHead>
+                  <TableHead className="text-right">Horas</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -367,6 +398,15 @@ export default function Reportes() {
                     <TableCell>
                       {horaCorta(f.hora_inicio)}–{horaCorta(f.hora_fin)}
                     </TableCell>
+                    <TableCell>{horaCorta(f.hora_ingreso) || "—"}</TableCell>
+                    <TableCell>{horaCorta(f.hora_egreso) || "—"}</TableCell>
+                    <TableCell>
+                      {/* NULL: turno archivado antes de que existiera el control de asistencia */}
+                      <EstadoAsistencia estado={f.estado_asistencia} />
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      {f.horas_trabajadas ?? "—"}
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -378,7 +418,12 @@ export default function Reportes() {
                   <TableHead>Empleado</TableHead>
                   <TableHead>Puesto</TableHead>
                   <TableHead className="text-right">Turnos</TableHead>
-                  <TableHead className="text-right">Horas</TableHead>
+                  <TableHead className="text-right">Presentes</TableHead>
+                  <TableHead className="text-right">Ausencias</TableHead>
+                  <TableHead className="text-right">Licencias</TableHead>
+                  <TableHead className="text-right">Hs. programadas</TableHead>
+                  <TableHead className="text-right">Hs. trabajadas</TableHead>
+                  <TableHead className="text-right">Presentismo</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -388,10 +433,23 @@ export default function Reportes() {
                       {f.empleado_nombre} {f.empleado_apellido}
                     </TableCell>
                     <TableCell>{f.puesto}</TableCell>
-                    <TableCell className="text-right">{f.turnos}</TableCell>
-                    <TableCell className="text-right font-semibold">
-                      {f.horas}
+                    <TableCell className="text-right tabular-nums">{f.turnos}</TableCell>
+                    <TableCell className="text-right tabular-nums">{f.presentes}</TableCell>
+                    <TableCell
+                      className={`text-right tabular-nums ${
+                        Number(f.ausencias) > 0 ? "font-semibold text-red-700" : ""
+                      }`}
+                    >
+                      {f.ausencias}
                     </TableCell>
+                    <TableCell className="text-right tabular-nums">{f.licencias}</TableCell>
+                    <TableCell className="text-right tabular-nums text-gray-500">
+                      {f.horas_programadas}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums font-semibold">
+                      {f.horas_trabajadas}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">{presentismo(f)}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>

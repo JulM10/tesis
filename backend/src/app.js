@@ -9,6 +9,7 @@ import usuariosRoutes from "./routes/usuarios.routes.js";
 import meRoutes from "./routes/me.routes.js";
 import reportesRoutes from "./routes/reportes.routes.js";
 import establecimientoRoutes from "./routes/establecimiento.routes.js";
+import asistenciaRoutes from "./routes/asistencia.routes.js";
 import { autenticar } from "./middlewares/auth.middleware.js";
 
 
@@ -33,6 +34,9 @@ app.get("/health", (req, res) => {
 });
 // Público: login
 app.use("/api/auth", authRoutes);
+
+// Kiosco de asistencia: se autentica con su propia clave de equipo
+app.use("/api/asistencia", asistenciaRoutes);
 
 // Protegido: requiere JWT válido (los permisos se validan en cada ruta)
 app.use("/api/calendario", autenticar, calendarioRoutes);

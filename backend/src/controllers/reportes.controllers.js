@@ -38,6 +38,18 @@ export const getHorasTrabajadas = async (req, res) => {
   }
 };
 
+export const getDotacionPeriodo = async (req, res) => {
+  try {
+    const filas = await reportesService.getDotacionPeriodo({
+      desde: fechaONull(req.query.desde),
+      hasta: fechaONull(req.query.hasta),
+    });
+    res.json(filas);
+  } catch (error) {
+    responderError(res, error);
+  }
+};
+
 export const getDotacion = async (req, res) => {
   try {
     const filas = await reportesService.getDotacion();

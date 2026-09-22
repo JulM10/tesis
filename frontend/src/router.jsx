@@ -7,12 +7,27 @@ import Usuarios from './pages/usuarios/usuarios.jsx';
 import Perfil from './pages/perfil/perfil.jsx';
 import Reportes from './pages/reportes/reportes.jsx';
 import Configuracion from './pages/configuracion/configuracion.jsx';
+import Kiosco from './pages/kiosco/kiosco.jsx';
+import Marcar from './pages/marcar/marcar.jsx';
 import ProtectedRoute from './components/ProtectedRoute.jsx';
 
 export default function Router() {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
+
+      {/* Pantalla de recepción: pública, se autentica con la clave del kiosco */}
+      <Route path="/kiosco" element={<Kiosco />} />
+
+      {/* Destino del QR del kiosco */}
+      <Route
+        path="/marcar"
+        element={
+          <ProtectedRoute>
+            <Marcar />
+          </ProtectedRoute>
+        }
+      />
 
       <Route
         path="/"

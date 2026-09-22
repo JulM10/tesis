@@ -60,7 +60,10 @@ CREATE TABLE usuarios_roles (
 */
 CREATE TABLE puestos (
   id SERIAL PRIMARY KEY,
-  nombre VARCHAR(100) NOT NULL UNIQUE
+  nombre VARCHAR(100) NOT NULL UNIQUE,
+  -- Color con el que el calendario pinta los turnos del puesto (#rrggbb).
+  color VARCHAR(7) NOT NULL DEFAULT '#10b981'
+    CONSTRAINT chk_puesto_color CHECK (color ~ '^#[0-9a-f]{6}$')
 );
 
 CREATE TABLE lugares_trabajo (
@@ -426,7 +429,9 @@ BEGIN
     LEFT JOIN puestos pt ON pt.id = c.id_puesto
     LEFT JOIN puestos pe ON pe.id = e.id_puesto
     LEFT JOIN lugares_trabajo l ON l.id = e.id_lugar
-    WHERE c.fecha < CURRENT_DATE - 1
+    -- Fecha argentina: CURRENT_DATE es la del servidor (UTC), que desde
+    -- las 21 h de Argentina ya es el día siguiente.
+    WHERE c.fecha < (now() AT TIME ZONE 'America/Argentina/Cordoba')::date - 1
       AND NOT ah.archivado
   ),
   clasificados AS (
