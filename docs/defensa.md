@@ -163,7 +163,7 @@
 
 ### El problema que resuelve
 
-Antes el sistema sabía a qué turno estaba **asignado** cada empleado, pero no si **asistió**. Ahora cada turno tiene marca de ingreso y salida, el historial guarda el resultado (Presente, Incompleto, Ausente, Enfermedad, Licencia) y las horas trabajadas salen de las marcas, no del horario teórico.
+Antes el sistema sabía a qué turno estaba **asignado** cada empleado, pero no si **asistió**. Ahora cada turno tiene marca de ingreso y salida, el historial guarda el resultado (Asistió, Sin salida, No asistió, Enfermedad, Licencia) y las horas trabajadas salen de las marcas, no del horario teórico. En el reporte de historial cada turno tiene un punto de color (verde asistió, rojo no asistió) y arriba el total por estado; se puede filtrar por asistencia.
 
 ### Cómo marca el empleado (explicarlo así, en 20 segundos)
 
@@ -181,14 +181,50 @@ Antes el sistema sabía a qué turno estaba **asignado** cada empleado, pero no 
 - **Ventana horaria:** el ingreso se acepta desde 30 min antes del turno hasta su fin; la salida hasta 60 min después. Una marca a las 3 AM no tiene turno al que pegarse.
 - **Riesgo residual (decirlo antes de que lo pregunten):** un compañero que está en el hotel puede mandarle el código por WhatsApp a otro. Ningún sistema sin hardware biométrico lo impide del todo; lo que sí queda es la **hora exacta de cada marca**, que RRHH ve en el calendario y en el historial. Mejora a futuro: validar la red Wi-Fi del hotel o la geolocalización del celular.
 
+### El lector de QR: qué hay adentro y por qué así
+
+- **No hay que instalar nada.** El QR es un link: `https://<frontend>/marcar?c=123456`. La cámara nativa del celular (Android e iPhone) lo reconoce y lo abre en el navegador. No hace falta una app de lectura ni una PC con cámara en recepción.
+- **El QR no tiene datos personales**, solo un número que vence. Si alguien lo fotografía, en menos de un minuto ya no sirve.
+- **El QR se dibuja en el navegador del kiosco** (librería `qrcode.react`, genera un SVG). El código nunca pasa por un servicio externo de QR, como las APIs públicas que devuelven una imagen: un tercero no ve los códigos.
+- **Recorrido técnico:**
+  1. El kiosco pide el código a `GET /api/asistencia/codigo` con su clave y vuelve a pedirlo justo cuando vence (el servidor le dice cuántos segundos le quedan).
+  2. El celular abre `/marcar?c=…`, que manda el código a `POST /api/me/asistencia` **con la sesión del empleado**.
+  3. Si no había sesión, el login lo trae de vuelta a `/marcar` con el código intacto. Solo acepta rutas internas: un link armado no puede redirigir a otro sitio (*open redirect*).
+  4. Después de marcar, el código se borra de la URL: recargar la página no vuelve a marcar.
+- **Margen para el login:** el servidor acepta el código actual y el anterior (30–60 s), justo para que alcance aunque el empleado tenga que iniciar sesión después de escanear.
+- **Plan B:** si la cámara no lee el QR o el código venció, en Mi perfil se tipean los 6 dígitos de la pantalla. Es la misma validación.
+
+**¿Por qué un QR rotativo en la pantalla y no un QR fijo por empleado (una credencial)?** Un QR fijo es una contraseña impresa en papel: se fotografía una vez y se usa desde la casa para siempre. Acá se invierte: el QR identifica el **lugar y el momento**, y la sesión identifica a la **persona**. Además no hay que imprimir ni reponer credenciales, porque cada empleado usa el celular que ya tiene.
+
+### Demo en vivo del QR (preparar antes)
+
+Un celular no llega al `localhost` de la notebook: **la demo del QR va sobre producción** (Vercel + Render), no sobre el entorno local.
+
+Antes de la defensa:
+- En Render, cargar `KIOSCO_CLAVE` y crear la base desde cero con `schema.sql` y después `seed.sql`; los empleados los inserta el backend al arrancar. Hacerlo pocos días antes: el seed arma los turnos alrededor de la semana en que se crea la base.
+- Desde el calendario, crear un turno para `empleado@hotel.com` que cubra la hora de la defensa.
+- Abrir `/kiosco` **unos minutos antes**: el plan gratuito de Render duerme el backend y el primer pedido puede tardar cerca de un minuto. Mientras tanto el kiosco muestra "Obteniendo código…" y reintenta solo.
+- Tener la sesión de `empleado@hotel.com` abierta en el celular, o la contraseña a mano.
+
+Guion (2 minutos):
+1. Kiosco en el proyector: el QR y el número cambian cada 30 segundos.
+2. Escanear con el celular → "Ingreso registrado a las HH:MM".
+3. Escanear otra vez enseguida → "Ya registraste tu ingreso…": el doble escaneo no cierra el turno.
+4. Como RRHH, en el calendario: el turno aparece "En curso", y con un clic se ven y corrigen las horas.
+5. Tipear un código viejo en Mi perfil → "Código incorrecto o vencido": sin el código del momento no se marca.
+
+Si falla la conexión del celular: tipear el código en Mi perfil desde otra pestaña de la notebook. Demuestra la misma validación.
+
 ### Decisiones que conviene mostrar
 
-- **Bug encontrado y corregido:** el historial se escribía al *asignar* el turno (aunque fuera futuro) y otra vez al archivarlo → horas contadas doble y turnos borrados que seguían en el historial. Ahora el historial se escribe solo al archivar, cuando ya se conoce la asistencia. La migración limpia los duplicados.
+- **Bug encontrado y corregido:** el historial se escribía al *asignar* el turno (aunque fuera futuro) y otra vez al archivarlo → horas contadas doble y turnos borrados que seguían en el historial. Ahora el historial se escribe solo al archivar, cuando ya se conoce la asistencia.
 - **Un día de gracia antes de archivar:** RRHH puede corregir marcas (el empleado se olvidó de marcar, se quedó sin batería) o cargar una licencia al día siguiente, antes de que el resultado quede congelado en el historial inmutable.
-- **Horas trabajadas = lo cubierto del turno:** desde `max(ingreso, inicio)` hasta `min(salida, fin)`. La tardanza y la salida anticipada descuentan; las horas extra no cuentan (serían otro concepto, con su propia aprobación).
+- **Horas trabajadas = lo cubierto del turno:** desde `max(ingreso, inicio)` hasta `min(salida, fin)`. La tardanza y la salida anticipada descuentan; las horas extra no cuentan (serían otro concepto, con su propia aprobación). Ejemplo: turno 08–16, ingreso 08:18, salida 16:05 → 7,70 h.
+- **Sin las dos marcas no hay horas.** Un turno con ingreso y sin salida queda "Sin salida": cuenta como asistencia (llegó), pero suma 0 horas. La primera versión le sumaba las horas hasta el fin programado y se corrigió antes de producción: así alcanzaba con marcar al llegar e irse. Si fue un olvido, RRHH carga la salida durante el día de gracia.
 - **Zona horaria explícita:** el servidor corre en UTC y el hotel en Argentina. Toda comparación con "ahora" usa `now() AT TIME ZONE 'America/Argentina/Cordoba'`. Se detectó en pruebas que `CURRENT_DATE` (UTC) adelantaba el archivado desde las 21 h y se corrigió.
 - **Privacidad:** la grilla del calendario (quién trabaja cuándo) la ve cualquier empleado, pero **la asistencia y las licencias de los demás, no**: el backend ni siquiera las envía al rol EMPLEADO. Una licencia por enfermedad es un dato de salud (Ley 25.326, art. 7). Cada uno ve lo suyo en Mi perfil.
-- **Presentismo:** presentes / (turnos − licencias). Las licencias no cuentan en contra: son ausencias justificadas.
+- **Presentismo:** (asistió + sin salida) / (turnos − licencias). Las licencias no cuentan en contra: son ausencias justificadas.
+- **Los reportes muestran turnos cerrados:** el historial se congela con un día de gracia, así que ayer y hoy todavía no aparecen (la pantalla lo avisa). Es a propósito: un reporte no debería cambiar después de mirarlo.
 
 ### Licencias (vacaciones, enfermedad, especiales)
 
@@ -233,8 +269,14 @@ Antes el sistema sabía a qué turno estaba **asignado** cada empleado, pero no 
 **"¿Qué impide que un empleado marque el presente desde su casa?"**
 → Necesita el código de 6 dígitos que solo muestra la pantalla de recepción, y cambia cada 30 segundos (TOTP firmado por el servidor). Con 5 intentos cada 15 minutos no se puede adivinar. Lo único que no se evita es que un compañero presente le pase el código en vivo; para eso queda la hora exacta de cada marca a la vista de RRHH.
 
+**"¿Y si le sacan una foto al QR y se la mandan a alguien?"**
+→ El código vence en 30 a 60 segundos: la foto sirve solo si el otro la usa en ese momento, y además tiene que estar dentro de la ventana de su turno. Es el mismo riesgo residual del compañero que pasa el código, y la hora de cada marca queda registrada.
+
+**"¿Hace falta una app para leer el QR?"**
+→ No. El QR es un link a la aplicación web; la cámara del celular lo abre sola. El QR se genera en el navegador del kiosco, sin servicios externos.
+
 **"¿Y si el empleado se olvida de marcar o no tiene batería?"**
-→ RRHH carga o corrige las marcas desde el calendario, hasta el día siguiente al turno. Después el resultado queda fijo en el historial, que es inmutable.
+→ RRHH carga o corrige las marcas desde el calendario, hasta el día siguiente al turno. Después el resultado queda fijo en el historial, que es inmutable. Si nadie cargó la salida, el turno queda "Sin salida" con 0 horas: el sistema no inventa horas que no están respaldadas por las dos marcas.
 
 **"¿Por qué no usaron geolocalización?"**
 → El GPS del celular se falsifica con una app y pide permisos que el empleado puede negar; además es un dato de ubicación personal. El código rotativo prueba presencia sin rastrear a nadie. Quedó como mejora combinable, no como reemplazo.

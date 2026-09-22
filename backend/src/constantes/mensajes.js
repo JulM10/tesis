@@ -92,7 +92,8 @@ export const MENSAJES = {
 
   REPORTES: {
     PERIODO_REQUERIDO: "Indicá el período: desde y hasta, con formato AAAA-MM-DD",
-    PERIODO_INVALIDO: "El período no es válido: la fecha de fin no puede ser anterior a la de inicio ni abarcar más de un año"
+    PERIODO_INVALIDO: "El período no es válido: la fecha de fin no puede ser anterior a la de inicio ni abarcar más de un año",
+    ASISTENCIA_INVALIDA: "El filtro de asistencia debe ser PRESENTE, INCOMPLETO, AUSENTE, ENFERMEDAD o LICENCIA"
   },
 
   USUARIOS: {

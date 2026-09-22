@@ -20,8 +20,8 @@ import {
 } from "@/services/reportes.services";
 import { getCatalogos, getEmpleadosDetalle } from "@/services/empleados.services";
 import { hoyISO, formatearFecha, horaCorta } from "@/lib/fechas";
-import { ESTADOS_ASISTENCIA } from "@/lib/asistencia";
-import EstadoAsistencia from "@/components/EstadoAsistencia";
+import { ESTADOS_ASISTENCIA, ESTADOS_HISTORIAL, SIN_CONTROL } from "@/lib/asistencia";
+import { PuntoAsistencia } from "@/components/EstadoAsistencia";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -84,14 +84,31 @@ const calcularResumen = (empleados) => {
 };
 
 /*
-  Presentismo: turnos con presencia sobre los turnos que había que cumplir.
-  Las licencias (vacaciones, enfermedad) no cuentan en contra: son
-  ausencias justificadas.
+  Presentismo: turnos a los que asistió sobre los turnos que había que
+  cumplir. "Sin salida" cuenta como asistencia (llegó; lo que falta es la
+  marca, y por eso no suma horas). Las licencias (vacaciones, enfermedad)
+  no cuentan en contra: son ausencias justificadas.
 */
 const presentismo = (f) => {
   const exigibles = Number(f.turnos) - Number(f.licencias);
-  return exigibles > 0 ? `${Math.round((Number(f.presentes) / exigibles) * 100)}%` : "—";
+  const asistidos = Number(f.presentes) + Number(f.sin_salida);
+  return exigibles > 0 ? `${Math.round((asistidos / exigibles) * 100)}%` : "—";
 };
+
+/* Cantidad de turnos por estado de asistencia, para el resumen del historial */
+const contarPorEstado = (filas) => {
+  const conteo = {};
+  filas.forEach((f) => {
+    const clave = f.estado_asistencia ?? "SIN_CONTROL";
+    conteo[clave] = (conteo[clave] ?? 0) + 1;
+  });
+  return conteo;
+};
+
+// Los reportes salen del historial, que se congela con un día de gracia.
+const AVISO_HISTORIAL =
+  "Incluye los turnos ya cerrados en el historial. Los de ayer y hoy todavía no aparecen: " +
+  "RRHH puede corregir sus marcas hasta el día siguiente al turno.";
 
 /*
   Fuera del componente a propósito: definida adentro, React la tomaría como
@@ -124,6 +141,7 @@ export default function Reportes() {
   const [hasta, setHasta] = useState(hoyISO());
   const [empleado, setEmpleado] = useState("");
   const [puesto, setPuesto] = useState("todos");
+  const [asistencia, setAsistencia] = useState("todas");
 
   const cargar = async () => {
     setCargando(true);
@@ -135,6 +153,7 @@ export default function Reportes() {
             hasta,
             empleado: empleado.trim() || undefined,
             puesto: puesto !== "todos" ? puesto : undefined,
+            asistencia: asistencia !== "todas" ? asistencia : undefined,
           })
         );
       } else if (reporte === "horas") {
@@ -182,19 +201,19 @@ export default function Reportes() {
           fecha: formatearFecha(f.fecha),
           hora_ingreso: horaCorta(f.hora_ingreso),
           hora_egreso: horaCorta(f.hora_egreso),
-          estado_asistencia: ESTADOS_ASISTENCIA[f.estado_asistencia]?.etiqueta ?? "",
+          estado_asistencia: (ESTADOS_ASISTENCIA[f.estado_asistencia] ?? SIN_CONTROL).etiqueta,
         })),
         [
+          { clave: "fecha", titulo: "Fecha" },
+          { clave: "estado_asistencia", titulo: "Asistencia" },
           { clave: "empleado_nombre", titulo: "Nombre" },
           { clave: "empleado_apellido", titulo: "Apellido" },
           { clave: "puesto", titulo: "Puesto" },
           { clave: "lugar_trabajo", titulo: "Lugar" },
-          { clave: "fecha", titulo: "Fecha" },
           { clave: "hora_inicio", titulo: "Hora inicio" },
           { clave: "hora_fin", titulo: "Hora fin" },
           { clave: "hora_ingreso", titulo: "Ingreso" },
           { clave: "hora_egreso", titulo: "Salida" },
-          { clave: "estado_asistencia", titulo: "Asistencia" },
           { clave: "horas_trabajadas", titulo: "Horas trabajadas" },
         ],
         `historial_turnos_${fechaHoy}.csv`
@@ -207,8 +226,9 @@ export default function Reportes() {
           { clave: "empleado_apellido", titulo: "Apellido" },
           { clave: "puesto", titulo: "Puesto" },
           { clave: "turnos", titulo: "Turnos" },
-          { clave: "presentes", titulo: "Presentes" },
-          { clave: "ausencias", titulo: "Ausencias" },
+          { clave: "presentes", titulo: "Asistió" },
+          { clave: "sin_salida", titulo: "Sin salida" },
+          { clave: "ausencias", titulo: "No asistió" },
           { clave: "licencias", titulo: "Licencias" },
           { clave: "horas_programadas", titulo: "Horas programadas" },
           { clave: "horas_trabajadas", titulo: "Horas trabajadas" },
@@ -228,6 +248,8 @@ export default function Reportes() {
       );
     }
   };
+
+  const conteo = reporte === "historial" ? contarPorEstado(filas) : {};
 
   const totalEmpleados = filas.reduce(
     (suma, f) => suma + Number(f.cantidad_empleados ?? 0),
@@ -251,7 +273,12 @@ export default function Reportes() {
             <button
               key={r.id}
               type="button"
-              onClick={() => setReporte(r.id)}
+              onClick={() => {
+                // Sin esto, las filas del reporte anterior se dibujan un
+                // instante con las columnas del nuevo.
+                if (r.id !== reporte) setFilas([]);
+                setReporte(r.id);
+              }}
               className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
                 reporte === r.id
                   ? "border-emerald-600 text-emerald-700"
@@ -312,6 +339,22 @@ export default function Reportes() {
                       </SelectContent>
                     </Select>
                   </div>
+                  <div className="space-y-1">
+                    <Label>Asistencia</Label>
+                    <Select value={asistencia} onValueChange={setAsistencia}>
+                      <SelectTrigger className="w-40" aria-label="Filtrar por asistencia">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="todas">Todas</SelectItem>
+                        {ESTADOS_HISTORIAL.map((estado) => (
+                          <SelectItem key={estado} value={estado}>
+                            <PuntoAsistencia estado={estado} />
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </>
               )}
               <Button onClick={cargar} disabled={cargando}>
@@ -363,6 +406,22 @@ export default function Reportes() {
           </div>
         )}
 
+        {reporte !== "dotacion" && (
+          <p className="text-xs text-gray-500">{AVISO_HISTORIAL}</p>
+        )}
+
+        {/* Historial: cuántos turnos asistió y cuántos no, con los mismos puntos de la tabla */}
+        {reporte === "historial" && !cargando && filas.length > 0 && (
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-gray-600">
+            <span className="font-semibold text-gray-800">{filas.length} turnos</span>
+            {[...ESTADOS_HISTORIAL, "SIN_CONTROL"]
+              .filter((estado) => conteo[estado])
+              .map((estado) => (
+                <PuntoAsistencia key={estado} estado={estado} cantidad={conteo[estado]} />
+              ))}
+          </div>
+        )}
+
         {/* Resultados */}
         <div className="bg-white rounded-lg border">
           {cargando ? (
@@ -375,35 +434,38 @@ export default function Reportes() {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead>Fecha</TableHead>
+                  <TableHead>Asistencia</TableHead>
                   <TableHead>Empleado</TableHead>
                   <TableHead>Puesto</TableHead>
                   <TableHead>Lugar</TableHead>
-                  <TableHead>Fecha</TableHead>
                   <TableHead>Horario</TableHead>
                   <TableHead>Ingreso</TableHead>
                   <TableHead>Salida</TableHead>
-                  <TableHead>Asistencia</TableHead>
                   <TableHead className="text-right">Horas</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filas.map((f, i) => (
-                  <TableRow key={i}>
+                  <TableRow
+                    key={i}
+                    className={f.estado_asistencia === "AUSENTE" ? "bg-red-50/60" : undefined}
+                  >
+                    <TableCell className="whitespace-nowrap">{formatearFecha(f.fecha)}</TableCell>
+                    <TableCell>
+                      {/* NULL: turno archivado antes de que existiera el control de asistencia */}
+                      <PuntoAsistencia estado={f.estado_asistencia} />
+                    </TableCell>
                     <TableCell className="font-medium">
                       {f.empleado_nombre} {f.empleado_apellido}
                     </TableCell>
                     <TableCell>{f.puesto}</TableCell>
                     <TableCell>{f.lugar_trabajo}</TableCell>
-                    <TableCell>{formatearFecha(f.fecha)}</TableCell>
                     <TableCell>
                       {horaCorta(f.hora_inicio)}–{horaCorta(f.hora_fin)}
                     </TableCell>
                     <TableCell>{horaCorta(f.hora_ingreso) || "—"}</TableCell>
                     <TableCell>{horaCorta(f.hora_egreso) || "—"}</TableCell>
-                    <TableCell>
-                      {/* NULL: turno archivado antes de que existiera el control de asistencia */}
-                      <EstadoAsistencia estado={f.estado_asistencia} />
-                    </TableCell>
                     <TableCell className="text-right tabular-nums">
                       {f.horas_trabajadas ?? "—"}
                     </TableCell>
@@ -418,8 +480,9 @@ export default function Reportes() {
                   <TableHead>Empleado</TableHead>
                   <TableHead>Puesto</TableHead>
                   <TableHead className="text-right">Turnos</TableHead>
-                  <TableHead className="text-right">Presentes</TableHead>
-                  <TableHead className="text-right">Ausencias</TableHead>
+                  <TableHead className="text-right">Asistió</TableHead>
+                  <TableHead className="text-right">Sin salida</TableHead>
+                  <TableHead className="text-right">No asistió</TableHead>
                   <TableHead className="text-right">Licencias</TableHead>
                   <TableHead className="text-right">Hs. programadas</TableHead>
                   <TableHead className="text-right">Hs. trabajadas</TableHead>
@@ -435,6 +498,13 @@ export default function Reportes() {
                     <TableCell>{f.puesto}</TableCell>
                     <TableCell className="text-right tabular-nums">{f.turnos}</TableCell>
                     <TableCell className="text-right tabular-nums">{f.presentes}</TableCell>
+                    <TableCell
+                      className={`text-right tabular-nums ${
+                        Number(f.sin_salida) > 0 ? "font-semibold text-amber-700" : ""
+                      }`}
+                    >
+                      {f.sin_salida}
+                    </TableCell>
                     <TableCell
                       className={`text-right tabular-nums ${
                         Number(f.ausencias) > 0 ? "font-semibold text-red-700" : ""

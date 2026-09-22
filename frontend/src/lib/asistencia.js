@@ -9,15 +9,29 @@ import { soloFecha } from "@/lib/fechas";
  * reportes. Los turnos no cruzan la medianoche y están en hora argentina.
  */
 
+/*
+  Las claves son las de la base (estado_asistencia del historial) más los
+  dos estados que solo existen en vivo (PENDIENTE y EN_CURSO).
+  `clase` es la etiqueta de color; `punto`, el color del punto del reporte.
+*/
 export const ESTADOS_ASISTENCIA = {
-  PENDIENTE: { etiqueta: "Pendiente", clase: "bg-gray-100 text-gray-600" },
-  EN_CURSO: { etiqueta: "En curso", clase: "bg-sky-100 text-sky-700" },
-  PRESENTE: { etiqueta: "Presente", clase: "bg-emerald-100 text-emerald-700" },
-  INCOMPLETO: { etiqueta: "Incompleto", clase: "bg-amber-100 text-amber-800" },
-  AUSENTE: { etiqueta: "Ausente", clase: "bg-red-100 text-red-700" },
-  ENFERMEDAD: { etiqueta: "Enfermedad", clase: "bg-violet-100 text-violet-700" },
-  LICENCIA: { etiqueta: "Licencia", clase: "bg-indigo-100 text-indigo-700" },
+  PENDIENTE: { etiqueta: "Pendiente", clase: "bg-gray-100 text-gray-600", punto: "bg-gray-400" },
+  EN_CURSO: { etiqueta: "En curso", clase: "bg-sky-100 text-sky-700", punto: "bg-sky-500" },
+  PRESENTE: { etiqueta: "Asistió", clase: "bg-emerald-100 text-emerald-700", punto: "bg-emerald-500" },
+  INCOMPLETO: { etiqueta: "Sin salida", clase: "bg-amber-100 text-amber-800", punto: "bg-amber-500" },
+  AUSENTE: { etiqueta: "No asistió", clase: "bg-red-100 text-red-700", punto: "bg-red-500" },
+  ENFERMEDAD: { etiqueta: "Enfermedad", clase: "bg-violet-100 text-violet-700", punto: "bg-violet-500" },
+  LICENCIA: { etiqueta: "Licencia", clase: "bg-indigo-100 text-indigo-700", punto: "bg-indigo-500" },
 };
+
+/*
+  Turnos archivados antes de que existiera el control de asistencia:
+  estado_asistencia es NULL y no hay forma de saber si asistieron.
+*/
+export const SIN_CONTROL = { etiqueta: "Sin control", clase: "bg-gray-100 text-gray-500", punto: "bg-gray-300" };
+
+/** Estados que puede tener un turno ya archivado, en el orden del reporte. */
+export const ESTADOS_HISTORIAL = ["PRESENTE", "INCOMPLETO", "AUSENTE", "ENFERMEDAD", "LICENCIA"];
 
 // Mismo margen que el backend para marcar la salida después del fin.
 const MARGEN_EGRESO_MIN = 60;

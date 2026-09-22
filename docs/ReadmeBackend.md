@@ -170,8 +170,8 @@ Reglas del marcado: el ingreso se acepta desde 30 min antes del inicio hasta el 
 
 | Método | Ruta | Permiso | Descripción |
 |---|---|---|---|
-| GET | `/api/reportes/historial?desde&hasta&empleado&puesto` | REPORTES_VER | Historial de turnos con filtros, con ingreso, salida, estado de asistencia y horas trabajadas. |
-| GET | `/api/reportes/horas?desde&hasta` | REPORTES_VER | Por empleado/puesto: turnos, presentes, ausencias, licencias, horas programadas y horas trabajadas. |
+| GET | `/api/reportes/historial?desde&hasta&empleado&puesto&asistencia` | REPORTES_VER | Historial de turnos con filtros, con ingreso, salida, estado de asistencia y horas trabajadas. `asistencia` = `PRESENTE`, `INCOMPLETO`, `AUSENTE`, `ENFERMEDAD` o `LICENCIA`. |
+| GET | `/api/reportes/horas?desde&hasta` | REPORTES_VER | Por empleado/puesto: turnos, presentes, sin salida, ausencias, licencias, horas programadas y horas trabajadas. Solo se computan horas con ingreso **y** salida. |
 | GET | `/api/reportes/dotacion` | REPORTES_VER | Dotación actual por puesto y lugar. |
 | GET | `/api/reportes/dotacion-periodo?desde&hasta` | REPORTES_VER | Por puesto del turno: empleados distintos, turnos y asignaciones en el período (incluye días futuros). Alimenta el gráfico del dashboard. Rango obligatorio, máximo un año. |
 

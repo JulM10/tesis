@@ -13,6 +13,7 @@ export const getHistorial = async (req, res) => {
       hasta: fechaONull(req.query.hasta),
       empleado: req.query.empleado?.trim() || null,
       puesto: req.query.puesto?.trim() || null,
+      asistencia: req.query.asistencia?.trim().toUpperCase() || null,
     });
     res.json(filas);
   } catch (error) {

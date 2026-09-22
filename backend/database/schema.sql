@@ -403,11 +403,14 @@ ORDER BY fecha_registro DESC;
   Estado de asistencia, en orden de prioridad:
     ENFERMEDAD / LICENCIA  una licencia cubre la fecha (0 h, no es ausencia)
     AUSENTE                sin ingreso (0 h)
-    INCOMPLETO             ingreso sin egreso (horas hasta el fin programado)
+    INCOMPLETO             ingreso sin egreso (asistió, pero 0 h)
     PRESENTE               ingreso y egreso
   Horas trabajadas = lo cubierto DEL TURNO: desde max(ingreso, inicio)
   hasta min(egreso, fin). La tardanza y la salida anticipada descuentan;
   las horas extra no cuentan.
+  Solo se computan horas con las DOS marcas: si un ingreso sin salida
+  sumara el turno completo, alcanzaría con marcar al llegar e irse.
+  Si fue un olvido, RRHH carga la salida durante el día de gracia.
 */
 CREATE PROCEDURE archivar_turnos_completados(INOUT archivados INT)
 LANGUAGE plpgsql AS $$
@@ -452,10 +455,9 @@ BEGIN
     SELECT nombre, apellido, puesto, lugar, fecha, hora_inicio, hora_fin,
            estado, hora_ingreso, hora_egreso,
            CASE
-             WHEN estado IN ('PRESENTE', 'INCOMPLETO') THEN
+             WHEN estado = 'PRESENTE' THEN
                ROUND(GREATEST(0, EXTRACT(EPOCH FROM (
-                 LEAST(COALESCE(hora_egreso, hora_fin), hora_fin)
-                 - GREATEST(hora_ingreso, hora_inicio)
+                 LEAST(hora_egreso, hora_fin) - GREATEST(hora_ingreso, hora_inicio)
                )) / 3600)::numeric, 2)
              ELSE 0
            END
@@ -478,6 +480,8 @@ $$;
   Los registros anteriores al control de asistencia (estado NULL) se
   cuentan como presentes con sus horas programadas: antes no había forma
   de saber otra cosa.
+  "sin_salida" (INCOMPLETO) va aparte de "presentes": asistió, pero sus
+  horas son 0 hasta que RRHH cargue la salida.
 */
 CREATE FUNCTION fn_horas_trabajadas(p_desde DATE, p_hasta DATE)
 RETURNS TABLE (
@@ -486,6 +490,7 @@ RETURNS TABLE (
   puesto VARCHAR,
   turnos BIGINT,
   presentes BIGINT,
+  sin_salida BIGINT,
   ausencias BIGINT,
   licencias BIGINT,
   horas_programadas NUMERIC,
@@ -498,9 +503,9 @@ LANGUAGE sql STABLE AS $$
     h.puesto,
     COUNT(*),
     COUNT(*) FILTER (
-      WHERE h.estado_asistencia IN ('PRESENTE', 'INCOMPLETO')
-         OR h.estado_asistencia IS NULL
+      WHERE h.estado_asistencia = 'PRESENTE' OR h.estado_asistencia IS NULL
     ),
+    COUNT(*) FILTER (WHERE h.estado_asistencia = 'INCOMPLETO'),
     COUNT(*) FILTER (WHERE h.estado_asistencia = 'AUSENTE'),
     COUNT(*) FILTER (WHERE h.estado_asistencia IN ('ENFERMEDAD', 'LICENCIA')),
     ROUND(SUM(EXTRACT(EPOCH FROM (h.hora_fin - h.hora_inicio)) / 3600)::numeric, 2),

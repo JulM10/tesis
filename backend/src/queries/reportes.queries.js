@@ -23,6 +23,7 @@ export const GET_HISTORIAL = `
     AND ($3::text IS NULL
          OR (empleado_nombre || ' ' || empleado_apellido) ILIKE '%' || $3 || '%')
     AND ($4::text IS NULL OR puesto = $4)
+    AND ($5::text IS NULL OR estado_asistencia = $5)
   ORDER BY fecha DESC, hora_inicio
 `;
 

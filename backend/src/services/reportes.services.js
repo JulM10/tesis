@@ -10,8 +10,21 @@ import { httpError } from "../utils/httpError.js";
   resuelven 100% en SQL sin descifrar nada.
 */
 
-export const getHistorial = async ({ desde = null, hasta = null, empleado = null, puesto = null }) => {
-  const result = await pool.query(Queries.GET_HISTORIAL, [desde, hasta, empleado, puesto]);
+// Valores de asignacion_horario_historial.estado_asistencia
+const ESTADOS_ASISTENCIA = ["PRESENTE", "INCOMPLETO", "AUSENTE", "ENFERMEDAD", "LICENCIA"];
+
+export const getHistorial = async ({
+  desde = null,
+  hasta = null,
+  empleado = null,
+  puesto = null,
+  asistencia = null
+}) => {
+  if (asistencia && !ESTADOS_ASISTENCIA.includes(asistencia)) {
+    throw httpError(400, MENSAJES.REPORTES.ASISTENCIA_INVALIDA);
+  }
+
+  const result = await pool.query(Queries.GET_HISTORIAL, [desde, hasta, empleado, puesto, asistencia]);
   return result.rows;
 };
 
