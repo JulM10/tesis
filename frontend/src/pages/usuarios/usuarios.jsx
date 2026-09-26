@@ -52,6 +52,12 @@ import {
   los tiene el administrador (RRHH conserva únicamente USUARIOS_VER).
 */
 
+/*
+  En celular no entran las cinco columnas: las secundarias se esconden y su
+  información se repite dentro de la primera celda.
+*/
+const SOLO_ESCRITORIO = "hidden md:table-cell";
+
 export default function Usuarios() {
   const { usuario: sesion, tienePermiso, esAdministrador } = useAuth();
 
@@ -180,46 +186,56 @@ export default function Usuarios() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Email</TableHead>
-                  <TableHead>Rol</TableHead>
-                  <TableHead>Empleado vinculado</TableHead>
-                  <TableHead>Estado</TableHead>
+                  <TableHead className={SOLO_ESCRITORIO}>Rol</TableHead>
+                  <TableHead className={SOLO_ESCRITORIO}>Empleado vinculado</TableHead>
+                  <TableHead className={SOLO_ESCRITORIO}>Estado</TableHead>
                   {esAdministrador && <TableHead className="text-right">Acciones</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {usuarios.map((u) => {
                   const esSesionActual = u.id === sesion.id;
+                  const estado = (
+                    <span
+                      className={`inline-flex rounded-full px-2 py-1 text-xs font-medium ${
+                        u.activo
+                          ? "bg-emerald-100 text-emerald-800"
+                          : "bg-gray-100 text-gray-600"
+                      }`}
+                    >
+                      {u.activo ? "Activo" : "Inactivo"}
+                    </span>
+                  );
+
                   return (
                     <TableRow key={u.id}>
                       <TableCell className="font-medium">
-                        {u.email}
-                        {esSesionActual && (
-                          <span className="ml-2 text-xs text-emerald-600">(vos)</span>
-                        )}
+                        <span className="block break-all">
+                          {u.email}
+                          {esSesionActual && (
+                            <span className="ml-2 text-xs text-emerald-600">(vos)</span>
+                          )}
+                        </span>
+                        {/* En celular no hay lugar para columnas: el rol y el
+                            estado bajan acá, debajo del email. */}
+                        <span className="mt-1 flex flex-wrap items-center gap-2 md:hidden">
+                          {u.rol && <Badge variant="outline">{u.rol}</Badge>}
+                          {estado}
+                        </span>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className={SOLO_ESCRITORIO}>
                         {u.rol ? <Badge variant="outline">{u.rol}</Badge> : "—"}
                       </TableCell>
-                      <TableCell>
+                      <TableCell className={SOLO_ESCRITORIO}>
                         {u.empleado_id
                           ? `${u.empleado_nombre} ${u.empleado_apellido}`
                           : "—"}
                       </TableCell>
-                      <TableCell>
-                        <span
-                          className={`px-2 py-1 rounded-full text-xs font-medium ${
-                            u.activo
-                              ? "bg-emerald-100 text-emerald-800"
-                              : "bg-gray-100 text-gray-600"
-                          }`}
-                        >
-                          {u.activo ? "Activo" : "Inactivo"}
-                        </span>
-                      </TableCell>
+                      <TableCell className={SOLO_ESCRITORIO}>{estado}</TableCell>
                       {esAdministrador && (
-                        <TableCell className="text-right space-x-2">
+                        <TableCell>
                           {!esSesionActual && (
-                            <>
+                            <div className="flex flex-wrap justify-end gap-2">
                               <Button variant="outline" size="sm" onClick={() => abrirEdicion(u)}>
                                 Editar
                               </Button>
@@ -230,7 +246,7 @@ export default function Usuarios() {
                               >
                                 Eliminar
                               </Button>
-                            </>
+                            </div>
                           )}
                         </TableCell>
                       )}

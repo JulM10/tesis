@@ -92,3 +92,39 @@ export const CLEAR_CV = `
   WHERE id_empleado = $1
   RETURNING id_empleado AS id
 `;
+
+/*
+  Autocompletado de empleados (asignación de turnos).
+
+  Solo nombre y apellido están en claro en la tabla: el resto de los datos
+  personales va cifrado y no se puede filtrar desde SQL. Por eso esta
+  búsqueda no usa vw_empleados_detalle, que arrastra siete LEFT JOIN y
+  cinco columnas cifradas que después habría que descifrar fila por fila.
+
+  Se compara en los dos órdenes para que "perez juan" también encuentre a
+  Juan Pérez. Mismo patrón parametrizado que GET_HISTORIAL en reportes.
+
+  Las tildes se normalizan con translate en las dos puntas: nadie escribe
+  "Lucía" con tilde en un buscador. Se hace así y no con la extensión
+  unaccent para no depender de un CREATE EXTENSION, que en un Postgres
+  administrado puede no estar permitido.
+
+  Limitación conocida: ILIKE '%texto%' no puede usar un índice B-tree. Para
+  el volumen del hotel un scan con LIMIT es correcto; con más datos
+  correspondería pg_trgm sobre la expresión normalizada.
+*/
+export const BUSCAR_EMPLEADOS = `
+  SELECT
+    e.id,
+    e.nombre,
+    e.apellido,
+    p.nombre AS puesto
+  FROM empleados e
+  LEFT JOIN puestos p ON p.id = e.id_puesto
+  WHERE translate(e.nombre || ' ' || e.apellido, 'áéíóúüñÁÉÍÓÚÜÑ', 'aeiouunAEIOUUN')
+        ILIKE '%' || translate($1::text, 'áéíóúüñÁÉÍÓÚÜÑ', 'aeiouunAEIOUUN') || '%'
+     OR translate(e.apellido || ' ' || e.nombre, 'áéíóúüñÁÉÍÓÚÜÑ', 'aeiouunAEIOUUN')
+        ILIKE '%' || translate($1::text, 'áéíóúüñÁÉÍÓÚÜÑ', 'aeiouunAEIOUUN') || '%'
+  ORDER BY e.apellido, e.nombre
+  LIMIT $2::int
+`;

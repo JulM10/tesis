@@ -87,3 +87,13 @@ export const descargarBlob = (blob, nombre) => {
   a.remove();
   URL.revokeObjectURL(url);
 };
+
+/**
+ * Autocompletado de empleados: pide al menos 3 letras y devuelve
+ * { id, nombre, apellido, puesto }. `signal` permite abortar la consulta
+ * anterior cuando el usuario sigue escribiendo.
+ */
+export const buscarEmpleados = async (q, { limite = 8, signal } = {}) => {
+  const response = await api.get('/empleados/buscar', { params: { q, limite }, signal });
+  return response.data;
+};

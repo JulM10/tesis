@@ -132,7 +132,7 @@ export default function GraficoDotacion() {
               turno.
             </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <div className="flex rounded-md border border-gray-200 p-0.5" role="group" aria-label="Período">
               {PERIODOS.map((p) => (
                 <button

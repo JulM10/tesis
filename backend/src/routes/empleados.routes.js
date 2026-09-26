@@ -22,6 +22,14 @@ router.get("/", requierePermiso("EMPLEADOS_VER"), empleadosController.getEmplead
 router.get("/detalle", requierePermiso("EMPLEADOS_VER"), empleadosController.getEmpleadosDetalle);
 
 /**
+ * GET /api/empleados/buscar?q=texto&limite=n
+ * Autocompletado: id, nombre, apellido y puesto de los que coinciden.
+ * Pide al menos 3 letras y devuelve como mucho 20 resultados.
+ * IMPORTANTE: debe declararse antes de /:id para que no lo capture.
+ */
+router.get("/buscar", requierePermiso("EMPLEADOS_VER"), empleadosController.buscarEmpleados);
+
+/**
  * GET /api/empleados/:id
  * Obtiene un empleado por ID
  */

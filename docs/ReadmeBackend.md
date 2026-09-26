@@ -84,6 +84,7 @@ Todos los endpoints (excepto auth) requieren `Authorization: Bearer <token>`. Ca
 | POST | `/api/empleados/:id/cv` | EMPLEADOS_EDITAR | Sube CV (PDF/DOCX, máx 5MB). El binario se cifra con AES-256-GCM. |
 | GET | `/api/empleados/:id/cv` | EMPLEADOS_VER | Descarga el CV (descifrado al vuelo, nunca URL pública). |
 | DELETE | `/api/empleados/:id/cv` | EMPLEADOS_EDITAR | Elimina el CV. |
+| GET | `/api/empleados/buscar?q=texto&limite=n` | EMPLEADOS_VER | Autocompletado para asignar turnos: `id`, `nombre`, `apellido` y `puesto` de quienes coinciden. Exige 3 letras (400 si no), devuelve 8 por defecto y 20 como máximo. No toca la vista de detalle ni descifra datos personales. |
 | GET | `/api/empleados/:id/licencias?anio` | EMPLEADOS_VER | Licencias del empleado y saldo de vacaciones del año (`dias_anuales`, `usados`, `disponibles`). |
 | POST | `/api/empleados/:id/licencias` | EMPLEADOS_EDITAR | Registra una licencia `{ tipo, fecha_desde, fecha_hasta, comentario }`. Tipo `VACACIONES`, `ENFERMEDAD` o `ESPECIAL`. Rechaza superposición con otra licencia (409); las vacaciones además validan el saldo del año y que no haya turnos asignados en el rango. El comentario se guarda cifrado (dato de salud). |
 | DELETE | `/api/empleados/:id/licencias/:idLicencia` | EMPLEADOS_EDITAR | Elimina una licencia. |

@@ -243,6 +243,31 @@ Si falla la conexión del celular: tipear el código en Mi perfil desde otra pes
 
 ---
 
+## 7c. Uso en celular y buscador de empleados
+
+### Por qué el celular importa acá
+
+No es una moda: la asistencia se marca con el teléfono (el QR del kiosco abre `/marcar`), y el hotel tiene cuatro PCs compartidas. Si el encargado quiere mirar el calendario o cargar una licencia desde el teléfono, tiene que poder.
+
+- **El header pasa a menú**: hasta 1024px la barra muestra la marca y un botón de menú; el panel despliega los accesos (44px de alto), los roles, el email y el botón de salir. Se arma con estado propio y el patrón de *disclosure* de ARIA (`aria-expanded` + `aria-controls`), no con una ventana flotante: al estar dentro del flujo, el orden de tabulación es el natural y no hace falta atrapar el foco.
+- **El corte es `lg` y no `sm`**: la fila con siete accesos, badges, email y logout pide cerca de 1000px, así que a 768px seguiría rota. Medido, no estimado.
+- **Los diálogos se arreglaron en el componente base**, no pantalla por pantalla: 16px de margen a cada lado, alto máximo con scroll propio y botones separados y a ancho completo. Un solo archivo cubre los doce diálogos.
+- **Las tablas tienen dos tratamientos**: Empleados pasa a tarjetas (sus ocho columnas no se reducen sin perder la ficha) y el resto esconde las columnas secundarias, que se siguen viendo deslizando o en el CSV. El criterio: en la pantalla chica queda lo que responde la pregunta del reporte.
+- **`100dvh` y no `100vh`**: en el celular, `100vh` incluye la barra de direcciones y corta el contenido.
+- **Verificación objetiva**: en las ocho pantallas autenticadas, `document.body.scrollWidth === window.innerWidth` a 375px. Antes fallaba en todas.
+
+### El buscador de empleados (problema de escalabilidad, no de estética)
+
+Para asignar a alguien a un turno, el desplegable traía **el padrón completo**: `GET /api/empleados/detalle`, sin filtro ni límite, que además descifra cinco campos por empleado. Y se volvía a pedir después de cada asignación, borrado o corrección.
+
+- Ahora hay un endpoint propio, `GET /api/empleados/buscar?q=&limite=`, que consulta dos tablas, devuelve cuatro columnas **en claro** (id, nombre, apellido y puesto) y **no descifra nada**. Ese es el punto: el endpoint liviano existe porque el diseño separa lo que se puede filtrar en SQL de lo que está cifrado.
+- El frontend consulta **a partir de tres letras**, con 300 ms de espera entre teclas y abortando la consulta anterior (`AbortController`), así una respuesta lenta no pisa a la nueva. El tope de resultados lo impone el backend (8 por defecto, 20 como máximo), no el cliente.
+- **El filtro por empleado del calendario ya no necesita el padrón**: se arma con las asignaciones que la pantalla ya tiene. Resultado: el calendario dejó de pedir `/empleados/detalle`.
+- **Por qué la lista de resultados no es un menú flotante**: el desplegable anterior se abría hacia arriba y tapaba el formulario. La causa es que dentro de un diálogo centrado no le entra abajo, y la librería lo da vuelta. La lista nueva se dibuja dentro del flujo, debajo del campo: no puede darse vuelta ni la recorta el scroll del diálogo.
+- Limitaciones documentadas en el código: `ILIKE '%texto%'` no usa índice B-tree (con este volumen el scan con `LIMIT` es correcto; con más datos, `pg_trgm`), y sin la extensión `unaccent`, "jose" no encuentra a "José".
+
+---
+
 ## 8. Preguntas probables del tribunal (con respuesta corta)
 
 **"¿Por qué no encriptaron toda la base?"**

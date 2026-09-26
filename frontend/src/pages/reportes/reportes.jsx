@@ -126,6 +126,13 @@ function TarjetaResumen({ titulo, valor, icono, color }) {
   );
 }
 
+/*
+  Un reporte es legítimamente ancho. En celular quedan las columnas que
+  responden la pregunta ("qué día, si asistió, quién y cuántas horas") y el
+  resto se ve deslizando la tabla o en el CSV.
+*/
+const SOLO_ESCRITORIO = "hidden md:table-cell";
+
 export default function Reportes() {
   const { tienePermiso } = useAuth();
 
@@ -259,7 +266,7 @@ export default function Reportes() {
   return (
     <Layout>
       <div className="space-y-4">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 className="text-xl font-bold">Reportes</h2>
           <Button onClick={exportar} disabled={filas.length === 0}>
             <Download className="h-4 w-4" />
@@ -268,7 +275,7 @@ export default function Reportes() {
         </div>
 
         {/* Selector de reporte */}
-        <div className="flex gap-1 border-b border-gray-200">
+        <div className="-mx-4 flex gap-1 overflow-x-auto border-b border-gray-200 px-4 sm:mx-0 sm:px-0">
           {REPORTES.map((r) => (
             <button
               key={r.id}
@@ -279,7 +286,7 @@ export default function Reportes() {
                 if (r.id !== reporte) setFilas([]);
                 setReporte(r.id);
               }}
-              className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
+              className={`whitespace-nowrap px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
                 reporte === r.id
                   ? "border-emerald-600 text-emerald-700"
                   : "border-transparent text-gray-500 hover:text-gray-700"
@@ -293,12 +300,13 @@ export default function Reportes() {
         {/* Filtros */}
         {reporte !== "dotacion" && (
           <Card>
-            <CardContent className="p-4 flex flex-wrap items-end gap-4">
+            <CardContent className="grid grid-cols-2 gap-3 p-4 sm:flex sm:flex-wrap sm:items-end sm:gap-4">
               <div className="space-y-1">
                 <Label htmlFor="desde">Desde</Label>
                 <Input
                   id="desde"
                   type="date"
+                  className="h-10 sm:h-9"
                   value={desde}
                   onChange={(e) => setDesde(e.target.value)}
                 />
@@ -308,13 +316,14 @@ export default function Reportes() {
                 <Input
                   id="hasta"
                   type="date"
+                  className="h-10 sm:h-9"
                   value={hasta}
                   onChange={(e) => setHasta(e.target.value)}
                 />
               </div>
               {reporte === "historial" && (
                 <>
-                  <div className="space-y-1">
+                  <div className="col-span-2 space-y-1 sm:col-span-1">
                     <Label htmlFor="filtro-empleado">Empleado</Label>
                     <Input
                       id="filtro-empleado"
@@ -323,10 +332,10 @@ export default function Reportes() {
                       onChange={(e) => setEmpleado(e.target.value)}
                     />
                   </div>
-                  <div className="space-y-1">
+                  <div className="col-span-2 space-y-1 sm:col-span-1">
                     <Label>Puesto</Label>
                     <Select value={puesto} onValueChange={setPuesto}>
-                      <SelectTrigger className="w-44">
+                      <SelectTrigger className="w-full sm:w-44">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -339,10 +348,10 @@ export default function Reportes() {
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className="space-y-1">
+                  <div className="col-span-2 space-y-1 sm:col-span-1">
                     <Label>Asistencia</Label>
                     <Select value={asistencia} onValueChange={setAsistencia}>
-                      <SelectTrigger className="w-40" aria-label="Filtrar por asistencia">
+                      <SelectTrigger className="w-full sm:w-40" aria-label="Filtrar por asistencia">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -357,7 +366,7 @@ export default function Reportes() {
                   </div>
                 </>
               )}
-              <Button onClick={cargar} disabled={cargando}>
+              <Button className="col-span-2 w-full sm:w-auto" onClick={cargar} disabled={cargando}>
                 {cargando ? "Buscando..." : "Buscar"}
               </Button>
             </CardContent>
@@ -422,6 +431,13 @@ export default function Reportes() {
           </div>
         )}
 
+        {/* En celular la tabla esconde columnas y las demás quedan deslizando */}
+        {reporte !== "dotacion" && !cargando && filas.length > 0 && (
+          <p className="text-xs text-gray-400 md:hidden">
+            Deslizá la tabla para ver el resto de las columnas.
+          </p>
+        )}
+
         {/* Resultados */}
         <div className="bg-white rounded-lg border">
           {cargando ? (
@@ -437,11 +453,11 @@ export default function Reportes() {
                   <TableHead>Fecha</TableHead>
                   <TableHead>Asistencia</TableHead>
                   <TableHead>Empleado</TableHead>
-                  <TableHead>Puesto</TableHead>
-                  <TableHead>Lugar</TableHead>
-                  <TableHead>Horario</TableHead>
-                  <TableHead>Ingreso</TableHead>
-                  <TableHead>Salida</TableHead>
+                  <TableHead className={SOLO_ESCRITORIO}>Puesto</TableHead>
+                  <TableHead className={SOLO_ESCRITORIO}>Lugar</TableHead>
+                  <TableHead className={SOLO_ESCRITORIO}>Horario</TableHead>
+                  <TableHead className={SOLO_ESCRITORIO}>Ingreso</TableHead>
+                  <TableHead className={SOLO_ESCRITORIO}>Salida</TableHead>
                   <TableHead className="text-right">Horas</TableHead>
                 </TableRow>
               </TableHeader>
@@ -459,13 +475,13 @@ export default function Reportes() {
                     <TableCell className="font-medium">
                       {f.empleado_nombre} {f.empleado_apellido}
                     </TableCell>
-                    <TableCell>{f.puesto}</TableCell>
-                    <TableCell>{f.lugar_trabajo}</TableCell>
-                    <TableCell>
+                    <TableCell className={SOLO_ESCRITORIO}>{f.puesto}</TableCell>
+                    <TableCell className={SOLO_ESCRITORIO}>{f.lugar_trabajo}</TableCell>
+                    <TableCell className={SOLO_ESCRITORIO}>
                       {horaCorta(f.hora_inicio)}–{horaCorta(f.hora_fin)}
                     </TableCell>
-                    <TableCell>{horaCorta(f.hora_ingreso) || "—"}</TableCell>
-                    <TableCell>{horaCorta(f.hora_egreso) || "—"}</TableCell>
+                    <TableCell className={SOLO_ESCRITORIO}>{horaCorta(f.hora_ingreso) || "—"}</TableCell>
+                    <TableCell className={SOLO_ESCRITORIO}>{horaCorta(f.hora_egreso) || "—"}</TableCell>
                     <TableCell className="text-right tabular-nums">
                       {f.horas_trabajadas ?? "—"}
                     </TableCell>
@@ -478,15 +494,15 @@ export default function Reportes() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Empleado</TableHead>
-                  <TableHead>Puesto</TableHead>
+                  <TableHead className={SOLO_ESCRITORIO}>Puesto</TableHead>
                   <TableHead className="text-right">Turnos</TableHead>
                   <TableHead className="text-right">Asistió</TableHead>
-                  <TableHead className="text-right">Sin salida</TableHead>
+                  <TableHead className={`text-right ${SOLO_ESCRITORIO}`}>Sin salida</TableHead>
                   <TableHead className="text-right">No asistió</TableHead>
-                  <TableHead className="text-right">Licencias</TableHead>
-                  <TableHead className="text-right">Hs. programadas</TableHead>
+                  <TableHead className={`text-right ${SOLO_ESCRITORIO}`}>Licencias</TableHead>
+                  <TableHead className={`text-right ${SOLO_ESCRITORIO}`}>Hs. programadas</TableHead>
                   <TableHead className="text-right">Hs. trabajadas</TableHead>
-                  <TableHead className="text-right">Presentismo</TableHead>
+                  <TableHead className={`text-right ${SOLO_ESCRITORIO}`}>Presentismo</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -495,11 +511,11 @@ export default function Reportes() {
                     <TableCell className="font-medium">
                       {f.empleado_nombre} {f.empleado_apellido}
                     </TableCell>
-                    <TableCell>{f.puesto}</TableCell>
+                    <TableCell className={SOLO_ESCRITORIO}>{f.puesto}</TableCell>
                     <TableCell className="text-right tabular-nums">{f.turnos}</TableCell>
                     <TableCell className="text-right tabular-nums">{f.presentes}</TableCell>
                     <TableCell
-                      className={`text-right tabular-nums ${
+                      className={`text-right tabular-nums ${SOLO_ESCRITORIO} ${
                         Number(f.sin_salida) > 0 ? "font-semibold text-amber-700" : ""
                       }`}
                     >
@@ -512,14 +528,14 @@ export default function Reportes() {
                     >
                       {f.ausencias}
                     </TableCell>
-                    <TableCell className="text-right tabular-nums">{f.licencias}</TableCell>
-                    <TableCell className="text-right tabular-nums text-gray-500">
+                    <TableCell className={`text-right tabular-nums ${SOLO_ESCRITORIO}`}>{f.licencias}</TableCell>
+                    <TableCell className={`text-right tabular-nums text-gray-500 ${SOLO_ESCRITORIO}`}>
                       {f.horas_programadas}
                     </TableCell>
                     <TableCell className="text-right tabular-nums font-semibold">
                       {f.horas_trabajadas}
                     </TableCell>
-                    <TableCell className="text-right tabular-nums">{presentismo(f)}</TableCell>
+                    <TableCell className={`text-right tabular-nums ${SOLO_ESCRITORIO}`}>{presentismo(f)}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>

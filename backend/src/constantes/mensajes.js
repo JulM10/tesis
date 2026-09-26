@@ -16,7 +16,8 @@ export const MENSAJES = {
     ACTUALIZADO_OK: "Empleado actualizado correctamente",
     ELIMINADO_OK: "Empleado eliminado correctamente",
     USUARIO_YA_ASOCIADO: "El usuario ya tiene un empleado asociado",
-    DIAS_VACACIONES_INVALIDOS: "Los días de vacaciones por año deben ser un número entero entre 0 y 60"
+    DIAS_VACACIONES_INVALIDOS: "Los días de vacaciones por año deben ser un número entero entre 0 y 60",
+    BUSQUEDA_MUY_CORTA: "Indicá al menos 3 letras para buscar un empleado"
   },
 
   LICENCIAS: {

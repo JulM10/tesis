@@ -313,7 +313,7 @@ export default function Dashboard() {
                   <div className="space-y-2">
                     {empleadosPorPuesto.map(([puesto, cantidad]) => (
                       <div key={puesto} className="flex items-center gap-2">
-                        <span className="w-32 text-sm text-gray-600 truncate">{puesto}</span>
+                        <span className="w-24 truncate text-sm text-gray-600 sm:w-32">{puesto}</span>
                         <div className="flex-1 bg-gray-100 rounded-full h-2.5">
                           <div
                             className="bg-emerald-500 h-2.5 rounded-full"

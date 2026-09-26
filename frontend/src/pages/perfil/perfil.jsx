@@ -47,6 +47,9 @@ import {
   un tipo nuevo en cada render y desmontaría/volvería a montar toda la tabla.
   Solo depende de sus props, así que no necesita nada del estado del padre.
 */
+/* Las columnas secundarias se esconden en celular (quedan fecha, horario y asistencia) */
+const SOLO_ESCRITORIO = "hidden md:table-cell";
+
 const TablaTurnos = ({ titulo, filas, vacio, ahora = null }) => (
   <Card>
     <CardHeader className="pb-2">
@@ -63,14 +66,14 @@ const TablaTurnos = ({ titulo, filas, vacio, ahora = null }) => (
               <TableHead>Horario</TableHead>
               {ahora ? (
                 <>
-                  <TableHead>Ingreso</TableHead>
-                  <TableHead>Salida</TableHead>
+                  <TableHead className={SOLO_ESCRITORIO}>Ingreso</TableHead>
+                  <TableHead className={SOLO_ESCRITORIO}>Salida</TableHead>
                   <TableHead>Asistencia</TableHead>
                 </>
               ) : (
                 <>
                   <TableHead>Puesto</TableHead>
-                  <TableHead>Lugar</TableHead>
+                  <TableHead className={SOLO_ESCRITORIO}>Lugar</TableHead>
                 </>
               )}
             </TableRow>
@@ -84,8 +87,8 @@ const TablaTurnos = ({ titulo, filas, vacio, ahora = null }) => (
                 </TableCell>
                 {ahora ? (
                   <>
-                    <TableCell>{horaCorta(h.hora_ingreso) || "—"}</TableCell>
-                    <TableCell>{horaCorta(h.hora_egreso) || "—"}</TableCell>
+                    <TableCell className={SOLO_ESCRITORIO}>{horaCorta(h.hora_ingreso) || "—"}</TableCell>
+                    <TableCell className={SOLO_ESCRITORIO}>{horaCorta(h.hora_egreso) || "—"}</TableCell>
                     <TableCell>
                       <EstadoAsistencia estado={estadoAsistencia(h, ahora)} />
                     </TableCell>
@@ -93,7 +96,7 @@ const TablaTurnos = ({ titulo, filas, vacio, ahora = null }) => (
                 ) : (
                   <>
                     <TableCell>{h.puesto}</TableCell>
-                    <TableCell>{h.lugar_trabajo}</TableCell>
+                    <TableCell className={SOLO_ESCRITORIO}>{h.lugar_trabajo}</TableCell>
                   </>
                 )}
               </TableRow>
@@ -349,8 +352,8 @@ export default function Perfil() {
                           Mi CV (PDF o DOCX, máx. 5MB)
                         </p>
                         {empleado.cv_nombre ? (
-                          <div className="flex items-center gap-2 bg-gray-50 rounded-md px-2 py-1.5">
-                            <span className="truncate flex-1">📄 {empleado.cv_nombre}</span>
+                          <div className="flex flex-wrap items-center gap-2 bg-gray-50 rounded-md px-2 py-1.5">
+                            <span className="min-w-0 flex-1 truncate">📄 {empleado.cv_nombre}</span>
                             <Button type="button" variant="outline" size="sm" onClick={descargarArchivoCV}>
                               Descargar
                             </Button>
@@ -358,11 +361,11 @@ export default function Perfil() {
                         ) : (
                           <p className="text-xs text-gray-400">Todavía no cargaste tu CV.</p>
                         )}
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
                           <input
                             type="file"
                             accept=".pdf,.docx"
-                            className="text-sm flex-1"
+                            className="min-w-0 max-w-full flex-1 text-xs sm:text-sm"
                             onChange={(e) => setArchivoCV(e.target.files?.[0] ?? null)}
                           />
                           <Button

@@ -174,7 +174,7 @@ export default function Configuracion() {
 
               return (
                 <Card key={seccion.tipo}>
-                  <CardHeader className="pb-3 flex flex-row items-start justify-between gap-4">
+                  <CardHeader className="pb-3 flex flex-row flex-wrap items-start justify-between gap-4">
                     <div>
                       <CardTitle className="text-base">{seccion.titulo}</CardTitle>
                       <p className="text-sm text-gray-500 mt-1">
@@ -212,7 +212,7 @@ export default function Configuracion() {
                             <div className="flex gap-1">
                               <Button
                                 variant="ghost"
-                                size="sm"
+                                size="icon"
                                 onClick={() => abrirEdicion(seccion, item)}
                                 aria-label={`Editar ${item.nombre}`}
                               >
@@ -220,7 +220,7 @@ export default function Configuracion() {
                               </Button>
                               <Button
                                 variant="ghost"
-                                size="sm"
+                                size="icon"
                                 onClick={() => setABorrar({ seccion, item })}
                                 aria-label={`Eliminar ${item.nombre}`}
                               >
@@ -260,7 +260,7 @@ export default function Configuracion() {
             </Card>
 
             <Card className="lg:col-span-2">
-              <CardHeader className="pb-3 flex flex-row items-start justify-between gap-4">
+              <CardHeader className="pb-3 flex flex-row flex-wrap items-start justify-between gap-4">
                 <div>
                   <CardTitle className="text-base">Kiosco de asistencia</CardTitle>
                   <p className="text-sm text-gray-500 mt-1">

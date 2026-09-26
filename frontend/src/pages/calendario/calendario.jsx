@@ -15,7 +15,8 @@ import {
 } from "@/services/horarios.services";
 import EstadoAsistencia from "@/components/EstadoAsistencia";
 import { ahoraArgentina, estadoAsistencia, esCorregible } from "@/lib/asistencia";
-import { getCatalogos, getEmpleadosDetalle } from "@/services/empleados.services";
+import { getCatalogos } from "@/services/empleados.services";
+import BuscadorEmpleado from "@/components/BuscadorEmpleado";
 import {
   hoyISO,
   lunesDeSemana,
@@ -75,7 +76,6 @@ export default function Calendario() {
   const [turnos, setTurnos] = useState([]);
   const [asignaciones, setAsignaciones] = useState([]);
   const [catalogos, setCatalogos] = useState({ puestos: [], lugares: [], estados: [] });
-  const [empleados, setEmpleados] = useState([]);
   const [loading, setLoading] = useState(true);
 
   // Filtros. El de puesto arranca en null y se define al llegar los catálogos.
@@ -86,7 +86,8 @@ export default function Calendario() {
   const [formTurno, setFormTurno] = useState(FORM_TURNO_VACIO);
   const [dialogTurnoAbierto, setDialogTurnoAbierto] = useState(false);
   const [turnoAAsignar, setTurnoAAsignar] = useState(null);
-  const [empleadoAAsignar, setEmpleadoAAsignar] = useState("");
+  // Objeto { id, nombre, apellido, puesto } que devuelve el buscador, o null
+  const [empleadoAAsignar, setEmpleadoAAsignar] = useState(null);
   const [turnoABorrar, setTurnoABorrar] = useState(null);
   const [guardando, setGuardando] = useState(false);
 
@@ -99,21 +100,27 @@ export default function Calendario() {
 
   const cargarDatos = async () => {
     try {
-      // El rol EMPLEADO no tiene acceso al listado de empleados:
-      // solo se pide si el permiso existe (se usa para filtrar y asignar)
-      const [listaTurnos, listaAsignaciones, listaCatalogos, listaEmpleados] =
-        await Promise.all([
-          getCalendario(),
-          getAllHorarios(),
-          getCatalogos(),
-          tienePermiso("EMPLEADOS_VER") ? getEmpleadosDetalle() : Promise.resolve([]),
-        ]);
+      const [listaTurnos, listaAsignaciones, listaCatalogos] = await Promise.all([
+        getCalendario(),
+        getAllHorarios(),
+        getCatalogos(),
+      ]);
       setTurnos(listaTurnos);
       setAsignaciones(listaAsignaciones);
       setCatalogos(listaCatalogos);
-      setEmpleados(listaEmpleados);
       // Solo en la primera carga: después se respeta lo que eligió el usuario.
       setFiltroPuesto((actual) => actual ?? puestoInicial(listaCatalogos.puestos));
+      /*
+        Si al empleado filtrado se le quitó su última asignación, su id ya no
+        está en la lista: sin esto la grilla quedaría vacía y sin forma de
+        volver, porque el filtro apunta a alguien que no figura.
+      */
+      setFiltroEmpleado((actual) =>
+        actual === "todos" ||
+        listaAsignaciones.some((a) => String(a.empleado_id) === actual)
+          ? actual
+          : "todos"
+      );
     } catch (error) {
       toast.error(error.response?.data?.error || "No se pudo cargar el calendario");
     } finally {
@@ -125,7 +132,6 @@ export default function Calendario() {
     // El efecto no puede ser async: la IIFE deja las actualizaciones de
     // estado fuera de su cuerpo síncrono (react-hooks/set-state-in-effect).
     (async () => { await cargarDatos(); })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -157,6 +163,19 @@ export default function Calendario() {
       (mapa[a.calendario_id] ??= []).push(a);
     });
     return mapa;
+  }, [asignaciones]);
+
+  /*
+    Los empleados del filtro salen de las asignaciones que ya están en
+    pantalla, no de un listado aparte: filtrar es comparar ids contra esas
+    mismas asignaciones, así que traer el padrón completo era al pedo.
+  */
+  const empleadosConTurnos = useMemo(() => {
+    const porId = new Map();
+    asignaciones.forEach((a) =>
+      porId.set(a.empleado_id, `${a.empleado_nombre} ${a.empleado_apellido}`)
+    );
+    return [...porId].sort((a, b) => a[1].localeCompare(b[1]));
   }, [asignaciones]);
 
   // Turnos visibles según filtros, agrupados por día
@@ -217,12 +236,12 @@ export default function Calendario() {
     setGuardando(true);
     try {
       await asignarEmpleadoATurno({
-        id_empleado: Number(empleadoAAsignar),
+        id_empleado: empleadoAAsignar.id,
         id_calendario: turnoAAsignar.id,
       });
       toast.success("Empleado asignado al turno");
       setTurnoAAsignar(null);
-      setEmpleadoAAsignar("");
+      setEmpleadoAAsignar(null);
       await cargarDatos();
     } catch (error) {
       // 409: turno duplicado o solapamiento de horarios
@@ -294,18 +313,29 @@ export default function Calendario() {
         {/* Encabezado y controles */}
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-xl font-bold">Calendario de Turnos</h2>
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={() => setLunes(sumarDias(lunes, -7))}>
-              ← Semana anterior
+          <div className="flex w-full items-center gap-2 sm:w-auto">
+            {/* En celular no entran las etiquetas largas: queda la flecha sola */}
+            <Button
+              variant="outline"
+              size="sm"
+              aria-label="Semana anterior"
+              onClick={() => setLunes(sumarDias(lunes, -7))}
+            >
+              ←<span className="ml-1 hidden sm:inline">Semana anterior</span>
             </Button>
             <Button variant="outline" size="sm" onClick={() => setLunes(lunesDeSemana(hoyISO()))}>
               Hoy
             </Button>
-            <Button variant="outline" size="sm" onClick={() => setLunes(sumarDias(lunes, 7))}>
-              Semana siguiente →
+            <Button
+              variant="outline"
+              size="sm"
+              aria-label="Semana siguiente"
+              onClick={() => setLunes(sumarDias(lunes, 7))}
+            >
+              <span className="mr-1 hidden sm:inline">Semana siguiente</span>→
             </Button>
             {puedeGestionar && (
-              <Button size="sm" onClick={() => abrirNuevoTurno()}>
+              <Button size="sm" className="ml-auto sm:ml-0" onClick={() => abrirNuevoTurno()}>
                 Nuevo turno
               </Button>
             )}
@@ -317,9 +347,9 @@ export default function Calendario() {
           <span className="text-sm text-gray-500">
             Semana del {formatearFecha(lunes)} al {formatearFecha(sumarDias(lunes, 6))}
           </span>
-          <div className="flex items-center gap-2 ml-auto">
+          <div className="flex w-full flex-col gap-2 sm:ml-auto sm:w-auto sm:flex-row sm:items-center">
             <Select value={filtroPuesto ?? ""} onValueChange={setFiltroPuesto}>
-              <SelectTrigger className="w-44" aria-label="Filtrar por puesto">
+              <SelectTrigger className="w-full sm:w-44" aria-label="Filtrar por puesto">
                 <SelectValue placeholder="Puesto" />
               </SelectTrigger>
               <SelectContent>
@@ -334,16 +364,18 @@ export default function Calendario() {
                 <SelectItem value="todos">Todos los puestos</SelectItem>
               </SelectContent>
             </Select>
-            {empleados.length > 0 && (
+            {/* Solo RRHH y el administrador: para el rol EMPLEADO el filtro
+                por persona nunca estuvo disponible. */}
+            {tienePermiso("EMPLEADOS_VER") && empleadosConTurnos.length > 0 && (
               <Select value={filtroEmpleado} onValueChange={setFiltroEmpleado}>
-                <SelectTrigger className="w-48">
+                <SelectTrigger className="w-full sm:w-48">
                   <SelectValue placeholder="Empleado" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="todos">Todos los empleados</SelectItem>
-                  {empleados.map((emp) => (
-                    <SelectItem key={emp.empleado_id} value={String(emp.empleado_id)}>
-                      {emp.nombre} {emp.apellido}
+                  {empleadosConTurnos.map(([id, nombre]) => (
+                    <SelectItem key={id} value={String(id)}>
+                      {nombre}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -375,7 +407,7 @@ export default function Calendario() {
               return (
                 <div
                   key={fecha}
-                  className={`bg-white rounded-lg border p-2 min-h-40 flex flex-col gap-2 ${
+                  className={`bg-white rounded-lg border p-2 min-h-24 sm:min-h-40 flex flex-col gap-2 ${
                     esHoy ? "border-emerald-400 ring-1 ring-emerald-200" : "border-gray-200"
                   }`}
                 >
@@ -407,7 +439,7 @@ export default function Calendario() {
                             <button
                               type="button"
                               title="Eliminar turno"
-                              className="text-red-400 hover:text-red-600 font-bold"
+                              className="-m-1 inline-flex items-center justify-center p-1.5 font-bold text-red-400 hover:text-red-600"
                               onClick={() => setTurnoABorrar(turno)}
                             >
                               ✕
@@ -466,7 +498,7 @@ export default function Calendario() {
                                   <button
                                     type="button"
                                     title="Quitar asignación"
-                                    className="text-gray-400 hover:text-red-600 ml-1"
+                                    className="-m-1 ml-1 inline-flex items-center justify-center p-1.5 text-gray-400 hover:text-red-600"
                                     onClick={() => quitarAsignacion(a, turno.id)}
                                   >
                                     ✕
@@ -485,7 +517,7 @@ export default function Calendario() {
                             type="button"
                             className="w-full rounded border border-dashed py-0.5 text-gray-600 hover:bg-white/70"
                             style={{ borderColor: tinte(color, "88") }}
-                            onClick={() => { setEmpleadoAAsignar(""); setTurnoAAsignar(turno); }}
+                            onClick={() => { setEmpleadoAAsignar(null); setTurnoAAsignar(turno); }}
                           >
                             + Asignar
                           </button>
@@ -525,6 +557,7 @@ export default function Calendario() {
               <Input
                 id="fecha"
                 type="date"
+                className="h-10 sm:h-9"
                 value={formTurno.fecha}
                 onChange={(e) => setFormTurno({ ...formTurno, fecha: e.target.value })}
                 required
@@ -536,6 +569,7 @@ export default function Calendario() {
                 <Input
                   id="hora_inicio"
                   type="time"
+                  className="h-10 sm:h-9"
                   value={formTurno.hora_inicio}
                   onChange={(e) => setFormTurno({ ...formTurno, hora_inicio: e.target.value })}
                   required
@@ -546,6 +580,7 @@ export default function Calendario() {
                 <Input
                   id="hora_fin"
                   type="time"
+                  className="h-10 sm:h-9"
                   value={formTurno.hora_fin}
                   onChange={(e) => setFormTurno({ ...formTurno, hora_fin: e.target.value })}
                   required
@@ -601,19 +636,13 @@ export default function Calendario() {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-2">
-            <Label>Empleado</Label>
-            <Select value={empleadoAAsignar} onValueChange={setEmpleadoAAsignar}>
-              <SelectTrigger>
-                <SelectValue placeholder="Seleccionar empleado" />
-              </SelectTrigger>
-              <SelectContent>
-                {empleados.map((emp) => (
-                  <SelectItem key={emp.empleado_id} value={String(emp.empleado_id)}>
-                    {emp.nombre} {emp.apellido}{emp.puesto ? ` — ${emp.puesto}` : ""}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Label htmlFor="empleado-asignar">Empleado</Label>
+            <BuscadorEmpleado
+              id="empleado-asignar"
+              valor={empleadoAAsignar}
+              onSeleccionar={setEmpleadoAAsignar}
+              autoFocus
+            />
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setTurnoAAsignar(null)}>
@@ -653,6 +682,7 @@ export default function Calendario() {
                 <Input
                   id="asistencia-ingreso"
                   type="time"
+                  className="h-10 sm:h-9"
                   value={marcas.hora_ingreso}
                   onChange={(e) => setMarcas({ ...marcas, hora_ingreso: e.target.value })}
                 />
@@ -662,6 +692,7 @@ export default function Calendario() {
                 <Input
                   id="asistencia-egreso"
                   type="time"
+                  className="h-10 sm:h-9"
                   value={marcas.hora_egreso}
                   onChange={(e) => setMarcas({ ...marcas, hora_egreso: e.target.value })}
                 />

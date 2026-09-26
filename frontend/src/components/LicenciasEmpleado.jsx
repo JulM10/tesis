@@ -112,7 +112,7 @@ export default function LicenciasEmpleado({ idEmpleado = null, onCambio }) {
       ) : datos.licencias.length === 0 ? (
         <p className="text-xs text-gray-400">Sin licencias registradas.</p>
       ) : (
-        <ul className="max-h-44 space-y-1.5 overflow-y-auto">
+        <ul className="space-y-1.5 sm:max-h-44 sm:overflow-y-auto">
           {datos.licencias.map((licencia) => {
             const tipo = TIPOS_LICENCIA[licencia.tipo];
             return (
@@ -147,7 +147,7 @@ export default function LicenciasEmpleado({ idEmpleado = null, onCambio }) {
       {editable && (
         <div className="grid grid-cols-2 gap-2 rounded-md border border-dashed p-2">
           <Select value={nueva.tipo} onValueChange={(v) => setNueva({ ...nueva, tipo: v })}>
-            <SelectTrigger aria-label="Tipo de licencia">
+            <SelectTrigger className="col-span-2 sm:col-span-1" aria-label="Tipo de licencia">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -156,7 +156,7 @@ export default function LicenciasEmpleado({ idEmpleado = null, onCambio }) {
               ))}
             </SelectContent>
           </Select>
-          <p className="self-center text-xs text-gray-500">
+          <p className="col-span-2 self-center text-xs text-gray-500 sm:col-span-1">
             {dias
               ? `${dias} día${dias === 1 ? "" : "s"} corrido${dias === 1 ? "" : "s"}`
               : "Elegí el rango de fechas"}
@@ -167,6 +167,7 @@ export default function LicenciasEmpleado({ idEmpleado = null, onCambio }) {
             <Input
               id="licencia-desde"
               type="date"
+              className="h-10 sm:h-9"
               value={nueva.fecha_desde}
               onChange={(e) => setNueva({ ...nueva, fecha_desde: e.target.value })}
               onKeyDown={evitarEnvio}
@@ -177,6 +178,7 @@ export default function LicenciasEmpleado({ idEmpleado = null, onCambio }) {
             <Input
               id="licencia-hasta"
               type="date"
+              className="h-10 sm:h-9"
               min={nueva.fecha_desde || undefined}
               value={nueva.fecha_hasta}
               onChange={(e) => setNueva({ ...nueva, fecha_hasta: e.target.value })}

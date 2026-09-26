@@ -20,6 +20,19 @@ export const getEmpleadosDetalle = async (req, res) => {
   }
 };
 
+
+export const buscarEmpleados = async (req, res) => {
+  try {
+    const empleados = await empleadosService.buscarEmpleados({
+      q: req.query.q?.trim() || null,
+      limite: req.query.limite,
+    });
+    res.json(empleados);
+  } catch (error) {
+    responderError(res, error);
+  }
+};
+
 export const getEmpleadoById = async (req, res) => {
   try {
     const empleado = await empleadosService.getEmpleadoById(req.params.id);

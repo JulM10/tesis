@@ -72,6 +72,31 @@ export const getEmpleadosDetalle = async () => {
   return result.rows.map(descifrarEmpleado);
 };
 
+
+/*
+  Autocompletado: mínimo de letras para que el listado no se pida entero,
+  y tope de resultados para que la lista entre en pantalla.
+*/
+const MINIMO_BUSQUEDA = 3;
+const LIMITE_POR_DEFECTO = 8;
+const LIMITE_MAXIMO = 20;
+
+export const buscarEmpleados = async ({ q = null, limite }) => {
+  if (!q || q.length < MINIMO_BUSQUEDA) {
+    throw httpError(400, MENSAJES.EMPLEADOS.BUSQUEDA_MUY_CORTA);
+  }
+
+  const tope = Math.min(Math.max(Number(limite) || LIMITE_POR_DEFECTO, 1), LIMITE_MAXIMO);
+  const result = await pool.query(Queries.BUSCAR_EMPLEADOS, [q, tope]);
+
+  /*
+    Sin descifrarEmpleado a propósito: la query devuelve solo columnas en
+    claro (id, nombre, apellido y puesto). Ese es el punto del endpoint,
+    frente al listado completo que descifra cinco campos por empleado.
+  */
+  return result.rows;
+};
+
 export const getEmpleadoById = async (id) => {
   const result = await pool.query(Queries.GET_EMPLEADO_BY_ID, [id]);
 

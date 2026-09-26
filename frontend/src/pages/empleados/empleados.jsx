@@ -85,6 +85,71 @@ const COLOR_ESTADO = {
   Despedido: "bg-red-100 text-red-800",
 };
 
+/*
+  Fuera del componente a propósito: definidos adentro, React los tomaría
+  como tipos nuevos en cada render (regla react-hooks/static-components).
+*/
+const EstadoEmpleado = ({ estado }) =>
+  estado ? (
+    <span
+      className={`inline-flex rounded-full px-2 py-1 text-xs font-medium ${
+        COLOR_ESTADO[estado] ?? "bg-gray-100 text-gray-600"
+      }`}
+    >
+      {estado}
+    </span>
+  ) : (
+    <span className="text-gray-400">—</span>
+  );
+
+/* La ficha del empleado en celular, donde la tabla de ocho columnas no entra */
+const TarjetaEmpleado = ({ empleado, puedeEditar, puedeEliminar, onEditar, onEliminar }) => (
+  <div className="space-y-2 p-4">
+    <div className="flex items-start justify-between gap-2">
+      <p className="min-w-0 flex-1 font-medium text-gray-900">
+        {empleado.nombre} {empleado.apellido}
+      </p>
+      <EstadoEmpleado estado={empleado.estado} />
+    </div>
+
+    <dl className="space-y-1 text-sm text-gray-600">
+      <div className="flex gap-2">
+        <dt className="text-gray-400">Puesto</dt>
+        <dd className="min-w-0 flex-1 truncate">
+          {empleado.puesto ?? "—"}
+          {empleado.lugar_trabajo ? ` · ${empleado.lugar_trabajo}` : ""}
+        </dd>
+      </div>
+      <div className="flex gap-2">
+        <dt className="text-gray-400">DNI</dt>
+        <dd className="min-w-0 flex-1">{empleado.dni ?? "—"}</dd>
+      </div>
+      <div className="flex gap-2">
+        <dt className="text-gray-400">Contacto</dt>
+        <dd className="min-w-0 flex-1 break-all">
+          {empleado.telefono ?? "—"}
+          {empleado.email ? ` · ${empleado.email}` : ""}
+        </dd>
+      </div>
+    </dl>
+
+    {(puedeEditar || puedeEliminar) && (
+      <div className="flex flex-wrap gap-2 pt-1">
+        {puedeEditar && (
+          <Button variant="outline" size="sm" onClick={() => onEditar(empleado)}>
+            Editar
+          </Button>
+        )}
+        {puedeEliminar && (
+          <Button variant="destructive" size="sm" onClick={() => onEliminar(empleado)}>
+            Eliminar
+          </Button>
+        )}
+      </div>
+    )}
+  </div>
+);
+
 export default function Empleados() {
   const { tienePermiso } = useAuth();
 
@@ -291,7 +356,7 @@ export default function Empleados() {
   return (
     <Layout>
       <div className="space-y-4">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 className="text-xl font-bold">Gestión de Empleados</h2>
           {tienePermiso("EMPLEADOS_CREAR") && (
             <Button onClick={abrirAlta}>Nuevo empleado</Button>
@@ -301,68 +366,86 @@ export default function Empleados() {
         {loading ? (
           <p className="text-gray-500">Cargando empleados...</p>
         ) : (
-          <div className="bg-white rounded-lg border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Nombre</TableHead>
-                  <TableHead>DNI</TableHead>
-                  <TableHead>Puesto</TableHead>
-                  <TableHead>Lugar</TableHead>
-                  <TableHead>Estado</TableHead>
-                  <TableHead>Teléfono</TableHead>
-                  <TableHead>Email</TableHead>
-                  <TableHead className="text-right">Acciones</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {empleados.length === 0 && (
+          <>
+            {/* Celular: una tarjeta por empleado. Sus ocho columnas no se
+                reducen a dos sin perder el sentido de la ficha. */}
+            <div className="divide-y divide-gray-100 rounded-lg border bg-white md:hidden">
+              {empleados.length === 0 && (
+                <p className="p-4 text-center text-gray-500">No hay empleados registrados</p>
+              )}
+              {empleados.map((emp) => (
+                <TarjetaEmpleado
+                  key={emp.empleado_id}
+                  empleado={emp}
+                  puedeEditar={tienePermiso("EMPLEADOS_EDITAR")}
+                  puedeEliminar={tienePermiso("EMPLEADOS_ELIMINAR")}
+                  onEditar={abrirEdicion}
+                  onEliminar={setEmpleadoABorrar}
+                />
+              ))}
+            </div>
+
+            <div className="hidden rounded-lg border bg-white md:block">
+              <Table>
+                <TableHeader>
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center text-gray-500">
-                      No hay empleados registrados
-                    </TableCell>
+                    <TableHead>Nombre</TableHead>
+                    <TableHead>DNI</TableHead>
+                    <TableHead>Puesto</TableHead>
+                    <TableHead>Lugar</TableHead>
+                    <TableHead>Estado</TableHead>
+                    <TableHead>Teléfono</TableHead>
+                    <TableHead>Email</TableHead>
+                    <TableHead className="text-right">Acciones</TableHead>
                   </TableRow>
-                )}
-                {empleados.map((emp) => (
-                  <TableRow key={emp.empleado_id}>
-                    <TableCell className="font-medium">
-                      {emp.nombre} {emp.apellido}
-                    </TableCell>
-                    <TableCell>{emp.dni ?? "—"}</TableCell>
-                    <TableCell>{emp.puesto ?? "—"}</TableCell>
-                    <TableCell>{emp.lugar_trabajo ?? "—"}</TableCell>
-                    <TableCell>
-                      {emp.estado ? (
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${COLOR_ESTADO[emp.estado] ?? "bg-gray-100 text-gray-600"}`}>
-                          {emp.estado}
-                        </span>
-                      ) : "—"}
-                    </TableCell>
-                    <TableCell>{emp.telefono ?? "—"}</TableCell>
-                    <TableCell>{emp.email ?? "—"}</TableCell>
-                    <TableCell className="text-right space-x-2">
-                      {tienePermiso("EMPLEADOS_EDITAR") && (
-                        <Button variant="outline" size="sm" onClick={() => abrirEdicion(emp)}>
-                          Editar
-                        </Button>
-                      )}
-                      {tienePermiso("EMPLEADOS_ELIMINAR") && (
-                        <Button variant="destructive" size="sm" onClick={() => setEmpleadoABorrar(emp)}>
-                          Eliminar
-                        </Button>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
+                </TableHeader>
+                <TableBody>
+                  {empleados.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={8} className="text-center text-gray-500">
+                        No hay empleados registrados
+                      </TableCell>
+                    </TableRow>
+                  )}
+                  {empleados.map((emp) => (
+                    <TableRow key={emp.empleado_id}>
+                      <TableCell className="font-medium">
+                        {emp.nombre} {emp.apellido}
+                      </TableCell>
+                      <TableCell>{emp.dni ?? "—"}</TableCell>
+                      <TableCell>{emp.puesto ?? "—"}</TableCell>
+                      <TableCell>{emp.lugar_trabajo ?? "—"}</TableCell>
+                      <TableCell>
+                        <EstadoEmpleado estado={emp.estado} />
+                      </TableCell>
+                      <TableCell>{emp.telefono ?? "—"}</TableCell>
+                      <TableCell className="break-all">{emp.email ?? "—"}</TableCell>
+                      <TableCell>
+                        <div className="flex flex-wrap justify-end gap-2">
+                          {tienePermiso("EMPLEADOS_EDITAR") && (
+                            <Button variant="outline" size="sm" onClick={() => abrirEdicion(emp)}>
+                              Editar
+                            </Button>
+                          )}
+                          {tienePermiso("EMPLEADOS_ELIMINAR") && (
+                            <Button variant="destructive" size="sm" onClick={() => setEmpleadoABorrar(emp)}>
+                              Eliminar
+                            </Button>
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </>
         )}
       </div>
 
       {/* Dialog de alta / edición */}
       <Dialog open={dialogAbierto} onOpenChange={setDialogAbierto}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-3xl">
           <DialogHeader>
             <DialogTitle>
               {editandoId ? "Editar empleado" : "Nuevo empleado"}
@@ -377,7 +460,7 @@ export default function Empleados() {
           <form onSubmit={guardar} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {/* Columna izquierda: información personal y puesto */}
-              <div className="grid grid-cols-2 gap-4 content-start">
+              <div className="grid grid-cols-1 gap-4 content-start sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="nombre">Nombre *</Label>
                   <Input id="nombre" value={form.nombre} onChange={setCampo("nombre")} required />
@@ -520,8 +603,8 @@ export default function Empleados() {
                 ) : (
                   <>
                     {cvActual ? (
-                      <div className="flex items-center gap-2 text-sm bg-gray-50 rounded-md px-2 py-1.5">
-                        <span className="truncate flex-1">📄 {cvActual}</span>
+                      <div className="flex flex-wrap items-center gap-2 text-sm bg-gray-50 rounded-md px-2 py-1.5">
+                        <span className="min-w-0 flex-1 truncate">📄 {cvActual}</span>
                         <Button type="button" variant="outline" size="sm" onClick={descargarArchivoCV}>
                           Descargar
                         </Button>
@@ -536,7 +619,7 @@ export default function Empleados() {
                       <input
                         type="file"
                         accept=".pdf,.docx"
-                        className="text-sm flex-1"
+                        className="min-w-0 max-w-full flex-1 text-xs sm:text-sm"
                         onChange={(e) => setArchivoCV(e.target.files?.[0] ?? null)}
                       />
                       <Button

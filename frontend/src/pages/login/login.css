@@ -1,5 +1,7 @@
 .login-container {
   min-height: 100vh;
+  /* dvh: en el celular 100vh incluye la barra de direcciones y corta el contenido */
+  min-height: 100dvh;
   width: 100%;
   display: flex;
   align-items: center;

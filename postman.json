@@ -154,6 +154,33 @@
           }
         },
         {
+          "name": "GET - Buscar empleados (autocompletado)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{BASE_URL}}/empleados/buscar?q=jua&limite=8",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "empleados",
+                "buscar"
+              ],
+              "query": [
+                {
+                  "key": "q",
+                  "value": "jua"
+                },
+                {
+                  "key": "limite",
+                  "value": "8"
+                }
+              ]
+            },
+            "description": "Autocompletado del diálogo Asignar empleado: devuelve id, nombre, apellido y puesto de los que coinciden. Exige al menos 3 letras (400 si no) y devuelve como mucho 20. No descifra datos personales."
+          }
+        },
+        {
           "name": "GET - Empleado por ID",
           "request": {
             "method": "GET",
