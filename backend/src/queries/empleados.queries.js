@@ -104,6 +104,12 @@ export const CLEAR_CV = `
   Se compara en los dos órdenes para que "perez juan" también encuentre a
   Juan Pérez. Mismo patrón parametrizado que GET_HISTORIAL en reportes.
 
+  Devuelve el estado para que RRHH vea en la lista a quién está eligiendo:
+  asignar un turno a alguien Inactivo, Suspendido o Despedido no está
+  prohibido (el estado es una foto de hoy y no tiene fechas, así que no
+  puede decidir sobre un turno futuro), pero sí tiene que estar a la vista.
+  Las licencias, que sí tienen fechas, las valida asignarTurno.
+
   Las tildes se normalizan con translate en las dos puntas: nadie escribe
   "Lucía" con tilde en un buscador. Se hace así y no con la extensión
   unaccent para no depender de un CREATE EXTENSION, que en un Postgres
@@ -118,9 +124,11 @@ export const BUSCAR_EMPLEADOS = `
     e.id,
     e.nombre,
     e.apellido,
-    p.nombre AS puesto
+    p.nombre AS puesto,
+    es.nombre AS estado
   FROM empleados e
   LEFT JOIN puestos p ON p.id = e.id_puesto
+  LEFT JOIN estados es ON es.id = e.id_estado
   WHERE translate(e.nombre || ' ' || e.apellido, 'áéíóúüñÁÉÍÓÚÜÑ', 'aeiouunAEIOUUN')
         ILIKE '%' || translate($1::text, 'áéíóúüñÁÉÍÓÚÜÑ', 'aeiouunAEIOUUN') || '%'
      OR translate(e.apellido || ' ' || e.nombre, 'áéíóúüñÁÉÍÓÚÜÑ', 'aeiouunAEIOUUN')

@@ -91,8 +91,9 @@ export const buscarEmpleados = async ({ q = null, limite }) => {
 
   /*
     Sin descifrarEmpleado a propósito: la query devuelve solo columnas en
-    claro (id, nombre, apellido y puesto). Ese es el punto del endpoint,
-    frente al listado completo que descifra cinco campos por empleado.
+    claro (id, nombre, apellido, puesto y estado). Ese es el punto del
+    endpoint, frente al listado completo que descifra cinco campos por
+    empleado.
   */
   return result.rows;
 };

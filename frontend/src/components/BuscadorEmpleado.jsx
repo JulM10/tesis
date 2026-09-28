@@ -1,6 +1,8 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { X } from "lucide-react";
 import { buscarEmpleados } from "@/services/empleados.services";
+import EstadoEmpleado from "@/components/EstadoEmpleado";
+import { necesitaAtencion } from "@/lib/empleados";
 import { useValorConRetardo } from "@/hooks/useValorConRetardo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,6 +19,11 @@ import { Input } from "@/components/ui/input";
   arriba cuando no le entra abajo (era el problema del desplegable) y
   además la recorta el scroll del propio diálogo. Así el diálogo
   simplemente crece.
+
+  Cada resultado muestra su estado cuando no es Activo (Inactivo,
+  Suspendido, Despedido, Vacaciones, Enfermo). No bloquea la elección
+  -el estado es de hoy y el turno puede ser de la semana que viene-,
+  pero RRHH lo ve antes de asignar y no después.
 */
 
 const MINIMO = 3;
@@ -116,6 +123,11 @@ export default function BuscadorEmpleado({
           {valor.nombre} {valor.apellido}
           {valor.puesto && <span className="text-gray-500"> — {valor.puesto}</span>}
         </span>
+        {necesitaAtencion(valor.estado) && (
+          <span className="shrink-0">
+            <EstadoEmpleado estado={valor.estado} />
+          </span>
+        )}
         <Button type="button" variant="ghost" size="sm" onClick={limpiar}>
           <X className="h-4 w-4" />
           Cambiar
@@ -172,6 +184,11 @@ export default function BuscadorEmpleado({
                   <span className="text-gray-500"> — {empleado.puesto}</span>
                 )}
               </span>
+              {necesitaAtencion(empleado.estado) && (
+                <span className="ml-2 shrink-0">
+                  <EstadoEmpleado estado={empleado.estado} />
+                </span>
+              )}
             </li>
           ))}
         </ul>

@@ -177,7 +177,7 @@
                 }
               ]
             },
-            "description": "Autocompletado del diálogo Asignar empleado: devuelve id, nombre, apellido y puesto de los que coinciden. Exige al menos 3 letras (400 si no) y devuelve como mucho 20. No descifra datos personales."
+            "description": "Autocompletado del diálogo Asignar empleado: devuelve id, nombre, apellido, puesto y estado de los que coinciden. Exige al menos 3 letras (400 si no) y devuelve como mucho 20. No descifra datos personales."
           }
         },
         {

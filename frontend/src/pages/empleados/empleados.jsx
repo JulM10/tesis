@@ -3,6 +3,7 @@ import { Navigate } from "react-router-dom";
 import { toast } from "sonner";
 import Layout from "@/components/Layout";
 import LicenciasEmpleado from "@/components/LicenciasEmpleado";
+import EstadoEmpleado from "@/components/EstadoEmpleado";
 import { useAuth } from "@/context/AuthContext";
 import {
   getEmpleadosDetalle,
@@ -75,34 +76,11 @@ const calcularEdad = (fechaNacimiento) => {
   return edad >= 0 ? edad : null;
 };
 
-// Colores de badge según estado del empleado
-const COLOR_ESTADO = {
-  Activo: "bg-emerald-100 text-emerald-800",
-  Inactivo: "bg-gray-100 text-gray-600",
-  Vacaciones: "bg-blue-100 text-blue-800",
-  Enfermo: "bg-yellow-100 text-yellow-800",
-  Suspendido: "bg-orange-100 text-orange-800",
-  Despedido: "bg-red-100 text-red-800",
-};
-
 /*
-  Fuera del componente a propósito: definidos adentro, React los tomaría
-  como tipos nuevos en cada render (regla react-hooks/static-components).
+  La ficha del empleado en celular, donde la tabla de ocho columnas no entra.
+  Fuera del componente a propósito: definida adentro, React la tomaría como
+  un tipo nuevo en cada render (regla react-hooks/static-components).
 */
-const EstadoEmpleado = ({ estado }) =>
-  estado ? (
-    <span
-      className={`inline-flex rounded-full px-2 py-1 text-xs font-medium ${
-        COLOR_ESTADO[estado] ?? "bg-gray-100 text-gray-600"
-      }`}
-    >
-      {estado}
-    </span>
-  ) : (
-    <span className="text-gray-400">—</span>
-  );
-
-/* La ficha del empleado en celular, donde la tabla de ocho columnas no entra */
 const TarjetaEmpleado = ({ empleado, puedeEditar, puedeEliminar, onEditar, onEliminar }) => (
   <div className="space-y-2 p-4">
     <div className="flex items-start justify-between gap-2">

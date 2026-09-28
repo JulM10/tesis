@@ -260,11 +260,13 @@ No es una moda: la asistencia se marca con el teléfono (el QR del kiosco abre `
 
 Para asignar a alguien a un turno, el desplegable traía **el padrón completo**: `GET /api/empleados/detalle`, sin filtro ni límite, que además descifra cinco campos por empleado. Y se volvía a pedir después de cada asignación, borrado o corrección.
 
-- Ahora hay un endpoint propio, `GET /api/empleados/buscar?q=&limite=`, que consulta dos tablas, devuelve cuatro columnas **en claro** (id, nombre, apellido y puesto) y **no descifra nada**. Ese es el punto: el endpoint liviano existe porque el diseño separa lo que se puede filtrar en SQL de lo que está cifrado.
+- Ahora hay un endpoint propio, `GET /api/empleados/buscar?q=&limite=`, que consulta dos tablas, devuelve cinco columnas **en claro** (id, nombre, apellido, puesto y estado) y **no descifra nada**. Ese es el punto: el endpoint liviano existe porque el diseño separa lo que se puede filtrar en SQL de lo que está cifrado.
 - El frontend consulta **a partir de tres letras**, con 300 ms de espera entre teclas y abortando la consulta anterior (`AbortController`), así una respuesta lenta no pisa a la nueva. El tope de resultados lo impone el backend (8 por defecto, 20 como máximo), no el cliente.
+- **Cada resultado muestra su estado cuando no es Activo** (Inactivo, Suspendido, Despedido, Vacaciones, Enfermo). No bloquea la elección, la informa: ver por qué en la pregunta sobre asignar turnos a alguien de baja.
 - **El filtro por empleado del calendario ya no necesita el padrón**: se arma con las asignaciones que la pantalla ya tiene. Resultado: el calendario dejó de pedir `/empleados/detalle`.
 - **Por qué la lista de resultados no es un menú flotante**: el desplegable anterior se abría hacia arriba y tapaba el formulario. La causa es que dentro de un diálogo centrado no le entra abajo, y la librería lo da vuelta. La lista nueva se dibuja dentro del flujo, debajo del campo: no puede darse vuelta ni la recorta el scroll del diálogo.
-- Limitaciones documentadas en el código: `ILIKE '%texto%'` no usa índice B-tree (con este volumen el scan con `LIMIT` es correcto; con más datos, `pg_trgm`), y sin la extensión `unaccent`, "jose" no encuentra a "José".
+- **Las tildes se normalizan en las dos puntas de la comparación** con `translate`, porque nadie escribe "Lucía" con tilde en un buscador: "gomez" encuentra a "Gómez". Se hizo así y no con la extensión `unaccent` para no depender de un `CREATE EXTENSION`, que en un Postgres administrado puede no estar permitido.
+- Limitación documentada en el código: `ILIKE '%texto%'` no usa índice B-tree. Con este volumen el scan con `LIMIT` es correcto; con más datos correspondería `pg_trgm` sobre la expresión normalizada.
 
 ---
 
@@ -284,6 +286,9 @@ Para asignar a alguien a un turno, el desplegable traía **el padrón completo**
 
 **"¿Por qué un turno no puede cruzar la medianoche?"**
 → Limitación conocida y documentada en el schema (`CHECK hora_fin > hora_inicio`). Decisión consciente de alcance; la extensión es conocida (fecha_fin o turnos partidos).
+
+**"¿Pueden asignarle un turno a alguien que está de vacaciones o dado de baja?"**
+→ De licencia, no: al asignar se valida que no haya una licencia (vacaciones, enfermedad o especial) que cubra **la fecha del turno**, y la validación inversa también existe (cargar vacaciones sobre turnos ya asignados se rechaza informando las fechas, en vez de borrarlos en silencio). Dado de baja, sí se puede, y es deliberado: el estado del empleado no tiene fechas en el modelo, es una foto de hoy, así que no puede decidir sobre un turno de la semana que viene — bloquear por estado dejaría afuera al suspendido que se reincorpora el lunes. Lo que sí hace el sistema es mostrar el estado en el buscador al momento de elegir. La regla con fechas la aplican las licencias; el estado informa.
 
 **"¿Tienen estrategia de backups?"**
 → Sí: `pg_dump` comprimido con retención de 7, restore documentado y **ensayado**. Y por el cifrado, un backup robado no expone datos personales — la clave se resguarda por separado.
@@ -327,3 +332,7 @@ Para asignar a alguien a un turno, el desplegable traía **el padrón completo**
 - Asistencia (21/09/2026, 38 pruebas de API, todas OK): clave de kiosco ausente o incorrecta → 401; código con formato inválido → 400; código de hace 60 s rechazado y el de la ventana anterior aceptado; ingreso y luego salida; doble escaneo inmediato rechazado; turno que todavía no abre; empleado con licencia no puede marcar; 5 códigos incorrectos → el 6.º intento da 429 aun con el código correcto, y el bloqueo es por usuario; corrección de RRHH con horas inválidas, salida sin ingreso, turno futuro y turno archivado rechazados; el rol EMPLEADO recibe 403 al corregir.
 - Asistencia en el navegador: sin sesión, el QR lleva al login y el login vuelve a `/marcar` con el código y registra el ingreso; Mi perfil muestra el turno "En curso" y después "Presente"; el calendario de RRHH muestra el estado y permite corregir; al rol EMPLEADO la API no le envía marcas ni licencias de los demás.
 - Licencias (25 pruebas de API): saldo descontado, superposición, saldo insuficiente y vacaciones sobre turnos asignados rechazados; enfermedad sobre turnos aceptada; comentario guardado como `enc:...` en la base.
+- Buscador de empleados (33 pruebas de API): busca por nombre o apellido en cualquier orden; "gomez" encuentra a "Gómez" y "perez" a "Pérez"; menos de 3 letras → 400; `limite=100` devuelve 20 como máximo y `limite=abc` cae en 8; `q=%` no rompe; el rol EMPLEADO recibe 403 y sin token 401; `GET /api/empleados/1` sigue funcionando. La respuesta trae solo id, nombre, apellido, puesto y estado: ni DNI, ni teléfono, ni dirección — la prueba de que no descifra nada.
+- Estado en el buscador: "Carlos Ruiz — Mantenimiento · Inactivo" y "Laura Navarro — Mucama · Vacaciones" aparecen etiquetados; los empleados Activos, sin etiqueta. A 375px la fila no desborda y mantiene los 44px de alto táctil.
+- Celular (375px): `document.body.scrollWidth === window.innerWidth` en las ocho pantallas autenticadas con la cuenta ADMINISTRADOR; menú hamburguesa con accesos de 44px que cierra con Escape; diálogos de 343px con 16px de margen; en el diálogo de asignar, la lista de resultados se dibuja debajo del campo y se navega con flechas, Enter y Escape.
+- Escalabilidad del calendario, medida en la pestaña Red: después de asignar un turno solo se piden `/calendario`, `/horarios` y `/catalogos`. `/empleados/detalle` dejó de pedirse.
