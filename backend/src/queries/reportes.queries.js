@@ -110,27 +110,36 @@ export const GET_LICENCIAS_PERIODO = `
   ordena por días disponibles.
 */
 export const GET_SALDO_VACACIONES = `
+  WITH tomados AS (
+    SELECT
+      e.id,
+      /*
+        El FILTER no es opcional: LEAST y GREATEST IGNORAN los NULL, así que
+        para un empleado sin vacaciones (LEFT JOIN sin fila) el recorte daba
+        31/12 - 1/1 + 1 = 365 días tomados. Se suman solo las filas reales.
+      */
+      COALESCE(SUM(
+        LEAST(l.fecha_hasta, make_date($1::int, 12, 31))
+        - GREATEST(l.fecha_desde, make_date($1::int, 1, 1)) + 1
+      ) FILTER (WHERE l.id IS NOT NULL), 0)::int AS usados
+    FROM empleados e
+    LEFT JOIN licencias l
+      ON l.id_empleado = e.id
+     AND l.tipo = 'VACACIONES'
+     AND l.fecha_desde <= make_date($1::int, 12, 31)
+     AND l.fecha_hasta >= make_date($1::int, 1, 1)
+    GROUP BY e.id
+  )
   SELECT
     e.nombre   AS empleado_nombre,
     e.apellido AS empleado_apellido,
     p.nombre   AS puesto,
     e.dias_vacaciones_anuales AS anuales,
-    COALESCE(SUM(
-      LEAST(l.fecha_hasta, make_date($1::int, 12, 31))
-      - GREATEST(l.fecha_desde, make_date($1::int, 1, 1)) + 1
-    ), 0)::int AS usados,
-    GREATEST(0, e.dias_vacaciones_anuales - COALESCE(SUM(
-      LEAST(l.fecha_hasta, make_date($1::int, 12, 31))
-      - GREATEST(l.fecha_desde, make_date($1::int, 1, 1)) + 1
-    ), 0))::int AS disponibles
+    t.usados,
+    GREATEST(0, e.dias_vacaciones_anuales - t.usados)::int AS disponibles
   FROM empleados e
+  JOIN tomados t ON t.id = e.id
   LEFT JOIN puestos p ON p.id = e.id_puesto
-  LEFT JOIN licencias l
-    ON l.id_empleado = e.id
-   AND l.tipo = 'VACACIONES'
-   AND l.fecha_desde <= make_date($1::int, 12, 31)
-   AND l.fecha_hasta >= make_date($1::int, 1, 1)
-  GROUP BY e.id, e.nombre, e.apellido, p.nombre, e.dias_vacaciones_anuales
   ORDER BY disponibles DESC, e.apellido, e.nombre
 `;
 

@@ -137,7 +137,9 @@ const marcasSimuladas = (turno, n) => {
   en la realidad: el empleado trabajó parte del día y se retiró. El turno
   conserva sus dos marcas, así que al archivarse queda como
   RETIRO_ENFERMEDAD con las horas que hizo, y no como día de licencia.
-  Se elige un turno ya archivable (anterior a ayer) y sin licencia previa.
+  Se elige un turno que YA sea archivable el día en que se carga la base
+  (de ahí el LEAST con CURRENT_DATE): el estado se calcula al archivar, así
+  que si el turno todavía no pasó, el caso no aparece en el historial.
 */
 const licenciaRetroactiva = async (client, fechaDemo) => {
   const { rows } = await client.query(
@@ -146,7 +148,7 @@ const licenciaRetroactiva = async (client, fechaDemo) => {
        JOIN calendario c ON c.id = ah.id_calendario
       WHERE ah.hora_ingreso IS NOT NULL
         AND ah.hora_egreso IS NOT NULL
-        AND c.fecha < $1::date - 1
+        AND c.fecha < LEAST($1::date, CURRENT_DATE) - 1
         AND NOT EXISTS (
           SELECT 1 FROM licencias li
            WHERE li.id_empleado = ah.id_empleado
