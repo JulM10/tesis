@@ -51,6 +51,30 @@ export const getDotacionPeriodo = async (req, res) => {
   }
 };
 
+export const getLicencias = async (req, res) => {
+  try {
+    const filas = await reportesService.getLicencias({
+      desde: fechaONull(req.query.desde),
+      hasta: fechaONull(req.query.hasta),
+      empleado: req.query.empleado?.trim() || null,
+      puesto: req.query.puesto?.trim() || null,
+      tipo: req.query.tipo?.trim().toUpperCase() || null,
+    });
+    res.json(filas);
+  } catch (error) {
+    responderError(res, error);
+  }
+};
+
+export const getSaldoVacaciones = async (req, res) => {
+  try {
+    const datos = await reportesService.getSaldoVacaciones({ anio: req.query.anio });
+    res.json(datos);
+  } catch (error) {
+    responderError(res, error);
+  }
+};
+
 export const getDotacion = async (req, res) => {
   try {
     const filas = await reportesService.getDotacion();

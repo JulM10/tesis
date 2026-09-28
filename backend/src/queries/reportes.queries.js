@@ -56,6 +56,84 @@ export const GET_DOTACION_PERIODO = `
   ORDER BY empleados DESC, p.nombre
 `;
 
+/*
+  Licencias tomadas en el período (reporte histórico).
+
+  Solapamiento y no contención: una licencia que empezó en febrero y
+  terminó en marzo aparece al pedir marzo. Es lo que espera quien pregunta
+  "qué licencias hubo este mes".
+
+  Sin el comentario, a propósito: va cifrado y puede tener el diagnóstico
+  (Ley 25.326 art. 7). Dejarlo afuera mantiene el reporte 100% resuelto en
+  SQL, igual que los otros tres, y evita que un dato de salud termine en
+  una planilla exportada. Se sigue viendo en la ficha del empleado.
+
+  El filtro por nombre normaliza las tildes en las dos puntas, igual que
+  BUSCAR_EMPLEADOS: "gomez" encuentra a "Gómez".
+*/
+export const GET_LICENCIAS_PERIODO = `
+  SELECT
+    e.nombre   AS empleado_nombre,
+    e.apellido AS empleado_apellido,
+    p.nombre   AS puesto,
+    l.tipo,
+    l.fecha_desde,
+    l.fecha_hasta,
+    (l.fecha_hasta - l.fecha_desde + 1) AS dias,
+    l.fecha_registro,
+    u.email AS registrada_por
+  FROM licencias l
+  JOIN empleados e ON e.id = l.id_empleado
+  LEFT JOIN puestos p ON p.id = e.id_puesto
+  LEFT JOIN usuarios u ON u.id = l.id_usuario_registra
+  WHERE ($1::date IS NULL OR l.fecha_hasta >= $1)
+    AND ($2::date IS NULL OR l.fecha_desde <= $2)
+    AND ($3::text IS NULL
+         OR translate(e.nombre || ' ' || e.apellido, 'áéíóúüñÁÉÍÓÚÜÑ', 'aeiouunAEIOUUN')
+            ILIKE '%' || translate($3::text, 'áéíóúüñÁÉÍÓÚÜÑ', 'aeiouunAEIOUUN') || '%'
+         OR translate(e.apellido || ' ' || e.nombre, 'áéíóúüñÁÉÍÓÚÜÑ', 'aeiouunAEIOUUN')
+            ILIKE '%' || translate($3::text, 'áéíóúüñÁÉÍÓÚÜÑ', 'aeiouunAEIOUUN') || '%')
+    AND ($4::text IS NULL OR p.nombre = $4)
+    AND ($5::text IS NULL OR l.tipo = $5)
+  ORDER BY l.fecha_desde DESC, e.apellido, e.nombre
+`;
+
+/*
+  Saldo de vacaciones de TODOS los empleados en un año.
+
+  Misma fórmula que DIAS_VACACIONES_USADOS: se cuentan solo los días que
+  caen dentro del año, recortando el rango contra el 1/1 y el 31/12, para
+  que un período que cruza el 31/12 descuente de los dos años.
+
+  LEFT JOIN: el empleado que no se tomó un solo día también tiene que
+  aparecer — es justamente a quien busca este reporte. Por eso además se
+  ordena por días disponibles.
+*/
+export const GET_SALDO_VACACIONES = `
+  SELECT
+    e.nombre   AS empleado_nombre,
+    e.apellido AS empleado_apellido,
+    p.nombre   AS puesto,
+    e.dias_vacaciones_anuales AS anuales,
+    COALESCE(SUM(
+      LEAST(l.fecha_hasta, make_date($1::int, 12, 31))
+      - GREATEST(l.fecha_desde, make_date($1::int, 1, 1)) + 1
+    ), 0)::int AS usados,
+    GREATEST(0, e.dias_vacaciones_anuales - COALESCE(SUM(
+      LEAST(l.fecha_hasta, make_date($1::int, 12, 31))
+      - GREATEST(l.fecha_desde, make_date($1::int, 1, 1)) + 1
+    ), 0))::int AS disponibles
+  FROM empleados e
+  LEFT JOIN puestos p ON p.id = e.id_puesto
+  LEFT JOIN licencias l
+    ON l.id_empleado = e.id
+   AND l.tipo = 'VACACIONES'
+   AND l.fecha_desde <= make_date($1::int, 12, 31)
+   AND l.fecha_hasta >= make_date($1::int, 1, 1)
+  GROUP BY e.id, e.nombre, e.apellido, p.nombre, e.dias_vacaciones_anuales
+  ORDER BY disponibles DESC, e.apellido, e.nombre
+`;
+
 export const GET_DOTACION = `
   SELECT puesto, lugar_trabajo, cantidad_empleados
   FROM vw_reporte_empleados_puesto_lugar

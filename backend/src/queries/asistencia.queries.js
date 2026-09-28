@@ -57,6 +57,7 @@ WHERE id = $1
 export const ASIGNACION_PARA_CORREGIR = `
 SELECT ah.id,
        ah.archivado,
+       ah.hora_ingreso,
        c.fecha > (now() AT TIME ZONE 'America/Argentina/Cordoba')::date AS futuro,
        EXISTS (
          SELECT 1

@@ -28,6 +28,24 @@ export const getDotacionPeriodo = async ({ desde, hasta }) => {
   return response.data;
 };
 
+/**
+ * Licencias tomadas en el período: { desde, hasta, empleado, puesto, tipo }.
+ * Incluye las que se solapan con el rango, no solo las contenidas.
+ */
+export const getReporteLicencias = async (filtros = {}) => {
+  const response = await api.get('/reportes/licencias', { params: filtros });
+  return response.data;
+};
+
+/**
+ * Saldo de vacaciones de todos los empleados en el año:
+ * { anio, saldos: [{ empleado_nombre, puesto, anuales, usados, disponibles }] }
+ */
+export const getSaldoVacaciones = async (anio) => {
+  const response = await api.get('/reportes/vacaciones', { params: { anio } });
+  return response.data;
+};
+
 /** Cantidad de empleados por puesto y lugar de trabajo */
 export const getReporteDotacion = async () => {
   const response = await api.get('/reportes/dotacion');

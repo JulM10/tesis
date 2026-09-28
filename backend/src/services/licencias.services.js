@@ -31,6 +31,29 @@ const descifrarLicencia = (fila) => ({
 const diasCorridos = (desde, hasta) =>
   (Date.parse(hasta) - Date.parse(desde)) / MS_POR_DIA + 1;
 
+// Fechas para el mensaje: las primeras y puntos suspensivos si hay más.
+const listarFechas = (filas) =>
+  filas.slice(0, MAX_FECHAS_EN_MENSAJE).map((f) => f.fecha).join(", ") +
+  (filas.length > MAX_FECHAS_EN_MENSAJE ? "…" : "");
+
+/*
+  Días de cada año calendario que toca el período. Un período que cruza el
+  31/12 consume saldo de los dos años: imputarlo entero al año de inicio
+  dejaba el año nuevo sin descontar. La comparación de strings AAAA-MM-DD
+  es un orden correcto, así que alcanza para recortar el rango.
+*/
+const tramosPorAnio = (desde, hasta) => {
+  const tramos = [];
+
+  for (let anio = Number(desde.slice(0, 4)); anio <= Number(hasta.slice(0, 4)); anio++) {
+    const inicio = desde > `${anio}-01-01` ? desde : `${anio}-01-01`;
+    const fin = hasta < `${anio}-12-31` ? hasta : `${anio}-12-31`;
+    tramos.push({ anio, dias: diasCorridos(inicio, fin) });
+  }
+
+  return tramos;
+};
+
 const resolverAnio = async (anio) => {
   const numero = Number(anio);
 
@@ -69,26 +92,24 @@ export const getLicencias = async (idEmpleado, anio) => {
 };
 
 const validarVacaciones = async (client, idEmpleado, diasAnuales, desde, hasta) => {
-  const dias = diasCorridos(desde, hasta);
-  const anio = Number(desde.slice(0, 4));
+  // Un saldo por cada año que toca el período, no uno solo.
+  for (const { anio, dias } of tramosPorAnio(desde, hasta)) {
+    const usados = await client.query(Queries.DIAS_VACACIONES_USADOS, [idEmpleado, anio]);
+    const disponibles = diasAnuales - usados.rows[0].usados;
 
-  const usados = await client.query(Queries.DIAS_VACACIONES_USADOS, [idEmpleado, anio]);
-  const disponibles = diasAnuales - usados.rows[0].usados;
-
-  if (dias > disponibles) {
-    throw httpError(409, MENSAJES.LICENCIAS.SALDO_INSUFICIENTE(Math.max(0, disponibles), anio, dias));
+    if (dias > disponibles) {
+      throw httpError(409, MENSAJES.LICENCIAS.SALDO_INSUFICIENTE(Math.max(0, disponibles), anio, dias));
+    }
   }
 
   const turnos = await client.query(Queries.TURNOS_EN_RANGO, [idEmpleado, desde, hasta]);
 
   if (turnos.rowCount > 0) {
-    const fechas = turnos.rows.slice(0, MAX_FECHAS_EN_MENSAJE).map((t) => t.fecha).join(", ");
-    const resto = turnos.rowCount > MAX_FECHAS_EN_MENSAJE ? "…" : "";
-    throw httpError(409, MENSAJES.LICENCIAS.TURNOS_ASIGNADOS(turnos.rowCount, fechas + resto));
+    throw httpError(409, MENSAJES.LICENCIAS.TURNOS_ASIGNADOS(turnos.rowCount, listarFechas(turnos.rows)));
   }
 };
 
-export const crearLicencia = async (idEmpleado, { tipo, fecha_desde, fecha_hasta, comentario }) => {
+export const crearLicencia = async (idEmpleado, { tipo, fecha_desde, fecha_hasta, comentario }, idUsuario = null) => {
   const comentarioLimpio = comentario ? String(comentario).trim() || null : null;
   const client = await pool.connect();
 
@@ -127,6 +148,18 @@ export const crearLicencia = async (idEmpleado, { tipo, fecha_desde, fecha_hasta
       fecha_desde,
       fecha_hasta,
       cifrar(comentarioLimpio),
+      idUsuario,
+    ]);
+
+    /*
+      Turnos del período donde el empleado ya había fichado. No invalidan la
+      licencia: se avisa, porque esos días conservan las horas trabajadas y
+      no cuentan como día de licencia.
+    */
+    const fichados = await client.query(Queries.TURNOS_CON_ASISTENCIA_EN_RANGO, [
+      idEmpleado,
+      fecha_desde,
+      fecha_hasta,
     ]);
 
     // Si la licencia cubre hoy, el estado del empleado cambia en el acto.
@@ -134,7 +167,12 @@ export const crearLicencia = async (idEmpleado, { tipo, fecha_desde, fecha_hasta
 
     await client.query("COMMIT");
 
-    return descifrarLicencia(result.rows[0]);
+    return {
+      ...descifrarLicencia(result.rows[0]),
+      advertencia: fichados.rowCount
+        ? MENSAJES.LICENCIAS.ASISTENCIA_MARCADA(fichados.rowCount, listarFechas(fichados.rows))
+        : null,
+    };
   } catch (error) {
     await client.query("ROLLBACK");
     throw error;

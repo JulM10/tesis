@@ -16,12 +16,16 @@ import {
   getReporteHistorial,
   getReporteHoras,
   getReporteDotacion,
+  getReporteLicencias,
+  getSaldoVacaciones,
   descargarCSV,
 } from "@/services/reportes.services";
 import { getCatalogos, getEmpleadosDetalle } from "@/services/empleados.services";
 import { hoyISO, formatearFecha, horaCorta } from "@/lib/fechas";
 import { ESTADOS_ASISTENCIA, ESTADOS_HISTORIAL, SIN_CONTROL } from "@/lib/asistencia";
+import { TIPOS_LICENCIA } from "@/lib/licencias";
 import { PuntoAsistencia } from "@/components/EstadoAsistencia";
+import TipoLicencia from "@/components/TipoLicencia";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -46,8 +50,13 @@ import {
 const REPORTES = [
   { id: "historial", nombre: "Historial de turnos" },
   { id: "horas", nombre: "Horas trabajadas" },
+  { id: "licencias", nombre: "Licencias" },
   { id: "dotacion", nombre: "Dotación" },
 ];
+
+// Pestañas que comparten el rango de fechas y el filtro por empleado.
+const CON_PERIODO = ["historial", "horas", "licencias"];
+const CON_EMPLEADO = ["historial", "licencias"];
 
 const hace30 = () =>
   new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
@@ -105,6 +114,24 @@ const contarPorEstado = (filas) => {
   return conteo;
 };
 
+/* Días de licencia por tipo en el período, para el resumen de la pestaña */
+const contarDiasPorTipo = (filas) => {
+  const total = {};
+  filas.forEach((f) => {
+    total[f.tipo] = (total[f.tipo] ?? 0) + Number(f.dias);
+  });
+  return total;
+};
+
+/*
+  Este reporte no sale del historial de turnos sino de las licencias
+  cargadas, así que incluye días que en el historial no existen: los que
+  no tenían turno asignado.
+*/
+const AVISO_LICENCIAS =
+  "Sale de las licencias cargadas, no de los turnos: incluye los días sin turno asignado, que en el " +
+  "historial no aparecen. Se listan también las licencias que empiezan antes o terminan después del período.";
+
 // Los reportes salen del historial, que se congela con un día de gracia.
 const AVISO_HISTORIAL =
   "Incluye los turnos ya cerrados en el historial. Los de ayer y hoy todavía no aparecen: " +
@@ -149,6 +176,16 @@ export default function Reportes() {
   const [empleado, setEmpleado] = useState("");
   const [puesto, setPuesto] = useState("todos");
   const [asistencia, setAsistencia] = useState("todas");
+  const [tipoLicencia, setTipoLicencia] = useState("todos");
+
+  // Saldo de vacaciones: vive aparte de `filas` porque es otra consulta.
+  const [saldos, setSaldos] = useState([]);
+  // El año que viene sirve para planificar; los tres últimos, para revisar.
+  const [aniosSaldo] = useState(() => {
+    const actual = Number(hoyISO().slice(0, 4));
+    return [actual + 1, actual, actual - 1, actual - 2];
+  });
+  const [anioSaldo, setAnioSaldo] = useState(() => aniosSaldo[1]);
 
   const cargar = async () => {
     setCargando(true);
@@ -161,6 +198,16 @@ export default function Reportes() {
             empleado: empleado.trim() || undefined,
             puesto: puesto !== "todos" ? puesto : undefined,
             asistencia: asistencia !== "todas" ? asistencia : undefined,
+          })
+        );
+      } else if (reporte === "licencias") {
+        setFilas(
+          await getReporteLicencias({
+            desde,
+            hasta,
+            empleado: empleado.trim() || undefined,
+            puesto: puesto !== "todos" ? puesto : undefined,
+            tipo: tipoLicencia !== "todos" ? tipoLicencia : undefined,
           })
         );
       } else if (reporte === "horas") {
@@ -195,6 +242,19 @@ export default function Reportes() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reporte]);
 
+  // El saldo se recarga al cambiar de año, sin pasar por "Buscar".
+  useEffect(() => {
+    if (reporte !== "licencias") return;
+
+    (async () => {
+      try {
+        setSaldos((await getSaldoVacaciones(anioSaldo)).saldos);
+      } catch {
+        setSaldos([]);
+      }
+    })();
+  }, [reporte, anioSaldo]);
+
   if (!tienePermiso("REPORTES_VER")) {
     return <Navigate to="/" replace />;
   }
@@ -224,6 +284,29 @@ export default function Reportes() {
           { clave: "horas_trabajadas", titulo: "Horas trabajadas" },
         ],
         `historial_turnos_${fechaHoy}.csv`
+      );
+    } else if (reporte === "licencias") {
+      // Sin el comentario: puede tener el diagnóstico y no viaja al CSV.
+      descargarCSV(
+        filas.map((f) => ({
+          ...f,
+          tipo: TIPOS_LICENCIA[f.tipo]?.etiqueta ?? f.tipo,
+          fecha_desde: formatearFecha(f.fecha_desde),
+          fecha_hasta: formatearFecha(f.fecha_hasta),
+          fecha_registro: formatearFecha(f.fecha_registro),
+        })),
+        [
+          { clave: "empleado_nombre", titulo: "Nombre" },
+          { clave: "empleado_apellido", titulo: "Apellido" },
+          { clave: "puesto", titulo: "Puesto" },
+          { clave: "tipo", titulo: "Tipo" },
+          { clave: "fecha_desde", titulo: "Desde" },
+          { clave: "fecha_hasta", titulo: "Hasta" },
+          { clave: "dias", titulo: "Días" },
+          { clave: "fecha_registro", titulo: "Cargada el" },
+          { clave: "registrada_por", titulo: "Cargada por" },
+        ],
+        `licencias_${desde}_a_${hasta}.csv`
       );
     } else if (reporte === "horas") {
       descargarCSV(
@@ -257,6 +340,7 @@ export default function Reportes() {
   };
 
   const conteo = reporte === "historial" ? contarPorEstado(filas) : {};
+  const diasPorTipo = reporte === "licencias" ? contarDiasPorTipo(filas) : {};
 
   const totalEmpleados = filas.reduce(
     (suma, f) => suma + Number(f.cantidad_empleados ?? 0),
@@ -298,7 +382,7 @@ export default function Reportes() {
         </div>
 
         {/* Filtros */}
-        {reporte !== "dotacion" && (
+        {CON_PERIODO.includes(reporte) && (
           <Card>
             <CardContent className="grid grid-cols-2 gap-3 p-4 sm:flex sm:flex-wrap sm:items-end sm:gap-4">
               <div className="space-y-1">
@@ -321,7 +405,7 @@ export default function Reportes() {
                   onChange={(e) => setHasta(e.target.value)}
                 />
               </div>
-              {reporte === "historial" && (
+              {CON_EMPLEADO.includes(reporte) && (
                 <>
                   <div className="col-span-2 space-y-1 sm:col-span-1">
                     <Label htmlFor="filtro-empleado">Empleado</Label>
@@ -348,23 +432,43 @@ export default function Reportes() {
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className="col-span-2 space-y-1 sm:col-span-1">
-                    <Label>Asistencia</Label>
-                    <Select value={asistencia} onValueChange={setAsistencia}>
-                      <SelectTrigger className="w-full sm:w-40" aria-label="Filtrar por asistencia">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="todas">Todas</SelectItem>
-                        {ESTADOS_HISTORIAL.map((estado) => (
-                          <SelectItem key={estado} value={estado}>
-                            <PuntoAsistencia estado={estado} />
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
                 </>
+              )}
+              {reporte === "historial" && (
+                <div className="col-span-2 space-y-1 sm:col-span-1">
+                  <Label>Asistencia</Label>
+                  <Select value={asistencia} onValueChange={setAsistencia}>
+                    <SelectTrigger className="w-full sm:w-40" aria-label="Filtrar por asistencia">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="todas">Todas</SelectItem>
+                      {ESTADOS_HISTORIAL.map((estado) => (
+                        <SelectItem key={estado} value={estado}>
+                          <PuntoAsistencia estado={estado} />
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+              {reporte === "licencias" && (
+                <div className="col-span-2 space-y-1 sm:col-span-1">
+                  <Label>Tipo</Label>
+                  <Select value={tipoLicencia} onValueChange={setTipoLicencia}>
+                    <SelectTrigger className="w-full sm:w-40" aria-label="Filtrar por tipo de licencia">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="todos">Todos los tipos</SelectItem>
+                      {Object.entries(TIPOS_LICENCIA).map(([valor, { etiqueta }]) => (
+                        <SelectItem key={valor} value={valor}>
+                          {etiqueta}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               )}
               <Button className="col-span-2 w-full sm:w-auto" onClick={cargar} disabled={cargando}>
                 {cargando ? "Buscando..." : "Buscar"}
@@ -415,8 +519,10 @@ export default function Reportes() {
           </div>
         )}
 
-        {reporte !== "dotacion" && (
-          <p className="text-xs text-gray-500">{AVISO_HISTORIAL}</p>
+        {CON_PERIODO.includes(reporte) && (
+          <p className="text-xs text-gray-500">
+            {reporte === "licencias" ? AVISO_LICENCIAS : AVISO_HISTORIAL}
+          </p>
         )}
 
         {/* Historial: cuántos turnos asistió y cuántos no, con los mismos puntos de la tabla */}
@@ -431,8 +537,85 @@ export default function Reportes() {
           </div>
         )}
 
+        {/* Licencias: cuántos días de cada tipo hubo en el período */}
+        {reporte === "licencias" && !cargando && filas.length > 0 && (
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-gray-600">
+            <span className="font-semibold text-gray-800">
+              {filas.length} licencia{filas.length === 1 ? "" : "s"}
+            </span>
+            {Object.entries(TIPOS_LICENCIA)
+              .filter(([valor]) => diasPorTipo[valor])
+              .map(([valor, { etiqueta }]) => (
+                <span key={valor} className="whitespace-nowrap">
+                  <strong className="font-semibold text-gray-800">{diasPorTipo[valor]}</strong>{" "}
+                  días de {etiqueta.toLowerCase()}
+                </span>
+              ))}
+          </div>
+        )}
+
+        {/* Saldo de vacaciones del año: a quién le quedan días sin tomar */}
+        {reporte === "licencias" && (
+          <div className="space-y-3 rounded-lg border bg-white p-4">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <h3 className="font-semibold">Saldo de vacaciones</h3>
+                <p className="text-xs text-gray-500">
+                  Días que corresponden en el año, tomados y disponibles. Un período que cruza
+                  el 31/12 descuenta de los dos años.
+                </p>
+              </div>
+              <Select value={String(anioSaldo)} onValueChange={(v) => setAnioSaldo(Number(v))}>
+                <SelectTrigger className="w-full sm:w-28" aria-label="Año del saldo de vacaciones">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {aniosSaldo.map((a) => (
+                    <SelectItem key={a} value={String(a)}>
+                      {a}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {saldos.length === 0 ? (
+              <p className="text-sm text-gray-400">Sin datos de vacaciones para {anioSaldo}.</p>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Empleado</TableHead>
+                    <TableHead className={SOLO_ESCRITORIO}>Puesto</TableHead>
+                    <TableHead className={`text-right ${SOLO_ESCRITORIO}`}>Del año</TableHead>
+                    <TableHead className="text-right">Tomados</TableHead>
+                    <TableHead className="text-right">Disponibles</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {saldos.map((s, i) => (
+                    <TableRow key={i} className={Number(s.usados) === 0 ? "bg-red-50/60" : undefined}>
+                      <TableCell className="font-medium">
+                        {s.empleado_nombre} {s.empleado_apellido}
+                      </TableCell>
+                      <TableCell className={SOLO_ESCRITORIO}>{s.puesto ?? "—"}</TableCell>
+                      <TableCell className={`text-right tabular-nums ${SOLO_ESCRITORIO}`}>
+                        {s.anuales}
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums">{s.usados}</TableCell>
+                      <TableCell className="text-right tabular-nums font-semibold">
+                        {s.disponibles}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </div>
+        )}
+
         {/* En celular la tabla esconde columnas y las demás quedan deslizando */}
-        {reporte !== "dotacion" && !cargando && filas.length > 0 && (
+        {CON_PERIODO.includes(reporte) && !cargando && filas.length > 0 && (
           <p className="text-xs text-gray-400 md:hidden">
             Deslizá la tabla para ver el resto de las columnas.
           </p>
@@ -484,6 +667,42 @@ export default function Reportes() {
                     <TableCell className={SOLO_ESCRITORIO}>{horaCorta(f.hora_egreso) || "—"}</TableCell>
                     <TableCell className="text-right tabular-nums">
                       {f.horas_trabajadas ?? "—"}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          ) : reporte === "licencias" ? (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Empleado</TableHead>
+                  <TableHead className={SOLO_ESCRITORIO}>Puesto</TableHead>
+                  <TableHead>Tipo</TableHead>
+                  <TableHead>Desde</TableHead>
+                  <TableHead className={SOLO_ESCRITORIO}>Hasta</TableHead>
+                  <TableHead className="text-right">Días</TableHead>
+                  <TableHead className={SOLO_ESCRITORIO}>Cargada por</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filas.map((f, i) => (
+                  <TableRow key={i}>
+                    <TableCell className="font-medium">
+                      {f.empleado_nombre} {f.empleado_apellido}
+                    </TableCell>
+                    <TableCell className={SOLO_ESCRITORIO}>{f.puesto ?? "—"}</TableCell>
+                    <TableCell>
+                      <TipoLicencia tipo={f.tipo} />
+                    </TableCell>
+                    <TableCell className="whitespace-nowrap">{formatearFecha(f.fecha_desde)}</TableCell>
+                    <TableCell className={`whitespace-nowrap ${SOLO_ESCRITORIO}`}>
+                      {formatearFecha(f.fecha_hasta)}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">{f.dias}</TableCell>
+                    {/* Sin autor: licencias anteriores a que se registrara quién las carga */}
+                    <TableCell className={`text-gray-500 ${SOLO_ESCRITORIO}`}>
+                      {f.registrada_por ?? "—"}
                     </TableCell>
                   </TableRow>
                 ))}

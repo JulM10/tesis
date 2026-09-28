@@ -13,10 +13,16 @@ export const getLicencias = async (req, res) => {
 
 export const crearLicencia = async (req, res) => {
   try {
-    const licencia = await licenciasService.crearLicencia(req.params.id, req.body);
+    // El id del usuario queda guardado: es la única traza de quién la cargó.
+    const { advertencia, ...licencia } = await licenciasService.crearLicencia(
+      req.params.id,
+      req.body,
+      req.usuario.sub
+    );
 
     res.status(201).json({
       message: MENSAJES.LICENCIAS.CREADA_OK,
+      advertencia,
       data: licencia
     });
   } catch (error) {

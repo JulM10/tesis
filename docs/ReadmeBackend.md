@@ -86,7 +86,7 @@ Todos los endpoints (excepto auth) requieren `Authorization: Bearer <token>`. Ca
 | DELETE | `/api/empleados/:id/cv` | EMPLEADOS_EDITAR | Elimina el CV. |
 | GET | `/api/empleados/buscar?q=texto&limite=n` | EMPLEADOS_VER | Autocompletado para asignar turnos: `id`, `nombre`, `apellido`, `puesto` y `estado` de quienes coinciden (el estado se muestra en la lista cuando no es Activo, para que RRHH vea a quién elige). Exige 3 letras (400 si no), devuelve 8 por defecto y 20 como máximo. No toca la vista de detalle ni descifra datos personales. |
 | GET | `/api/empleados/:id/licencias?anio` | EMPLEADOS_VER | Licencias del empleado y saldo de vacaciones del año (`dias_anuales`, `usados`, `disponibles`). |
-| POST | `/api/empleados/:id/licencias` | EMPLEADOS_EDITAR | Registra una licencia `{ tipo, fecha_desde, fecha_hasta, comentario }`. Tipo `VACACIONES`, `ENFERMEDAD` o `ESPECIAL`. Rechaza superposición con otra licencia (409); las vacaciones además validan el saldo del año y que no haya turnos asignados en el rango. El comentario se guarda cifrado (dato de salud). |
+| POST | `/api/empleados/:id/licencias` | EMPLEADOS_EDITAR | Registra una licencia `{ tipo, fecha_desde, fecha_hasta, comentario }`. Tipo `VACACIONES`, `ENFERMEDAD` o `ESPECIAL`. Rechaza superposición con otra licencia (409); las vacaciones además validan el saldo **de cada año que toca el período** y que no haya turnos asignados en el rango. Si el empleado ya había marcado asistencia en esas fechas la licencia se carga igual y la respuesta trae `advertencia` con los días: esos turnos conservan sus horas. Guarda qué usuario la registró; el comentario va cifrado (dato de salud). |
 | DELETE | `/api/empleados/:id/licencias/:idLicencia` | EMPLEADOS_EDITAR | Elimina una licencia. |
 
 #### Alta de empleado con provisión automática de cuenta
@@ -171,8 +171,10 @@ Reglas del marcado: el ingreso se acepta desde 30 min antes del inicio hasta el 
 
 | Método | Ruta | Permiso | Descripción |
 |---|---|---|---|
-| GET | `/api/reportes/historial?desde&hasta&empleado&puesto&asistencia` | REPORTES_VER | Historial de turnos con filtros, con ingreso, salida, estado de asistencia y horas trabajadas. `asistencia` = `PRESENTE`, `INCOMPLETO`, `AUSENTE`, `ENFERMEDAD` o `LICENCIA`. |
+| GET | `/api/reportes/historial?desde&hasta&empleado&puesto&asistencia` | REPORTES_VER | Historial de turnos con filtros, con ingreso, salida, estado de asistencia y horas trabajadas. `asistencia` = `PRESENTE`, `RETIRO_ENFERMEDAD`, `INCOMPLETO`, `AUSENTE`, `ENFERMEDAD`, `VACACIONES` o `ESPECIAL`. |
 | GET | `/api/reportes/horas?desde&hasta` | REPORTES_VER | Por empleado/puesto: turnos, presentes, sin salida, ausencias, licencias, horas programadas y horas trabajadas. Solo se computan horas con ingreso **y** salida. |
+| GET | `/api/reportes/licencias?desde&hasta&empleado&puesto&tipo` | REPORTES_VER | Licencias tomadas en el período, una fila por licencia: empleado, puesto, tipo, fechas, días y quién la cargó. Incluye las que **se solapan** con el rango, no solo las contenidas. Sin el comentario: puede tener datos de salud y el reporte no descifra nada. |
+| GET | `/api/reportes/vacaciones?anio` | REPORTES_VER | Saldo de vacaciones de todos los empleados en el año: días que le corresponden, tomados y disponibles. Un período que cruza el 31/12 descuenta de los dos años. Sin `anio`, el argentino actual. |
 | GET | `/api/reportes/dotacion` | REPORTES_VER | Dotación actual por puesto y lugar. |
 | GET | `/api/reportes/dotacion-periodo?desde&hasta` | REPORTES_VER | Por puesto del turno: empleados distintos, turnos y asignaciones en el período (incluye días futuros). Alimenta el gráfico del dashboard. Rango obligatorio, máximo un año. |
 

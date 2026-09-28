@@ -865,6 +865,68 @@
           }
         },
         {
+          "name": "GET - Licencias del período",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{BASE_URL}}/reportes/licencias?desde=2026-01-01&hasta=2026-12-31&empleado=&puesto=&tipo=",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "reportes",
+                "licencias"
+              ],
+              "query": [
+                {
+                  "key": "desde",
+                  "value": "2026-01-01"
+                },
+                {
+                  "key": "hasta",
+                  "value": "2026-12-31"
+                },
+                {
+                  "key": "empleado",
+                  "value": ""
+                },
+                {
+                  "key": "puesto",
+                  "value": ""
+                },
+                {
+                  "key": "tipo",
+                  "value": ""
+                }
+              ]
+            },
+            "description": "Licencias tomadas en el período: empleado, puesto, tipo, fechas, días y quién la cargó. Incluye las que se solapan con el rango, no solo las contenidas. tipo = VACACIONES, ENFERMEDAD o ESPECIAL (otro valor da 400). No devuelve el comentario: puede tener datos de salud y el reporte no descifra nada."
+          }
+        },
+        {
+          "name": "GET - Saldo de vacaciones",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{BASE_URL}}/reportes/vacaciones?anio=2026",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "reportes",
+                "vacaciones"
+              ],
+              "query": [
+                {
+                  "key": "anio",
+                  "value": "2026"
+                }
+              ]
+            },
+            "description": "Saldo de vacaciones de todos los empleados en el año: días que le corresponden, tomados y disponibles, ordenado por disponibles. Un período que cruza el 31/12 descuenta de los dos años. Sin anio (o con uno inválido) usa el año argentino actual."
+          }
+        },
+        {
           "name": "GET - Dotación",
           "request": {
             "method": "GET",

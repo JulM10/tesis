@@ -18,6 +18,21 @@ router.get("/historial", requierePermiso("REPORTES_VER"), reportesController.get
 router.get("/horas", requierePermiso("REPORTES_VER"), reportesController.getHorasTrabajadas);
 
 /**
+ * GET /api/reportes/licencias?desde&hasta&empleado&puesto&tipo
+ * Licencias tomadas en el período (histórico por empleado). Incluye las
+ * que se solapan con el rango, no solo las contenidas. Sin el comentario:
+ * puede tener datos de salud y no se descifra nada para este reporte.
+ */
+router.get("/licencias", requierePermiso("REPORTES_VER"), reportesController.getLicencias);
+
+/**
+ * GET /api/reportes/vacaciones?anio
+ * Saldo de vacaciones de todos los empleados en el año: días anuales,
+ * tomados y disponibles. Sin año, el argentino actual.
+ */
+router.get("/vacaciones", requierePermiso("REPORTES_VER"), reportesController.getSaldoVacaciones);
+
+/**
  * GET /api/reportes/dotacion
  * Cantidad de empleados por puesto y lugar de trabajo.
  */

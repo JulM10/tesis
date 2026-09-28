@@ -234,6 +234,28 @@ Si falla la conexión del celular: tipear el código en Mi perfil desde otra pes
 - **Estado automático:** mientras dura la licencia el empleado pasa a Vacaciones o Enfermo, y vuelve a Activo al terminar (procedimiento `sincronizar_estado_licencias`, al arrancar, cada hora y al cargar/borrar). Nunca pisa Inactivo, Suspendido o Despedido.
 - **Comentario cifrado** con AES-256-GCM, como las notas: puede tener un diagnóstico.
 
+### El día que se trabaja a medias (la regla que más cuesta ver)
+
+La licencia se carga **después** del día que cubre: el empleado se descompone a media mañana y RRHH la registra a la tarde. Al principio la licencia pisaba las marcas, y un turno con entrada y salida fichadas quedaba en 0 horas: el que había trabajado cinco horas cobraba cero. La prioridad ahora es al revés, **las marcas primero**:
+
+- **Fichó las dos marcas + enfermedad ese día** → `RETIRO_ENFERMEDAD`: se le cuentan las horas que hizo y queda registrado por qué se fue antes.
+- **Fichó el ingreso y no la salida** → sigue siendo "Sin salida", y RRHH puede cargarle la salida aunque haya licencia. Era el otro lado del mismo error: la validación de licencia también bloqueaba la corrección.
+- **No fichó nada** → ahí sí manda la licencia, y el turno se archiva con **su tipo**: "No asistió (enfermedad)" o "No asistió (vacaciones)", no como ausencia injustificada.
+- Al cargar la licencia sobre días ya fichados, la respuesta **avisa** con las fechas. No bloquea: el dato cierto es que ese día trabajó.
+
+Detalle fino: el historial se congela con un día de gracia, así que una licencia cargada hoy sobre el turno de ayer todavía entra; sobre algo de la semana pasada, no.
+
+### Vacaciones que cruzan el 31 de diciembre
+
+El saldo se imputaba entero al año de la fecha de inicio: del 28/12 al 06/01 descontaba los diez días del año viejo y dejaba el nuevo sin consumir. Ahora **cada año recibe los días que le tocan**, recortando el rango contra el 1/1 y el 31/12, y el alta valida el saldo de los dos años por separado. La misma fórmula se usa en el alta y en el reporte: una sola definición de "días de vacaciones de este año".
+
+### Reporte histórico de licencias
+
+- Hasta acá las licencias se miraban **de a un empleado**. El reporte nuevo las cruza: qué se tomó en el período y, arriba, el saldo de vacaciones de todos, ordenado por días **sin tomar** — que es la pregunta de noviembre.
+- **No sale del historial de turnos**, y por eso existe: un día de vacaciones sin turno asignado no está en ningún otro lado. La columna "licencias" del reporte de horas cuenta turnos cubiertos, que es otra cosa.
+- **Sin el comentario**, ni en pantalla ni en el CSV: puede tener el diagnóstico (Ley 25.326 art. 7). Así el reporte se resuelve 100% en SQL sin descifrar nada, igual que los otros tres, y un dato de salud no termina en una planilla que después circula por mail.
+- **Quién la cargó**: la licencia guarda el usuario que la registró. Es la única traza de autoría, porque borrar una licencia la borra de verdad (decisión consciente: la baja lógica obligaba a filtrar "no anuladas" en cinco consultas y en el procedimiento de estados, a días de la defensa).
+
 ### Gráfico de dotación por puesto (dashboard)
 
 - Muestra cuántos empleados **distintos** tienen turnos de cada puesto en la semana o el mes (con navegación entre períodos); el tooltip agrega turnos y asignaciones. Cada barra usa el color del puesto, el mismo del calendario.
@@ -289,6 +311,12 @@ Para asignar a alguien a un turno, el desplegable traía **el padrón completo**
 
 **"¿Pueden asignarle un turno a alguien que está de vacaciones o dado de baja?"**
 → De licencia, no: al asignar se valida que no haya una licencia (vacaciones, enfermedad o especial) que cubra **la fecha del turno**, y la validación inversa también existe (cargar vacaciones sobre turnos ya asignados se rechaza informando las fechas, en vez de borrarlos en silencio). Dado de baja, sí se puede, y es deliberado: el estado del empleado no tiene fechas en el modelo, es una foto de hoy, así que no puede decidir sobre un turno de la semana que viene — bloquear por estado dejaría afuera al suspendido que se reincorpora el lunes. Lo que sí hace el sistema es mostrar el estado en el buscador al momento de elegir. La regla con fechas la aplican las licencias; el estado informa.
+
+**"¿Qué pasa si alguien se enferma en la mitad del turno?"**
+→ Cobra las horas que trabajó. El sistema da prioridad a las marcas sobre la licencia: si fichó entrada y salida, el turno queda como "se retiró (enfermedad)" con sus horas; si no llegó a fichar, ahí sí el día se archiva como "no asistió (enfermedad)" y no cuenta como ausencia injustificada. Cuando RRHH carga la licencia sobre días que ya tenían asistencia, el sistema avisa cuáles.
+
+**"¿Y las vacaciones que arrancan en diciembre y terminan en enero?"**
+→ Cada año descuenta los días que le tocan, no el año de inicio. El alta valida los dos saldos por separado y avisa con el año en el mensaje. Es la misma fórmula que usa el reporte de vacaciones, definida una sola vez.
 
 **"¿Tienen estrategia de backups?"**
 → Sí: `pg_dump` comprimido con retención de 7, restore documentado y **ensayado**. Y por el cifrado, un backup robado no expone datos personales — la clave se resguarda por separado.

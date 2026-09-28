@@ -31,6 +31,11 @@ export const MENSAJES = {
     ELIMINADA_OK: "Licencia eliminada correctamente",
     SALDO_INSUFICIENTE: (disponibles, anio, dias) =>
       `Le quedan ${disponibles} días de vacaciones en ${anio} y el período pide ${dias}`,
+    ASISTENCIA_MARCADA: (cantidad, fechas) =>
+      `Ojo: el empleado ya había marcado asistencia en ${cantidad} turno${cantidad === 1 ? "" : "s"} ` +
+      `de ese período (${fechas}). Esos turnos conservan las horas que trabajó y, si la licencia ` +
+      `es por enfermedad, quedan como "se retiró (enfermedad)". Los turnos que ya pasaron al ` +
+      `historial no cambian.`,
     TURNOS_ASIGNADOS: (cantidad, fechas) =>
       `El empleado tiene ${cantidad} turno${cantidad === 1 ? "" : "s"} asignado${cantidad === 1 ? "" : "s"} ` +
       `en esas fechas (${fechas}). Reasignalos antes de cargar las vacaciones.`
@@ -87,14 +92,16 @@ export const MENSAJES = {
     EGRESO_ANTERIOR: "La hora de salida tiene que ser posterior a la de ingreso",
     TURNO_FUTURO: "Todavía no llegó el día del turno: no se puede cargar asistencia",
     TURNO_ARCHIVADO: "El turno ya se archivó en el historial y su asistencia no se puede modificar",
-    CON_LICENCIA: "El empleado tiene licencia ese día. Si trabajó, quitá la licencia antes de cargar la asistencia.",
+    CON_LICENCIA: "El empleado tiene licencia ese día y no registró ingreso. Si trabajó, quitá la licencia antes de cargar la asistencia.",
     CORREGIDA_OK: "Asistencia actualizada"
   },
 
   REPORTES: {
     PERIODO_REQUERIDO: "Indicá el período: desde y hasta, con formato AAAA-MM-DD",
     PERIODO_INVALIDO: "El período no es válido: la fecha de fin no puede ser anterior a la de inicio ni abarcar más de un año",
-    ASISTENCIA_INVALIDA: "El filtro de asistencia debe ser PRESENTE, INCOMPLETO, AUSENTE, ENFERMEDAD o LICENCIA"
+    ASISTENCIA_INVALIDA:
+      "El filtro de asistencia debe ser PRESENTE, RETIRO_ENFERMEDAD, INCOMPLETO, AUSENTE, ENFERMEDAD, VACACIONES o ESPECIAL",
+    TIPO_LICENCIA_INVALIDO: "El filtro de licencia debe ser VACACIONES, ENFERMEDAD o ESPECIAL"
   },
 
   USUARIOS: {

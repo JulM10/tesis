@@ -17,12 +17,7 @@ import {
 } from "@/services/empleados.services";
 import { getMisLicencias } from "@/services/me.services";
 import { formatearFecha } from "@/lib/fechas";
-
-const TIPOS_LICENCIA = {
-  VACACIONES: { etiqueta: "Vacaciones", color: "bg-blue-100 text-blue-800" },
-  ENFERMEDAD: { etiqueta: "Enfermedad", color: "bg-yellow-100 text-yellow-800" },
-  ESPECIAL: { etiqueta: "Especial", color: "bg-purple-100 text-purple-800" },
-};
+import { TIPOS_LICENCIA } from "@/lib/licencias";
 
 const NUEVA_VACIA = { tipo: "VACACIONES", fecha_desde: "", fecha_hasta: "", comentario: "" };
 
@@ -68,11 +63,19 @@ export default function LicenciasEmpleado({ idEmpleado = null, onCambio }) {
   const agregar = async () => {
     setGuardando(true);
     try {
-      await crearLicencia(idEmpleado, {
+      const { advertencia } = await crearLicencia(idEmpleado, {
         ...nueva,
         comentario: nueva.comentario.trim() || null,
       });
       toast.success("Licencia registrada");
+
+      /*
+        La licencia se carga igual: el aviso es para que RRHH sepa que esos
+        días el empleado trabajó y sus horas no se pierden.
+      */
+      if (advertencia) {
+        toast.warning(advertencia, { duration: 12000 });
+      }
       setNueva(NUEVA_VACIA);
       await cargar();
       onCambio?.();

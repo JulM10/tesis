@@ -70,6 +70,17 @@ const LICENCIAS = [
   [18, "VACACIONES", 0, 6, "Vacaciones acordadas con el encargado de mucamas"],
   [5, "ENFERMEDAD", -6, -5, "Presentó certificado médico: gastroenteritis, reposo 48 h"],
   [10, "VACACIONES", 21, 30, null],
+  /*
+    Histórico: licencias de meses anteriores. Sin esto el reporte del
+    último año mostraría tres filas, todas de la semana en curso, y el
+    saldo de vacaciones daría el mismo número para los veinte.
+  */
+  [2, "VACACIONES", -124, -110, "Vacaciones de temporada baja"],
+  [7, "VACACIONES", -78, -69, null],
+  [4, "ESPECIAL", -45, -43, "Licencia por matrimonio (art. 158 LCT)"],
+  [12, "ENFERMEDAD", -38, -36, "Reposo por lumbalgia, con certificado"],
+  [16, "VACACIONES", -205, -196, null],
+  [9, "ESPECIAL", -20, -20, "Día por examen (art. 158 LCT)"],
 ];
 
 const insertarLicencias = async (client, idsInsertados) => {
@@ -107,6 +118,45 @@ const marcasSimuladas = (turno, n) => {
   if (n % 23 === 5) return [sumarMinutos(turno.hora_inicio, -4), null];
   if (n % 7 === 3) return [sumarMinutos(turno.hora_inicio, 18), sumarMinutos(turno.hora_fin, 2)];
   return [sumarMinutos(turno.hora_inicio, -(n % 9)), sumarMinutos(turno.hora_fin, n % 6)];
+};
+
+/*
+  Una enfermedad cargada DESPUÉS de repartir los turnos, que es como pasa
+  en la realidad: el empleado trabajó parte del día y se retiró. El turno
+  conserva sus dos marcas, así que al archivarse queda como
+  RETIRO_ENFERMEDAD con las horas que hizo, y no como día de licencia.
+  Se elige un turno ya archivable (anterior a ayer) y sin licencia previa.
+*/
+const licenciaRetroactiva = async (client) => {
+  const { rows } = await client.query(
+    `SELECT ah.id_empleado, c.fecha
+       FROM asignacion_horario ah
+       JOIN calendario c ON c.id = ah.id_calendario
+      WHERE ah.hora_ingreso IS NOT NULL
+        AND ah.hora_egreso IS NOT NULL
+        AND c.fecha < (now() AT TIME ZONE 'America/Argentina/Cordoba')::date - 1
+        AND NOT EXISTS (
+          SELECT 1 FROM licencias li
+           WHERE li.id_empleado = ah.id_empleado
+             AND c.fecha BETWEEN li.fecha_desde AND li.fecha_hasta
+        )
+      ORDER BY c.fecha DESC, ah.id
+      LIMIT 1`
+  );
+
+  if (!rows[0]) return 0;
+
+  await client.query(
+    `INSERT INTO licencias (id_empleado, tipo, fecha_desde, fecha_hasta, comentario)
+     VALUES ($1, 'ENFERMEDAD', $2, $2, $3)`,
+    [
+      rows[0].id_empleado,
+      rows[0].fecha,
+      cifrar("Se descompuso durante el turno y se retiró; presentó certificado"),
+    ]
+  );
+
+  return 1;
 };
 
 const cubiertoPor = (licencias, idEmpleado, fecha, tipos) =>
@@ -239,12 +289,14 @@ export const seedEmpleadosSiVacio = async () => {
 
     const licencias = await insertarLicencias(client, idsInsertados);
     const asignaciones = await asignarTurnos(client, idsInsertados, licencias);
+    // Va última: necesita los turnos ya repartidos y con sus marcas.
+    const retroactivas = await licenciaRetroactiva(client);
 
     await client.query("COMMIT");
     console.log(
       `Seed: ${idsInsertados.length} empleados insertados con datos personales cifrados ` +
       `(${cuentasCreadas} cuentas de acceso nuevas con password inicial), ` +
-      `${licencias.length} licencias y ${asignaciones} asignaciones de turno`
+      `${licencias.length + retroactivas} licencias y ${asignaciones} asignaciones de turno`
     );
   } catch (error) {
     await client.query("ROLLBACK");

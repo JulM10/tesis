@@ -262,7 +262,12 @@ export const corregir = async (idEmpleado, idCalendario, datos) => {
     if (asignacion.archivado) {
       throw httpError(409, MENSAJES.ASISTENCIA.TURNO_ARCHIVADO);
     }
-    if (asignacion.con_licencia) {
+    /*
+      Con licencia el turno no se toca, salvo que el empleado YA hubiera
+      fichado el ingreso: ese es el que trabajó y se retiró enfermo, y lo
+      que falta cargarle es la salida. Bloquearlo le borraría las horas.
+    */
+    if (asignacion.con_licencia && !asignacion.hora_ingreso) {
       throw httpError(409, MENSAJES.ASISTENCIA.CON_LICENCIA);
     }
 

@@ -20,6 +20,8 @@ export default function EstadoAsistencia({ estado, className = "" }) {
 /**
  * Punto de color + texto, para listados largos como el historial: se lee
  * de un vistazo qué días asistió (verde) y cuáles no (rojo).
+ * Usa la etiqueta larga ("No asistió (vacaciones)"), que es la que tiene
+ * sentido mirando hacia atrás.
  * Sin estado (turnos anteriores al control de asistencia): "Sin control".
  * Con `cantidad`, sirve de total para un resumen ("● 12 Asistió").
  */
@@ -30,7 +32,7 @@ export function PuntoAsistencia({ estado, cantidad }) {
     <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
       <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${info.punto}`} aria-hidden="true" />
       {cantidad !== undefined && <strong className="font-semibold text-gray-800">{cantidad}</strong>}
-      {info.etiqueta}
+      {info.etiquetaReporte ?? info.etiqueta}
     </span>
   );
 }

@@ -189,6 +189,11 @@ CREATE TABLE licencias (
   fecha_hasta DATE NOT NULL,
   comentario TEXT,
   fecha_registro TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  /*
+    Quién la cargó. Nullable a propósito: las licencias del seed no tienen
+    autor, y dar de baja un usuario no puede borrar la licencia que registró.
+  */
+  id_usuario_registra INT REFERENCES usuarios(id) ON DELETE SET NULL,
   CONSTRAINT chk_licencia_rango CHECK (fecha_hasta >= fecha_desde)
 );
 
@@ -208,11 +213,16 @@ CREATE TABLE asignacion_horario_historial (
   hora_fin TIME NOT NULL,
   fecha_registro TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   /*
-    Resultado de asistencia, congelado al archivar: PRESENTE, INCOMPLETO
-    (ingresó pero no marcó egreso), AUSENTE, ENFERMEDAD o LICENCIA.
+    Resultado de asistencia, congelado al archivar:
+      PRESENTE           trabajó el turno (las dos marcas)
+      RETIRO_ENFERMEDAD  trabajó parte del turno y se retiró enfermo
+      INCOMPLETO         ingresó pero no marcó egreso
+      AUSENTE            no vino y no había licencia
+      ENFERMEDAD / VACACIONES / ESPECIAL  no vino, cubierto por licencia
+    'LICENCIA' es un valor heredado: se sigue leyendo, ya no se escribe.
     NULL en registros anteriores al control de asistencia.
   */
-  estado_asistencia VARCHAR(12),
+  estado_asistencia VARCHAR(20),
   hora_ingreso TIME,
   hora_egreso TIME,
   horas_trabajadas NUMERIC(5,2)
@@ -234,6 +244,8 @@ CREATE INDEX idx_historial_puesto ON asignacion_horario_historial(puesto);
 -- Índice parcial: el archivador solo busca turnos NO archivados
 CREATE INDEX idx_asignacion_no_archivada ON asignacion_horario(id) WHERE NOT archivado;
 CREATE INDEX idx_licencias_empleado ON licencias(id_empleado);
+-- El reporte de licencias filtra por rango de fechas
+CREATE INDEX idx_licencias_fechas ON licencias(fecha_desde, fecha_hasta);
 
 /* =====================================================
    VISTAS
@@ -440,10 +452,19 @@ BEGIN
   clasificados AS (
     SELECT p.*,
            CASE
-             WHEN p.licencia = 'ENFERMEDAD' THEN 'ENFERMEDAD'
-             WHEN p.licencia IS NOT NULL    THEN 'LICENCIA'
-             WHEN p.hora_ingreso IS NULL    THEN 'AUSENTE'
-             WHEN p.hora_egreso IS NULL     THEN 'INCOMPLETO'
+             -- Marcó las dos y hay enfermedad ese día: trabajó parte del
+             -- turno y se retiró. Las horas que hizo se le cuentan.
+             WHEN p.hora_ingreso IS NOT NULL AND p.hora_egreso IS NOT NULL
+                  AND p.licencia = 'ENFERMEDAD'  THEN 'RETIRO_ENFERMEDAD'
+             -- Trabajó sobre una licencia de otro tipo: vale lo que marcó.
+             WHEN p.hora_ingreso IS NOT NULL AND p.hora_egreso IS NOT NULL
+                  AND p.licencia IS NOT NULL     THEN 'PRESENTE'
+             WHEN p.hora_ingreso IS NOT NULL
+                  AND p.licencia IS NOT NULL     THEN 'INCOMPLETO'
+             -- Sin ingreso, la licencia sí manda: se archiva con su tipo.
+             WHEN p.licencia IS NOT NULL         THEN p.licencia
+             WHEN p.hora_ingreso IS NULL         THEN 'AUSENTE'
+             WHEN p.hora_egreso IS NULL          THEN 'INCOMPLETO'
              ELSE 'PRESENTE'
            END AS estado
     FROM pendientes p
@@ -455,7 +476,7 @@ BEGIN
     SELECT nombre, apellido, puesto, lugar, fecha, hora_inicio, hora_fin,
            estado, hora_ingreso, hora_egreso,
            CASE
-             WHEN estado = 'PRESENTE' THEN
+             WHEN estado IN ('PRESENTE', 'RETIRO_ENFERMEDAD') THEN
                ROUND(GREATEST(0, EXTRACT(EPOCH FROM (
                  LEAST(hora_egreso, hora_fin) - GREATEST(hora_ingreso, hora_inicio)
                )) / 3600)::numeric, 2)
@@ -502,12 +523,16 @@ LANGUAGE sql STABLE AS $$
     h.empleado_apellido,
     h.puesto,
     COUNT(*),
+    -- El que vino y se retiró enfermo asistió: no es una ausencia.
     COUNT(*) FILTER (
-      WHERE h.estado_asistencia = 'PRESENTE' OR h.estado_asistencia IS NULL
+      WHERE h.estado_asistencia IN ('PRESENTE', 'RETIRO_ENFERMEDAD')
+         OR h.estado_asistencia IS NULL
     ),
     COUNT(*) FILTER (WHERE h.estado_asistencia = 'INCOMPLETO'),
     COUNT(*) FILTER (WHERE h.estado_asistencia = 'AUSENTE'),
-    COUNT(*) FILTER (WHERE h.estado_asistencia IN ('ENFERMEDAD', 'LICENCIA')),
+    -- 'LICENCIA' es el valor heredado del estado genérico.
+    COUNT(*) FILTER (WHERE h.estado_asistencia IN
+      ('ENFERMEDAD', 'VACACIONES', 'ESPECIAL', 'LICENCIA')),
     ROUND(SUM(EXTRACT(EPOCH FROM (h.hora_fin - h.hora_inicio)) / 3600)::numeric, 2),
     ROUND(SUM(COALESCE(
       h.horas_trabajadas,
