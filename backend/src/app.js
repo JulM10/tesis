@@ -1,5 +1,6 @@
 import express from "express";
 import cors from "cors";
+import compression from "compression";
 import empleadosRoutes from "./routes/empleados.routes.js";
 import calendarioRoutes from "./routes/calendario.routes.js";
 import horariosRoutes from "./routes/horarios.routes.js";
@@ -23,6 +24,15 @@ const origenesPermitidos = (process.env.CORS_ORIGIN || "http://localhost:5173")
   .filter(Boolean);
 
 app.use(cors({ origin: origenesPermitidos }));
+
+/*
+  Las respuestas de la API son JSON repetitivo (los turnos del calendario
+  son cientos de filas con las mismas claves), así que comprimen muy bien.
+  Sin esto, el calendario con varios meses cargados baja medio MB por
+  consulta; con gzip, unas decenas de KB.
+*/
+app.use(compression());
+
 app.use(express.json());
 
 app.get("/", (req, res) => {

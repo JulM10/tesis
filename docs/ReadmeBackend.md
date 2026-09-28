@@ -57,6 +57,23 @@ docker compose up --build
 
 El schema y seed se aplican automáticamente al crear el volumen (`docker-entrypoint-initdb.d`). Los empleados del seed se insertan desde `seed-empleados.js` al arrancar el backend (requiere cifrado).
 
+**Las fechas del seed son FIJAS, no dependen del día en que se crea la base.** El calendario va del **1 de junio al 30 de noviembre de 2026** (unos 1.300 turnos y 2.200 asignaciones) y las licencias se ubican alrededor de la semana del 15 de octubre. La asistencia simulada llega hasta `DIA_DE_LA_DEMO` (`backend/src/database/seed-empleados.js`, hoy `2026-10-15`): los turnos anteriores traen ingreso y egreso, los posteriores quedan como turnos planificados sin marcas.
+
+Gracias a eso la base se puede cargar con anticipación y el contenido es siempre el mismo. Al arrancar, `archivar_turnos_completados` pasa al historial todo lo anterior a ayer, así los reportes por período tienen meses de datos.
+
+**Para mover la demo a otra fecha** hay que tocar dos lugares y recrear la base: la constante `DIA_DE_LA_DEMO` y el rango del `generate_series` en `seed.sql`.
+
+### Volver a cargar una base ya usada (Render)
+
+`schema.sql` crea las tablas sin `IF NOT EXISTS`, así que necesita un esquema vacío. Para rehacerla sin borrar la instancia:
+
+```sql
+DROP SCHEMA public CASCADE;
+CREATE SCHEMA public;
+```
+
+y después cargar `schema.sql` y `seed.sql`. El rol `hotel_app` no hace falta borrarlo: vive en el servidor y no en la base, y el script lo crea solo si falta. Los empleados los inserta el backend al arrancar, cuando encuentra la tabla vacía.
+
 ---
 
 ## Endpoints

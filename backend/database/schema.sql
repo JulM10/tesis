@@ -596,7 +596,18 @@ $$;
    queda solo para administración (docker exec).
    ===================================================== */
 
-CREATE ROLE hotel_app LOGIN PASSWORD 'hotel_app_dev_2026';
+/*
+  Los roles son del servidor, no de la base: borrar y recrear el esquema
+  no los borra. Por eso se crea solo si falta, y así este archivo se puede
+  volver a cargar sobre una base ya usada (por ejemplo, la de Render).
+*/
+DO $rol$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'hotel_app') THEN
+    CREATE ROLE hotel_app LOGIN PASSWORD 'hotel_app_dev_2026';
+  END IF;
+END
+$rol$;
 
 GRANT USAGE ON SCHEMA public TO hotel_app;
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO hotel_app;

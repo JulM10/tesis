@@ -83,18 +83,30 @@ const LICENCIAS = [
   [9, "ESPECIAL", -20, -20, "Día por examen (art. 158 LCT)"],
 ];
 
-const insertarLicencias = async (client, idsInsertados) => {
+/*
+  Día al que está anclada la demo. Es FIJO y no depende de cuándo se cargue
+  la base: los turnos anteriores a esta fecha se cargan con su asistencia
+  simulada y las licencias se ubican alrededor de esta semana. Los turnos
+  posteriores quedan como turnos planificados, sin marcas, que es lo que
+  corresponde: todavía no ocurrieron.
+
+  Si se corre la demo otro día, cambiar esta constante y el rango del
+  calendario en seed.sql, y recrear la base.
+*/
+const DIA_DE_LA_DEMO = "2026-10-15";
+
+const insertarLicencias = async (client, idsInsertados, fechaDemo) => {
   const insertadas = [];
 
   for (const [posicion, tipo, desde, hasta, comentario] of LICENCIAS) {
     const result = await client.query(
       `INSERT INTO licencias (id_empleado, tipo, fecha_desde, fecha_hasta, comentario)
        VALUES ($1, $2,
-               (date_trunc('week', CURRENT_DATE) + $3 * INTERVAL '1 day')::date,
-               (date_trunc('week', CURRENT_DATE) + $4 * INTERVAL '1 day')::date,
+               (date_trunc('week', $6::date) + $3 * INTERVAL '1 day')::date,
+               (date_trunc('week', $6::date) + $4 * INTERVAL '1 day')::date,
                $5)
        RETURNING id_empleado, tipo, fecha_desde, fecha_hasta`,
-      [idsInsertados[posicion - 1], tipo, desde, hasta, cifrar(comentario)]
+      [idsInsertados[posicion - 1], tipo, desde, hasta, cifrar(comentario), fechaDemo]
     );
     insertadas.push(result.rows[0]);
   }
@@ -127,21 +139,22 @@ const marcasSimuladas = (turno, n) => {
   RETIRO_ENFERMEDAD con las horas que hizo, y no como día de licencia.
   Se elige un turno ya archivable (anterior a ayer) y sin licencia previa.
 */
-const licenciaRetroactiva = async (client) => {
+const licenciaRetroactiva = async (client, fechaDemo) => {
   const { rows } = await client.query(
     `SELECT ah.id_empleado, c.fecha
        FROM asignacion_horario ah
        JOIN calendario c ON c.id = ah.id_calendario
       WHERE ah.hora_ingreso IS NOT NULL
         AND ah.hora_egreso IS NOT NULL
-        AND c.fecha < (now() AT TIME ZONE 'America/Argentina/Cordoba')::date - 1
+        AND c.fecha < $1::date - 1
         AND NOT EXISTS (
           SELECT 1 FROM licencias li
            WHERE li.id_empleado = ah.id_empleado
              AND c.fecha BETWEEN li.fecha_desde AND li.fecha_hasta
         )
       ORDER BY c.fecha DESC, ah.id
-      LIMIT 1`
+      LIMIT 1`,
+    [fechaDemo]
   );
 
   if (!rows[0]) return 0;
@@ -157,6 +170,28 @@ const licenciaRetroactiva = async (client) => {
   );
 
   return 1;
+};
+
+/*
+  Cuatro meses de calendario son más de mil asignaciones. Insertarlas de a
+  una es una ida y vuelta a la base por fila: contra la base remota eso
+  tarda minutos y puede cortar el arranque. Se insertan por lotes.
+*/
+const TAMANIO_LOTE = 500;
+
+const insertarAsignaciones = async (client, filas) => {
+  for (let i = 0; i < filas.length; i += TAMANIO_LOTE) {
+    const lote = filas.slice(i, i + TAMANIO_LOTE);
+    const valores = lote
+      .map((_, k) => `($${k * 4 + 1}, $${k * 4 + 2}, $${k * 4 + 3}, $${k * 4 + 4})`)
+      .join(", ");
+
+    await client.query(
+      `INSERT INTO asignacion_horario (id_empleado, id_calendario, hora_ingreso, hora_egreso)
+       VALUES ${valores}`,
+      lote.flat()
+    );
+  }
 };
 
 const cubiertoPor = (licencias, idEmpleado, fecha, tipos) =>
@@ -175,7 +210,7 @@ const cubiertoPor = (licencias, idEmpleado, fecha, tipos) =>
   que se creó la base. Nadie recibe turnos durante sus vacaciones; la
   enfermedad no se saltea porque llega después de armado el calendario.
 */
-const asignarTurnos = async (client, idsInsertados, licencias) => {
+const asignarTurnos = async (client, idsInsertados, licencias, fechaDemo) => {
   const plantel = {};
   EMPLEADOS.forEach(([, , , , , , puesto, , estado], i) => {
     if (estado !== ESTADO_ACTIVO) return;
@@ -188,10 +223,11 @@ const asignarTurnos = async (client, idsInsertados, licencias) => {
      ORDER BY fecha, hora_inicio, id_puesto`
   );
 
-  // Fecha argentina: el servidor corre en UTC.
-  const hoy = new Date().toLocaleDateString("en-CA", { timeZone: "America/Argentina/Cordoba" });
+  // Los turnos anteriores a esta fecha son los que llevan asistencia.
+  const hoy = fechaDemo;
 
   const proximo = {};
+  const filas = [];
   let total = 0;
   let pasados = 0;
 
@@ -217,14 +253,12 @@ const asignarTurnos = async (client, idsInsertados, licencias) => {
         marcas = marcasSimuladas(turno, pasados++);
       }
 
-      await client.query(
-        `INSERT INTO asignacion_horario (id_empleado, id_calendario, hora_ingreso, hora_egreso)
-         VALUES ($1, $2, $3, $4)`,
-        [idEmpleado, turno.id, ...marcas]
-      );
+      filas.push([idEmpleado, turno.id, ...marcas]);
       total++;
     }
   }
+
+  await insertarAsignaciones(client, filas);
 
   return total;
 };
@@ -287,16 +321,18 @@ export const seedEmpleadosSiVacio = async () => {
       idsInsertados.push(result.rows[0].id);
     }
 
-    const licencias = await insertarLicencias(client, idsInsertados);
-    const asignaciones = await asignarTurnos(client, idsInsertados, licencias);
+    const fechaDemo = DIA_DE_LA_DEMO;
+    const licencias = await insertarLicencias(client, idsInsertados, fechaDemo);
+    const asignaciones = await asignarTurnos(client, idsInsertados, licencias, fechaDemo);
     // Va última: necesita los turnos ya repartidos y con sus marcas.
-    const retroactivas = await licenciaRetroactiva(client);
+    const retroactivas = await licenciaRetroactiva(client, fechaDemo);
 
     await client.query("COMMIT");
     console.log(
       `Seed: ${idsInsertados.length} empleados insertados con datos personales cifrados ` +
       `(${cuentasCreadas} cuentas de acceso nuevas con password inicial), ` +
-      `${licencias.length + retroactivas} licencias y ${asignaciones} asignaciones de turno`
+      `${licencias.length + retroactivas} licencias y ${asignaciones} asignaciones de turno. ` +
+      `Día de referencia de la demo: ${fechaDemo}`
     );
   } catch (error) {
     await client.query("ROLLBACK");

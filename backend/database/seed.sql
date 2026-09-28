@@ -153,20 +153,35 @@ INSERT INTO estados (nombre) VALUES
 
 /* =====================================================
    CALENDARIO
-   Fechas RELATIVAS al día en que se crea la base: tres
-   semanas completas, del lunes de la semana pasada al
-   domingo de la próxima. Así la demo siempre tiene turnos
-   ya cumplidos (el backend los archiva al historial al
-   arrancar), turnos de la semana en curso y turnos futuros.
-   Las fechas se fijan al crear la base: para moverlas a la
-   semana actual hay que recrearla.
+   Fechas FIJAS: del 1 de junio al 30 de noviembre de 2026.
+   No dependen del día en que se crea la base, así que la
+   demo se puede cargar con anticipación y el contenido es
+   siempre el mismo: octubre completo y cinco meses previos.
+
+   Son unos 1.300 turnos y alrededor de 2.200 asignaciones.
+   El backend archiva al historial todo lo anterior a ayer,
+   así los reportes por período tienen meses de datos.
+
+   La asistencia simulada llega hasta el día de la demo, que
+   está fijado en seed-empleados.js (DIA_DE_LA_DEMO). Si se
+   mueve la fecha de la presentación hay que cambiar esa
+   constante y este rango, y recrear la base.
+
+   Cuatro meses hacia atrás y no una semana: los reportes de
+   horas, historial y licencias se consultan por período, y
+   con una sola semana cargada cualquier rango de meses
+   anteriores da vacío. Son unos 12 turnos por día, así que
+   quedan alrededor de 1.400 asignaciones archivadas.
+
+   Las fechas se fijan al crear la base: para moverlas al
+   presente hay que recrearla.
    ===================================================== */
 
 INSERT INTO calendario (fecha, hora_inicio, hora_fin, id_puesto)
 SELECT dia::date, t.hora_inicio, t.hora_fin, p.id
 FROM generate_series(
-       date_trunc('week', CURRENT_DATE) - INTERVAL '7 days',
-       date_trunc('week', CURRENT_DATE) + INTERVAL '13 days',
+       DATE '2026-06-01',
+       DATE '2026-11-30',
        INTERVAL '1 day'
      ) AS dia
 CROSS JOIN (VALUES
@@ -188,18 +203,19 @@ ORDER BY dia, t.hora_inicio, p.id;
    ===================================================== */
 
 /* =====================================================
-   HISTORIAL (turnos de hace dos semanas)
-   Previos al calendario, así el reporte de historial
-   muestra algo más que lo archivado automáticamente.
-   Carlos Ruiz hoy está Inactivo: su registro muestra que
-   el historial conserva a quien ya no trabaja en el hotel.
+   HISTORIAL (turnos anteriores al calendario)
+   Son más viejos que el primer día del calendario, así se
+   ve que el historial es independiente: sobrevive aunque el
+   turno original ya no exista. Carlos Ruiz hoy está
+   Inactivo, y su registro muestra que el historial conserva
+   a quien ya no trabaja en el hotel.
    ===================================================== */
 
 INSERT INTO asignacion_horario_historial
 (empleado_nombre, empleado_apellido, puesto, lugar_trabajo, fecha, hora_inicio, hora_fin,
  estado_asistencia, hora_ingreso, hora_egreso, horas_trabajadas)
 VALUES
-('Juan',   'Pérez', 'Cocinero',      'Cocina', (date_trunc('week', CURRENT_DATE) - INTERVAL '14 days')::date, '09:00', '17:00',
+('Juan',   'Pérez', 'Cocinero',      'Cocina', DATE '2026-05-04', '09:00', '17:00',
  'PRESENTE', '08:54', '17:03', 8.00),
-('Carlos', 'Ruiz',  'Mantenimiento', 'Cocina', (date_trunc('week', CURRENT_DATE) - INTERVAL '13 days')::date, '07:00', '15:00',
+('Carlos', 'Ruiz',  'Mantenimiento', 'Cocina', DATE '2026-05-05', '07:00', '15:00',
  'PRESENTE', '07:12', '15:01', 7.80);
