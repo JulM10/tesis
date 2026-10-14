@@ -37,6 +37,89 @@ const PERIODOS = [
   { id: "mes", nombre: "Mes" },
 ];
 
+/*
+  En un celular el eje horizontal no tiene lugar para los nombres de los
+  puestos: medido a 375px, con cinco puestos las etiquetas se pisan entre
+  sí y la última queda cortada ("Administració"). Debajo de `sm` el mismo
+  gráfico se dibuja con las barras hacia la derecha: cada puesto tiene su
+  propia fila y el nombre se lee entero, sin importar cuántos sean.
+
+  Son dos dibujos que CSS muestra y esconde, no una decisión en
+  JavaScript: `recharts` no cambia de orientación por hoja de estilos, y
+  medir el ancho desde el componente obliga a un efecto que en la primera
+  pintura todavía no sabe cuánto mide. Así la orientación la resuelve el
+  navegador, igual que el resto de las pantallas.
+*/
+function Dibujo({ filas, horizontal = false }) {
+  return (
+    <ResponsiveContainer width="100%" height="100%">
+      <BarChart
+        data={filas}
+        layout={horizontal ? "vertical" : "horizontal"}
+        margin={
+          horizontal
+            ? { top: 4, right: 32, left: 0, bottom: 0 }
+            : { top: 24, right: 8, left: -16, bottom: 0 }
+        }
+      >
+        <CartesianGrid
+          strokeDasharray="3 3"
+          horizontal={!horizontal}
+          vertical={horizontal}
+          stroke="#e5e7eb"
+        />
+        {horizontal ? (
+          <>
+            {/* El valor ya va al final de cada barra, así que el eje sobra */}
+            <XAxis type="number" hide allowDecimals={false} />
+            <YAxis
+              type="category"
+              dataKey="puesto"
+              width={96}
+              tickLine={false}
+              axisLine={false}
+              interval={0}
+              tick={{ fontSize: 12, fill: "#4b5563" }}
+            />
+          </>
+        ) : (
+          <>
+            <XAxis
+              dataKey="puesto"
+              tickLine={false}
+              axisLine={false}
+              interval={0}
+              tick={{ fontSize: 12, fill: "#4b5563" }}
+            />
+            <YAxis
+              allowDecimals={false}
+              tickLine={false}
+              axisLine={false}
+              tick={{ fontSize: 12, fill: "#6b7280" }}
+            />
+          </>
+        )}
+        <Tooltip content={<DetallePuesto />} cursor={{ fill: "#f3f4f6" }} />
+        <Bar
+          dataKey="empleados"
+          radius={horizontal ? [0, 4, 4, 0] : [4, 4, 0, 0]}
+          maxBarSize={horizontal ? 24 : 64}
+        >
+          {filas.map((f) => (
+            <Cell key={f.puesto} fill={f.color ?? COLOR_NEUTRO} />
+          ))}
+          <LabelList
+            dataKey="empleados"
+            position={horizontal ? "right" : "top"}
+            fontSize={12}
+            fill="#374151"
+          />
+        </Bar>
+      </BarChart>
+    </ResponsiveContainer>
+  );
+}
+
 const NOMBRE_MES = new Intl.DateTimeFormat("es-AR", { month: "long", year: "numeric" });
 
 const rangoDe = (periodo, referencia) => {
@@ -179,32 +262,21 @@ export default function GraficoDotacion() {
             No hay turnos planificados en este período.
           </p>
         ) : (
-          <div className={`h-72 transition-opacity ${cargando ? "opacity-40" : ""}`}>
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={filas} margin={{ top: 24, right: 8, left: -16, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
-                <XAxis
-                  dataKey="puesto"
-                  tickLine={false}
-                  axisLine={false}
-                  interval={0}
-                  tick={{ fontSize: 12, fill: "#4b5563" }}
-                />
-                <YAxis
-                  allowDecimals={false}
-                  tickLine={false}
-                  axisLine={false}
-                  tick={{ fontSize: 12, fill: "#6b7280" }}
-                />
-                <Tooltip content={<DetallePuesto />} cursor={{ fill: "#f3f4f6" }} />
-                <Bar dataKey="empleados" radius={[4, 4, 0, 0]} maxBarSize={64}>
-                  {filas.map((f) => (
-                    <Cell key={f.puesto} fill={f.color ?? COLOR_NEUTRO} />
-                  ))}
-                  <LabelList dataKey="empleados" position="top" fontSize={12} fill="#374151" />
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
+          <div className={`transition-opacity ${cargando ? "opacity-40" : ""}`}>
+            {/*
+              Celular: el alto no es fijo, crece con la cantidad de puestos
+              para que las barras mantengan su grosor en vez de aplastarse.
+            */}
+            <div
+              className="sm:hidden"
+              style={{ height: Math.max(filas.length * 38 + 24, 160) }}
+            >
+              <Dibujo filas={filas} horizontal />
+            </div>
+
+            <div className="hidden h-72 sm:block">
+              <Dibujo filas={filas} />
+            </div>
           </div>
         )}
 

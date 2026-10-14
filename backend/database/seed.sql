@@ -120,19 +120,30 @@ AND r.nombre = 'EMPLEADO';
    DATOS DEL NEGOCIO
    ===================================================== */
 
+/*
+  Los cinco primeros son los puestos que el hotel sostiene todo el año
+  (temporada baja). Los tres últimos solo se cubren en temporada alta:
+  el bar del salón, el bar de la pileta y el lavadero abren cuando la
+  ocupación lo justifica. El orden importa: los ids 1..5 ya están
+  referenciados por el plantel estable en seed-empleados.js.
+*/
 INSERT INTO puestos (nombre, color) VALUES
-('Mozo',           '#2563eb'),
-('Cocinero',       '#ea580c'),
-('Mantenimiento',  '#64748b'),
-('Mucama',         '#db2777'),
-('Administración', '#7c3aed');
+('Mozo',             '#2563eb'),
+('Cocinero',         '#ea580c'),
+('Mantenimiento',    '#64748b'),
+('Mucama',           '#db2777'),
+('Administración',   '#7c3aed'),
+('Bar',              '#0891b2'),
+('Bar de la pileta', '#0d9488'),
+('Lavadero',         '#a16207');
 
 INSERT INTO lugares_trabajo (nombre) VALUES
 ('Cocina'),
 ('Bar'),
 ('Pileta'),
 ('Oficina'),
-('Edificio Principal');
+('Edificio Principal'),
+('Lavadero');
 
 INSERT INTO estados (nombre) VALUES
 ('Activo'),
@@ -177,23 +188,74 @@ INSERT INTO estados (nombre) VALUES
    presente hay que recrearla.
    ===================================================== */
 
+/*
+  El calendario tiene DOS grillas, porque el hotel no abre lo mismo
+  todo el año: es el hecho que ordena toda la tesis (la dotación pasa
+  de 10 a 35 personas).
+
+  TEMPORADA ALTA — fin de semana largo del 12 de octubre (10 al 18).
+  Se abren los ocho puestos. Con el cupo de seed-empleados.js dan las
+  35 personas por día y la distribución del relevamiento:
+  6 mozos · 6 cocina · 6 bar · 6 mucamas · 4 bar de la pileta ·
+  2 lavadero · 3 mantenimiento · 2 administración.
+
+  TEMPORADA BAJA — todo el resto del rango. Solo los cinco puestos
+  estables, un turno por franja, y dan las 10 personas por día:
+  3 mozos · 2 cocina · 2 mucamas · 2 mantenimiento · 1 administración.
+
+  El bar, el bar de la pileta y el lavadero directamente no tienen
+  turnos fuera de temporada: no es que nadie los cubra, es que no
+  abren. Por eso la grilla y no solo el cupo.
+*/
+
+-- Temporada alta: 10 al 18 de octubre
 INSERT INTO calendario (fecha, hora_inicio, hora_fin, id_puesto)
 SELECT dia::date, t.hora_inicio, t.hora_fin, p.id
-FROM generate_series(
-       DATE '2026-06-01',
-       DATE '2026-11-30',
-       INTERVAL '1 day'
-     ) AS dia
+FROM generate_series(DATE '2026-10-10', DATE '2026-10-18', INTERVAL '1 day') AS dia
+CROSS JOIN (VALUES
+  ('Mozo',             TIME '08:00', TIME '16:00'),
+  ('Mozo',             TIME '12:00', TIME '20:00'),
+  ('Mozo',             TIME '16:00', TIME '23:00'),
+  ('Cocinero',         TIME '09:00', TIME '17:00'),
+  ('Cocinero',         TIME '13:00', TIME '21:00'),
+  ('Cocinero',         TIME '17:00', TIME '22:00'),
+  ('Bar',              TIME '11:00', TIME '19:00'),
+  ('Bar',              TIME '15:00', TIME '23:00'),
+  ('Bar',              TIME '16:00', TIME '23:00'),
+  ('Mucama',           TIME '08:00', TIME '16:00'),
+  ('Mucama',           TIME '10:00', TIME '18:00'),
+  ('Mucama',           TIME '12:00', TIME '20:00'),
+  ('Bar de la pileta', TIME '10:00', TIME '18:00'),
+  ('Bar de la pileta', TIME '12:00', TIME '20:00'),
+  ('Lavadero',         TIME '07:00', TIME '15:00'),
+  ('Lavadero',         TIME '09:00', TIME '17:00'),
+  ('Mantenimiento',    TIME '07:00', TIME '15:00'),
+  ('Mantenimiento',    TIME '10:00', TIME '18:00'),
+  ('Mantenimiento',    TIME '14:00', TIME '22:00'),
+  ('Administración',   TIME '08:00', TIME '16:00'),
+  ('Administración',   TIME '10:00', TIME '18:00')
+) AS t(puesto, hora_inicio, hora_fin)
+JOIN puestos p ON p.nombre = t.puesto
+ORDER BY dia, t.hora_inicio, p.id;
+
+-- Temporada baja: el resto del rango, salteando la ventana de alta
+INSERT INTO calendario (fecha, hora_inicio, hora_fin, id_puesto)
+SELECT dia::date, t.hora_inicio, t.hora_fin, p.id
+FROM generate_series(DATE '2026-06-01', DATE '2026-11-30', INTERVAL '1 day') AS dia
 CROSS JOIN (VALUES
   ('Mozo',           TIME '08:00', TIME '16:00'),
+  ('Mozo',           TIME '12:00', TIME '20:00'),
   ('Mozo',           TIME '16:00', TIME '23:00'),
   ('Cocinero',       TIME '09:00', TIME '17:00'),
   ('Cocinero',       TIME '17:00', TIME '22:00'),
-  ('Mantenimiento',  TIME '07:00', TIME '15:00'),
+  ('Mucama',         TIME '08:00', TIME '16:00'),
   ('Mucama',         TIME '10:00', TIME '18:00'),
+  ('Mantenimiento',  TIME '07:00', TIME '15:00'),
+  ('Mantenimiento',  TIME '14:00', TIME '22:00'),
   ('Administración', TIME '08:00', TIME '16:00')
 ) AS t(puesto, hora_inicio, hora_fin)
 JOIN puestos p ON p.nombre = t.puesto
+WHERE dia::date NOT BETWEEN DATE '2026-10-10' AND DATE '2026-10-18'
 ORDER BY dia, t.hora_inicio, p.id;
 
 /* =====================================================

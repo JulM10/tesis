@@ -51,13 +51,6 @@ export const generarPasswordInicial = (nombre, apellido, dni) => {
   );
 };
 
-/**
- * Deriva el email institucional a partir del nombre: nombre.apellido@hotel.com
- * Solo lo usa el seed; en el alta real el email lo indica quien carga el empleado.
- */
-export const generarEmailInstitucional = (nombre, apellido) =>
-  `${aAscii(nombre).toLowerCase()}.${aAscii(apellido).toLowerCase()}@hotel.com`;
-
 /*
   Contraseña temporal para el RESET que hace el administrador.
 

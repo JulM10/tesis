@@ -1,10 +1,5 @@
 import api from '../apis/axios';
 
-export const getEmpleados = async () => {
-  const response = await api.get('/empleados');
-  return response.data;
-};
-
 /**
  * Listado con puesto, lugar de trabajo y estado ya resueltos (vista SQL)
  */
