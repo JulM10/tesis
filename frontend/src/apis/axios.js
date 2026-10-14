@@ -22,10 +22,17 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     const esLogin = error.config?.url?.includes("/auth/login");
+    /*
+      El 401 de cambiar-password significa "la contraseña actual no
+      coincide", no una sesión caída: el backend usa el mismo código y el
+      mismo texto para ambos casos. Sin esta excepción, un error de tipeo
+      al cambiar la contraseña cerraría la sesión y mandaría al login.
+    */
+    const esCambioPassword = error.config?.url?.includes("/auth/cambiar-password");
 
     // Token vencido o inválido: cerrar sesión y volver al login.
-    // Se excluye el login mismo (su 401 es "credenciales inválidas").
-    if (error.response?.status === 401 && !esLogin) {
+    // Se excluyen los dos casos de arriba, donde el 401 es del dato tipeado.
+    if (error.response?.status === 401 && !esLogin && !esCambioPassword) {
       localStorage.removeItem("hy_token");
       localStorage.removeItem("hy_usuario");
 

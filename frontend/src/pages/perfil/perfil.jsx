@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import Layout from "@/components/Layout";
 import LicenciasEmpleado from "@/components/LicenciasEmpleado";
+import CambioPassword from "@/components/CambioPassword";
 import CodigoAsistencia from "@/components/CodigoAsistencia";
 import EstadoAsistencia from "@/components/EstadoAsistencia";
 import {
@@ -162,6 +163,7 @@ export default function Perfil() {
   const [ahora, setAhora] = useState(ahoraArgentina);
 
   const [dialogAbierto, setDialogAbierto] = useState(false);
+  const [cambiandoPassword, setCambiandoPassword] = useState(false);
   const [form, setForm] = useState({ telefono: "", direccion: "", notas: "" });
   const [guardando, setGuardando] = useState(false);
 
@@ -290,6 +292,25 @@ export default function Perfil() {
                       {me?.usuario.roles.map((r) => (
                         <Badge key={r} variant="outline">{r}</Badge>
                       ))}
+                    </div>
+
+                    {/* La propia la cambia cada uno; la de otro solo la
+                        resetea el administrador, desde Usuarios. */}
+                    <div className="flex items-center justify-between gap-3 rounded-md border bg-gray-50 px-3 py-2">
+                      <div>
+                        <p className="font-medium">Contraseña</p>
+                        <p className="text-xs text-gray-500">
+                          Necesitás la actual para cambiarla.
+                        </p>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCambiandoPassword(true)}
+                      >
+                        Cambiar
+                      </Button>
                     </div>
                   </CardContent>
                 </Card>
@@ -452,6 +473,11 @@ export default function Perfil() {
           </form>
         </DialogContent>
       </Dialog>
+
+      <CambioPassword
+        abierto={cambiandoPassword}
+        onCerrar={() => setCambiandoPassword(false)}
+      />
     </Layout>
   );
 }

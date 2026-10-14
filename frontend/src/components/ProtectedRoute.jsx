@@ -2,6 +2,7 @@ import { Navigate, useLocation } from "react-router-dom";
 import { Toaster } from "sonner";
 import { useAuth } from "@/context/AuthContext";
 import ControlDeSesion from "@/components/ControlDeSesion";
+import CambioPassword from "@/components/CambioPassword";
 
 export default function ProtectedRoute({ children }) {
   const { usuario } = useAuth();
@@ -25,6 +26,9 @@ export default function ProtectedRoute({ children }) {
       {/* Cierre por inactividad y renovación del token: solo dentro del
           área autenticada, y una sola instancia (renderiza la ruta activa) */}
       <ControlDeSesion />
+      {/* Contraseña inicial o reseteada: se cambia antes de poder operar.
+          Va acá y no en Layout porque /marcar no usa Layout. */}
+      <CambioPassword obligatorio />
       {children}
     </>
   );

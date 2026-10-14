@@ -19,6 +19,21 @@ export const renovarSesion = async () => {
 };
 
 /**
+ * Cambia la contraseña de la sesión en curso. El backend resuelve de quién
+ * es desde el token, nunca desde el cuerpo: por eso no lleva id.
+ *
+ * Devuelve { message }. No trae token nuevo, así que después hay que
+ * renovar la sesión para que baje `debe_cambiar_password` en el cliente.
+ */
+export const cambiarPassword = async ({ password_actual, password_nueva }) => {
+  const response = await api.post("/auth/cambiar-password", {
+    password_actual,
+    password_nueva
+  });
+  return response.data;
+};
+
+/**
  * Momento de vencimiento del token guardado, en milisegundos.
  * Devuelve null si no hay token o si no se puede leer.
  *
