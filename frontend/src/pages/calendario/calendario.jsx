@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import Layout from "@/components/Layout";
 import { useAuth } from "@/context/AuthContext";
@@ -16,6 +16,7 @@ import {
 import EstadoAsistencia from "@/components/EstadoAsistencia";
 import { ahoraArgentina, estadoAsistencia, esCorregible } from "@/lib/asistencia";
 import { getCatalogos } from "@/services/empleados.services";
+import { getMe } from "@/services/me.services";
 import BuscadorEmpleado from "@/components/BuscadorEmpleado";
 import {
   hoyISO,
@@ -50,9 +51,16 @@ import {
 const FORM_TURNO_VACIO = { fecha: "", hora_inicio: "", hora_fin: "", id_puesto: "" };
 
 /*
-  Con todos los puestos a la vez la grilla se satura: el calendario abre
-  filtrado por un puesto. Si "Mozo" ya no existe (se renombró o borró
+  El calendario abre con un filtro puesto, y cuál depende de quién entra.
+
+  Para RRHH y el administrador: filtrado por un puesto, porque con todos a
+  la vez la grilla se satura. Si "Mozo" ya no existe (se renombró o borró
   desde Configuración), abre con el primero de la lista.
+
+  Para un empleado: filtrado por él mismo y sin filtro de puesto, porque
+  entra a ver qué turnos tiene. Acá la grilla no se satura justamente
+  porque el filtro de empleado la acota a una persona. Los dos desplegables
+  quedan disponibles: es con qué abre, no qué puede ver.
 */
 const PUESTO_POR_DEFECTO = "Mozo";
 
@@ -71,6 +79,8 @@ const PuntoColor = ({ color }) => (
 
 export default function Calendario() {
   const { tienePermiso } = useAuth();
+  // Mismo discriminante que usa el backend para mandar o no la asistencia.
+  const puedeVerGlobal = tienePermiso("EMPLEADOS_VER");
 
   const [lunes, setLunes] = useState(lunesDeSemana(hoyISO()));
   const [turnos, setTurnos] = useState([]);
@@ -78,9 +88,12 @@ export default function Calendario() {
   const [catalogos, setCatalogos] = useState({ puestos: [], lugares: [], estados: [] });
   const [loading, setLoading] = useState(true);
 
-  // Filtros. El de puesto arranca en null y se define al llegar los catálogos.
+  /*
+    Filtros. Los dos arrancan en null y se definen en la primera carga:
+    null distingue "todavía no se decidió" de "el usuario eligió todos".
+  */
   const [filtroPuesto, setFiltroPuesto] = useState(null);
-  const [filtroEmpleado, setFiltroEmpleado] = useState("todos");
+  const [filtroEmpleado, setFiltroEmpleado] = useState(null);
 
   // Dialogs
   const [formTurno, setFormTurno] = useState(FORM_TURNO_VACIO);
@@ -98,41 +111,70 @@ export default function Calendario() {
   // Hora argentina para derivar el estado de asistencia; se actualiza cada minuto.
   const [ahora, setAhora] = useState(ahoraArgentina);
 
-  const cargarDatos = async () => {
+  /*
+    useCallback porque ahora depende de `puedeVerGlobal`: sin esto el efecto
+    de montaje lo tendría como dependencia faltante. Solo cambia si cambian
+    los permisos de la sesión, así que no se redispara en la práctica.
+  */
+  const cargarDatos = useCallback(async () => {
     try {
-      const [listaTurnos, listaAsignaciones, listaCatalogos] = await Promise.all([
+      /*
+        getMe solo para quien no tiene vista global: es el único lugar donde
+        el frontend puede saber qué empleado es el usuario de la sesión (el
+        login devuelve el id de usuario, no el de empleado). Para RRHH y el
+        administrador no se pide, así no se le agrega una consulta a la
+        pantalla que más se usa.
+      */
+      const [listaTurnos, listaAsignaciones, listaCatalogos, datosMe] = await Promise.all([
         getCalendario(),
         getAllHorarios(),
         getCatalogos(),
+        puedeVerGlobal ? Promise.resolve(null) : getMe(),
       ]);
       setTurnos(listaTurnos);
       setAsignaciones(listaAsignaciones);
       setCatalogos(listaCatalogos);
-      // Solo en la primera carga: después se respeta lo que eligió el usuario.
-      setFiltroPuesto((actual) => actual ?? puestoInicial(listaCatalogos.puestos));
+
       /*
-        Si al empleado filtrado se le quitó su última asignación, su id ya no
-        está en la lista: sin esto la grilla quedaría vacía y sin forma de
-        volver, porque el filtro apunta a alguien que no figura.
+        Con qué filtros abre la pantalla. Solo en la primera carga: después
+        se respeta lo que eligió el usuario.
+
+        Si el empleado todavía no tiene ninguna asignación, su id no figura
+        en la lista del desplegable: en ese caso abre como RRHH, en vez de
+        quedar con la grilla vacía y sin entender por qué.
       */
-      setFiltroEmpleado((actual) =>
-        actual === "todos" ||
-        listaAsignaciones.some((a) => String(a.empleado_id) === actual)
-          ? actual
-          : "todos"
+      const miId = datosMe?.empleado?.empleado_id ?? null;
+      const abrirEnMisTurnos =
+        miId !== null && listaAsignaciones.some((a) => a.empleado_id === miId);
+
+      setFiltroPuesto((actual) =>
+        actual ?? (abrirEnMisTurnos ? "todos" : puestoInicial(listaCatalogos.puestos))
       );
+
+      setFiltroEmpleado((actual) => {
+        if (actual === null) return abrirEnMisTurnos ? String(miId) : "todos";
+        /*
+          Si al empleado filtrado se le quitó su última asignación, su id ya no
+          está en la lista: sin esto la grilla quedaría vacía y sin forma de
+          volver, porque el filtro apunta a alguien que no figura.
+        */
+        return actual === "todos" ||
+          listaAsignaciones.some((a) => String(a.empleado_id) === actual)
+          ? actual
+          : "todos";
+      });
     } catch (error) {
       toast.error(error.response?.data?.error || "No se pudo cargar el calendario");
     } finally {
       setLoading(false);
     }
-  };
+  }, [puedeVerGlobal]);
 
   useEffect(() => {
     // El efecto no puede ser async: la IIFE deja las actualizaciones de
     // estado fuera de su cuerpo síncrono (react-hooks/set-state-in-effect).
     (async () => { await cargarDatos(); })();
-  }, []);
+  }, [cargarDatos]);
 
   useEffect(() => {
     const reloj = setInterval(() => setAhora(ahoraArgentina()), 60 * 1000);
@@ -186,7 +228,9 @@ export default function Calendario() {
         if (filtroPuesto && filtroPuesto !== "todos" && t.id_puesto !== Number(filtroPuesto)) {
           return false;
         }
-        if (filtroEmpleado !== "todos") {
+        // El null de la ventana previa a la primera carga no filtra, igual
+        // que el de puesto: en ese momento la grilla todavía dice "Cargando".
+        if (filtroEmpleado && filtroEmpleado !== "todos") {
           const asignados = asignadosPorTurno[t.id] ?? [];
           if (!asignados.some((a) => a.empleado_id === Number(filtroEmpleado))) {
             return false;
@@ -364,11 +408,15 @@ export default function Calendario() {
                 <SelectItem value="todos">Todos los puestos</SelectItem>
               </SelectContent>
             </Select>
-            {/* Solo RRHH y el administrador: para el rol EMPLEADO el filtro
-                por persona nunca estuvo disponible. */}
-            {tienePermiso("EMPLEADOS_VER") && empleadosConTurnos.length > 0 && (
-              <Select value={filtroEmpleado} onValueChange={setFiltroEmpleado}>
-                <SelectTrigger className="w-full sm:w-48">
+            {/* Disponible para cualquier rol: el empleado abre filtrado por
+                sí mismo y necesita poder salir de ahí. No expone nada nuevo,
+                los nombres ya están dibujados en cada turno de la grilla. */}
+            {empleadosConTurnos.length > 0 && (
+              <Select
+                value={filtroEmpleado ?? "todos"}
+                onValueChange={setFiltroEmpleado}
+              >
+                <SelectTrigger className="w-full sm:w-48" aria-label="Filtrar por empleado">
                   <SelectValue placeholder="Empleado" />
                 </SelectTrigger>
                 <SelectContent>
